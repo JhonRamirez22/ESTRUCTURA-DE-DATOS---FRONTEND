@@ -1,0 +1,22 @@
+# Rutas Pasto - Frontend
+
+Aplicación web para la gestión y el seguimiento de rutas de entrega en Pasto,
+desarrollada como proyecto de la asignatura **Estructura de Datos**.
+
+## Stack
+
+Next.js 15 - React 18 - TypeScript - Tailwind CSS 4 - MapLibre GL - shadcn/ui
+
+## Funcionalidades
+
+- Panel de despacho con asignación de rutas y mapa interactivo
+- Registro, listado y seguimiento de pedidos
+- Vista del repartidor con control de entregas y reporte de ubicación
+- Seguimiento del cliente y chat asociado al pedido
+- Un recorrido verde por mapa, con selector cuando hay varias rutas asignadas
+- Tráfico TomTom consultado solo para el recorrido elegido, sin capas de otras calles
+- Optimización con datos TomTom y asesoría Groq al despachar o recalcular explícitamente;
+  el mapa muestra la geometría vial resultante, nunca alternativas ni conexiones rectas
+- Notificaciones por correo y SMS con consentimiento del cliente
+
+## Resiliencia y seguridad
