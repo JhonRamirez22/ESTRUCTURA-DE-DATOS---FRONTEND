@@ -12,3 +12,16 @@ web
 - **Cliente**: abre un enlace de seguimiento en el móvil una o dos veces por pedido. Pantalla corta y tranquilizadora, con pocos datos ajenos.
 
 ## Product Purpose
+Aplicación web/PWA de mensajería y despacho en el área urbana de Pasto, Nariño, Colombia. Organiza pedidos, asigna repartidores, calcula el orden de visita, dibuja el recorrido por calles y permite seguimiento. También es un proyecto de Estructura de Datos con estructuras y algoritmos propios. Éxito de la interfaz: el despachador despacha un lote en menos de un minuto y con pocos clics; el repartidor ve una acción principal grande por pantalla; la IA se muestra como evidencia verificable, no como ruido; la demo se entiende en 5 minutos sin explicaciones.
+
+## Positioning
+Reparto con ruta optimizada por calles reales donde una IA propone el orden y un algoritmo propio lo verifica antes de aplicarlo.
+
+## Operating Context
+Despacho en escritorio (1280 px o más) y repartidores en móvil. Producción: frontend en Vercel, API en AWS ECS y PostgreSQL en RDS. Interfaz en español. Presentación académica el 25 de octubre de 2026, sobre producción con cuenta y datos de demostración.
+
+## Capabilities and Constraints
+- Se conservan sin cambios: el mapa y sus capas, la paleta cálida (marfil, beige, café), Public Sans, el texto en español, los controles accesibles existentes (foco visible, objetivos táctiles de 44 px) y la PWA.
+- **No se tocan las funciones de IA ni el backend.** El rediseño es solo de presentación del frontend.
+- Sin dependencias nuevas.
+- Un solo cliente (single-tenant). Avisos por correo y SMS apagados.
