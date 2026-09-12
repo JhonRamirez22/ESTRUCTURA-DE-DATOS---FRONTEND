@@ -20,3 +20,24 @@ Next.js 15 - React 18 - TypeScript - Tailwind CSS 4 - MapLibre GL - shadcn/ui
 - Notificaciones por correo y SMS con consentimiento del cliente
 
 ## Resiliencia y seguridad
+
+- Analítica y avisos pueden fallar sin bloquear el despacho; datos operativos vencidos dejan
+  las acciones en solo lectura hasta recuperar una actualización válida.
+- Cookies HttpOnly del mismo origen y errores con referencia de soporte; no se guardan tokens
+  de sesión en JavaScript. La autorización y CSRF se verifican en FastAPI.
+- CSP con nonce por documento: `CSP_MODE=report-only` para validar y `enforce` para aplicar.
+  Requiere renderizado por petición; la PWA solo cachea una pantalla offline estática.
+
+## Requisitos
+
+- Node.js 22
+- pnpm 10
+
+## Puesta en marcha
+
+```bash
+pnpm install
+pnpm dev
+```
+
+## Pruebas
