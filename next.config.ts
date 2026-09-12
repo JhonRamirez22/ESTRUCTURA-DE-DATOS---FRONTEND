@@ -26,3 +26,31 @@ if (pythonApiUrl !== null) {
   ) {
     throw new Error('PYTHON_API_URL debe ser el origen HTTP(S) del backend, sin ruta.');
   }
+}
+
+if (isVercelProductionBuild) {
+  const missingBackendConfiguration = getProductionBackendConfigurationErrors(process.env);
+  if (missingBackendConfiguration.length > 0) {
+    throw new Error(
+      `Configura el origen HTTPS del backend: ${missingBackendConfiguration.join(', ')}.`
+    );
+  }
+}
+
+const nextConfig: NextConfig = {
+  // No anunciar el framework en cada respuesta.
+  poweredByHeader: false,
+  // ECS sirve la interfaz en un contenedor Node; el ALB reenvía /api/* a FastAPI.
+  output: 'standalone',
+  // Permite validar un build aislado sin borrar los artefactos del `next dev` abierto.
+  distDir: process.env.NEXT_BUILD_CHECK_DIR?.trim() || '.next',
+  // Este repositorio contiene únicamente el frontend y sus dependencias.
+  outputFileTracingRoot: repositoryRoot,
+  // Next.js debe recibir los secretos desde el entorno de Vercel, nunca desde archivos locales.
+  outputFileTracingExcludes: {
+    '/*': ['./.env', './.env.*', './.vercel/.env.*'],
+  },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
