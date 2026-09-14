@@ -41,3 +41,24 @@ pnpm dev
 ```
 
 ## Pruebas
+
+```bash
+pnpm test        # pruebas unitarias con Vitest
+pnpm test:e2e    # pruebas end-to-end con Playwright
+```
+
+## Estructura
+
+```
+src/app          rutas y páginas (App Router)
+src/components   componentes de interfaz
+src/lib          utilidades y lógica compartida
+src/types        tipos del dominio
+tests            pruebas unitarias y end-to-end
+```
+
+## Equipo
+
+- @JhonRamirez22
+- @miguelcebing
+- @sthebanHV
