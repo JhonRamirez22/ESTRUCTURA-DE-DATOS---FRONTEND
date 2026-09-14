@@ -25,3 +25,16 @@ Despacho en escritorio (1280 px o más) y repartidores en móvil. Producción: f
 - **No se tocan las funciones de IA ni el backend.** El rediseño es solo de presentación del frontend.
 - Sin dependencias nuevas.
 - Un solo cliente (single-tenant). Avisos por correo y SMS apagados.
+- Debe funcionar en escritorio y en teléfono.
+
+## Evidence on Hand
+Datos sintéticos de Pasto (scripts de demostración). Capturas autenticadas no disponibles todavía; el diagnóstico inicial salió del código.
+
+## Product Principles
+1. Una tarea principal por pantalla; lo secundario no compite con ella.
+2. La IA se muestra como resultado verificado (cuánto ahorra y quién lo confirmó), no como explicación.
+3. Operación primero: menos texto, estados claros, acciones con consecuencias visibles.
+4. El repartidor decide con un vistazo y un pulgar.
+
+## Accessibility & Inclusion
+Contraste legible en la paleta cálida, foco visible, objetivos táctiles de al menos 44 px, textos en español claros y respeto a `prefers-reduced-motion`.
