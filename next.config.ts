@@ -54,3 +54,30 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+        ],
+      },
+    ];
+  },
+  async rewrites() {
+    // Vercel conserva el mismo dominio para cookies y CSRF al reenviar a AWS.
+    if (pythonApiUrl === null) return [];
+
+    return {
+      // En ECS el ALB ya enruta /api; en Vercel y local lo hace Next.
+      beforeFiles: [
+        {
+          source: '/api/:path*',
+          destination: `${pythonApiUrl}/api/:path*`,
+        },
+      ],
+    };
+  },
+};
+
+export default nextConfig;
