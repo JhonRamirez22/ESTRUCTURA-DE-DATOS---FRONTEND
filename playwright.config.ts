@@ -33,3 +33,38 @@ export default defineConfig({
     trace: 'on-first-retry',
     ...(useSystemChrome ? { launchOptions: { channel: 'chrome' as const } } : {}),
   },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+  webServer: [
+    {
+      command: 'node tests/e2e/orsMockServer.mjs',
+      cwd: frontendRoot,
+      url: 'http://127.0.0.1:4010/health',
+      reuseExistingServer: false,
+      timeout: 120000,
+    },
+    {
+      command: `uv run --project . python -m scripts.seed_e2e_accounts && uv run --project . uvicorn app.main:app --host 127.0.0.1 --port ${pythonApiPort}`,
+      cwd: backendRoot,
+      url: `http://127.0.0.1:${pythonApiPort}/api/v1/health`,
+      reuseExistingServer: false,
+      timeout: 120000,
+      env: {
+        NODE_ENV: 'test',
+        ...(process.env.DATABASE_URL ? { DATABASE_URL: process.env.DATABASE_URL } : {}),
+        APP_ALLOWED_ORIGINS: JSON.stringify([new URL(baseURL).origin]),
+        AUTH_SECRET: E2E_AUTH_SECRET,
+        DISPATCHER_ACCESS_CODE: E2E_DISPATCHER_CODE,
+        OSRM_API_URL: 'http://127.0.0.1:4010',
+        AI_TRAFFIC_API_KEY: '',
+        AI_TRAFFIC_API_URL: '',
+        AI_TRAFFIC_MODEL: '',
+        AI_ALLOW_LOCATION_DATA_SHARING: 'false',
+        TOMTOM_API_KEY: '',
+      },
+    },
+    {
