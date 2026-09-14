@@ -34,3 +34,20 @@ Tailwind: `--radius-*` aplanados a 2-6px y `--shadow-sm/md` anulados, para que n
 |---|---|
 | Barra superior `.rp-shell-header` | Panel de paradero café oscuro; el destino activo lleva una barra verde de 4px debajo. En pantallas estrechas la navegación pasa a su propia fila |
 | `.rl-page`, `.rl-page-head`, `.rl-figures` | Contenedor de pantalla; encabezado con filete de 2px y cifras del día en línea |
+| `.rl-head` | Encabezado de sección con la marca de parada (círculo con borde de 3px) |
+| `.rl-rows`, `.rl-row` | Listas por filas con filete; `.is-selected` usa la franja beige |
+| `.rl-board` | Franja oscura para decisiones: propuesta de despacho, próxima parada, ETA del cliente |
+| `.rl-notice` (`.is-ok`, `.is-warn`, `.is-error`) | Aviso en franja con la marca de parada en el color del estado |
+| `.rl-state` | Estado como punto y texto, no como píldora |
+| `RouteLine` (`src/components/RouteLine.tsx`) | Paradas sobre una línea vertical; estados `done` (punto lleno, tachado), `current` (punto oscuro con anillo), `pending` (anillo), `terminal` |
+| `RouteStrip` | Progreso horizontal compacto de una ruta |
+| Botones `.rp-button-*` | `primary` café oscuro, `go` verde para avanzar (despachar, entregar, iniciar ubicación), `secondary` contorno café, `quiet` contorno claro, `danger` contorno rojo, `map` superficie opaca sobre el mapa, `block` ancho completo de 52px |
+| `.rp-input` | Campo claro con borde inferior de 2px que se oscurece al enfocar |
+
+## Movimiento
+
+Curvas `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)` y `--ease-in-out`. Los botones ceden a `scale(0.97)` al pulsar (160ms). Las propuestas entran en 260ms; las entradas del panel en vivo, en 240ms. Con `prefers-reduced-motion` se quita el desplazamiento y se conserva el contenido.
+
+## Accesibilidad
+
+Objetivos táctiles de 44px o más (52px en acciones principales del teléfono), foco visible de 2px, estados con texto además del color y `sr-only` en `RouteLine` para leer el estado de cada parada.
