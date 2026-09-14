@@ -26,3 +26,16 @@ yarn-error.log*
 # env files
 .env
 .env.*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+
+# Herramientas de diseño locales (capturas y bocetos)
+.impeccable/review/
+.impeccable/mocks/
+.impeccable/decision-payload.json
+.impeccable/build/
