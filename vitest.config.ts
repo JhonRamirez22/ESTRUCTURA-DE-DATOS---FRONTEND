@@ -13,3 +13,18 @@ export default defineConfig({
     setupFiles: [resolve(currentDirectory, './tests/setup.ts')],
     include: [
       'tests/unit/**/*.test.ts',
+      'tests/unit/**/*.test.tsx',
+      'tests/integration/**/*.test.ts',
+    ],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: ['src/core/**'],
+    },
+  },
+  resolve: {
+    alias: {
+      '@': resolve(currentDirectory, './src'),
+    },
+  },
+})
