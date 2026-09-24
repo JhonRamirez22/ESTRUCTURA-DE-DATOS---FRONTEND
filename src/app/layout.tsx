@@ -12,3 +12,17 @@ export const metadata: Metadata = {
     capable: true,
     title: "Rutas Pasto",
     statusBarStyle: "black-translucent",
+  },
+};
+
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // El nonce CSP se genera por petición; no puede hidratar un documento precompilado/cacheado.
+  const requestHeaders = await headers();
+  const nonce = /'nonce-([^']+)'/.exec(requestHeaders.get('content-security-policy') ?? '')?.[1];
+  return (
+    <html
+      lang="es"
+      className="h-full antialiased"
+      // El script previo ajusta tema e idioma antes de hidratar.
+      suppressHydrationWarning
+    >
