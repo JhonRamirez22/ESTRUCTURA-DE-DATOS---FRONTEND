@@ -16,3 +16,21 @@ function proxyToBackend(request: NextRequest): NextResponse {
 }
 
 export function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith('/api/')) return proxyToBackend(request);
+  const nonce = btoa(crypto.randomUUID());
+  const development = process.env.NODE_ENV !== 'production';
+  const policy = [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
+    "script-src-attr 'none'",
+    // MapLibre y Motion posicionan controles mediante estilos inline, no scripts inline.
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https://tiles.openfreemap.org",
+    "font-src 'self'",
+    `connect-src 'self' https://tiles.openfreemap.org${development ? ' ws://localhost:* ws://127.0.0.1:*' : ''}`,
+    "worker-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    ...development ? [] : ['upgrade-insecure-requests'],
