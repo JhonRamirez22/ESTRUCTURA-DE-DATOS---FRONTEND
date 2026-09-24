@@ -1,0 +1,34 @@
+export type Comparator<T> = (left: T, right: T) => number;
+export type HeapId = string | number;
+
+/**
+ * Min-heap indexado por ID estable. Un Map mantiene la posición actual de cada ID,
+ * así decreaseKey encuentra el elemento en O(1) aunque los swaps muevan sus índices.
+ */
+export class MinHeap<T, Id extends HeapId = HeapId> {
+  private readonly items: T[] = [];
+  private readonly indices = new Map<Id, number>();
+
+  constructor(
+    private readonly compare: Comparator<T>,
+    private readonly getId: (item: T) => Id,
+  ) {}
+
+  insert(item: T): void {
+    const id = this.getId(item);
+    if (this.indices.has(id)) {
+      throw new Error(`No se puede insertar un ID duplicado en el heap: ${String(id)}`);
+    }
+    this.items.push(item);
+    const index = this.items.length - 1;
+    this.indices.set(id, index);
+    this.bubbleUp(index);
+  }
+
+  extractMin(): T | undefined {
+    if (this.items.length === 0) {
+      return undefined;
+    }
+    const minimum = this.items[0];
+    this.swap(0, this.items.length - 1);
+    this.items.pop();
