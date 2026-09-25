@@ -43,3 +43,48 @@ const navigationBySurface: Record<string, ReadonlyArray<{ href: string; key: Nav
 };
 
 const NAV_ICON: Record<NavKey, 'route' | 'package' | 'search' | 'users'> = {
+  staff: 'route',
+  request: 'package',
+  tracking: 'search',
+  courier: 'route',
+  dispatch: 'route',
+  live: 'route',
+  orders: 'package',
+  team: 'users',
+  audit: 'search',
+  history: 'package',
+};
+
+export default function AppShell({ children, active }: AppShellProps) {
+  const pathname = usePathname();
+  const { t, theme, setTheme, lang, setLang, langNotice, dismissLangNotice } = usePreferences();
+  const dispatcherSurface = active === 'orders' || active === 'dispatch' || active === 'team' || active === 'audit' || active === 'history';
+  const operational = dispatcherSurface || active === 'courier';
+  const navigation =
+    active === 'tracking' || active === 'request'
+      ? navigationBySurface.tracking
+      : active === 'courier'
+        ? navigationBySurface.courier
+        : dispatcherSurface
+          ? navigationBySurface.dispatcher
+          : navigationBySurface.home;
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) {
+      return;
+    }
+
+    void navigator.serviceWorker.register('/sw.js').catch(() => {
+      // La navegación online sigue funcionando si el navegador rechaza la PWA.
+    });
+  }, []);
+
+  const label = (key: NavKey) => t(`nav.${key}` as MessageKey);
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    if (!dispatcherSurface) return undefined;
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
