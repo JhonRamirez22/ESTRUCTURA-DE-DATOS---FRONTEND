@@ -26,3 +26,30 @@ function markSeen(): void {
 /** Contexto breve al entrar por primera vez; se reabre desde «Cómo funciona». */
 export default function IntroDialog() {
   const { t } = usePreferences();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState(false);
+
+  const show = useCallback(() => {
+    const element = dialog.current;
+    if (!element || typeof element.showModal !== 'function' || element.open) return;
+    element.showModal();
+    setOpen(true);
+  }, []);
+
+  const close = useCallback(() => {
+    markSeen();
+    dialog.current?.close();
+  }, []);
+
+  useEffect(() => {
+    // Los navegadores automatizados (pruebas) no reciben la introducción automática.
+    if (!alreadySeen() && !navigator.webdriver) {
+      const timer = window.setTimeout(show, 350);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [show]);
+
+  useEffect(() => {
+    window.addEventListener(OPEN_INTRO_EVENT, show);
+    return () => window.removeEventListener(OPEN_INTRO_EVENT, show);
