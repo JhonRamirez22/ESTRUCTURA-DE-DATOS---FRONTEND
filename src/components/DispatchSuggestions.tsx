@@ -32,3 +32,37 @@ export default function DispatchSuggestions({
   onSelect: (ids: string[]) => void;
   endpoint?: string;
   titleKey?: 'suggest.title' | 'shift.title';
+}) {
+  const t = useT();
+  const [items, setItems] = useState<Suggestion[]>([]);
+  const [dismissed, setDismissed] = useState<string[]>([]);
+
+  const load = useCallback(async (signal?: AbortSignal): Promise<void> => {
+    try {
+      const payload = await apiJson<Payload>(endpoint, { signal });
+      setItems(payload.enabled ? (payload.suggestions ?? payload.cards ?? []) : []);
+    } catch {
+      // Los avisos son un apoyo: si fallan se quedan los últimos y el despacho sigue igual.
+    }
+  }, [endpoint]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void load(controller.signal);
+    }, REFRESH_MS);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [load, refreshKey]);
+
+  const visible = items.filter((item) => !dismissed.includes(item.id));
+  if (visible.length === 0) return null;
+
+  return (
+    <section aria-label={t(titleKey)} className="mt-4">
+      <p className="text-sm font-semibold">{t(titleKey)}</p>
+      <ul className="rl-rows mt-2">
+        {visible.map((item) => (
