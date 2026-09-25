@@ -25,3 +25,30 @@ export default function AiGroupSuggestions({ onSelect }: { onSelect: (ids: strin
 
   const load = async (): Promise<void> => {
     setLoading(true);
+    setError(null);
+    try {
+      setData(await apiJson<GroupsPayload>('/api/inteligencia/agrupaciones'));
+    } catch (loadError) {
+      setError(loadError instanceof ApiRequestError ? loadError.message : 'No se pudieron calcular los grupos.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section aria-label={t('groups.title')} className="mt-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold">{t('groups.title')}</p>
+        <button
+          className="rp-button rp-button-quiet rp-button-small"
+          data-tip="tip.showGroups"
+          disabled={loading}
+          onClick={() => void load()}
+          type="button"
+        >
+          {loading ? '…' : t('groups.show')}
+        </button>
+      </div>
+      {error ? <p className="rl-notice is-error mt-2">{error}</p> : null}
+      {data && data.groups.length === 0 ? <p className="rl-empty">{t('groups.none')}</p> : null}
+      {data && data.groups.length > 0 ? (
