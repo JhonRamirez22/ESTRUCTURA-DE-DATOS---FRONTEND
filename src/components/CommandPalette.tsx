@@ -37,3 +37,42 @@ export default function CommandPalette({ open, onClose, items, label, placeholde
   const listId = useId();
 
   const results = useMemo(() => {
+    const needle = fold(query.trim());
+    return items.filter((item) => fold(`${item.label} ${item.hint ?? ''} ${item.group}`).includes(needle));
+  }, [items, query]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setQuery('');
+    setSelected(0);
+    const frame = requestAnimationFrame(() => {
+      setShown(true);
+      inputRef.current?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      setShown(false);
+      returnFocus.current?.focus();
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  const chosen = results[Math.min(selected, results.length - 1)];
+  const activate = (item: PaletteItem | undefined) => {
+    if (!item) return;
+    onClose();
+    if (item.run) item.run();
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setSelected((index) => Math.min(index + 1, results.length - 1));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setSelected((index) => Math.max(index - 1, 0));
