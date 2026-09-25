@@ -37,3 +37,42 @@ export function GeneralReports() {
     setMessage(null);
     try {
       const response = await apiFetch(generalReportUrl(kind, from, to));
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(response.status === 429 ? t('audit.tooMany') : (body?.error ?? t('audit.downloadError')));
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileNameFrom(response.headers.get('content-disposition'), 'informe.pdf');
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      setMessage({ tone: 'ok', text: t('audit.downloaded') });
+    } catch (error) {
+      setMessage({ tone: 'error', text: error instanceof Error ? error.message : t('audit.downloadError') });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section aria-label={t('audit.general.title')} className="mt-10 min-w-0">
+      <div className="rl-head"><h2>{t('audit.general.title')}</h2></div>
+      <p className="text-sm">{t('audit.general.lead')}</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <label className="rp-field-label">
+          {t('audit.kind')}
+          <select className="rp-input mt-1.5 px-3 text-[15px] font-normal" onChange={(event) => setKind(event.target.value as GeneralReportKind)} value={kind}>
+            {GENERAL_REPORTS.map((item) => (
+              <option key={item} value={item}>{t(`audit.general.${item}` as MessageKey)}</option>
+            ))}
+          </select>
+        </label>
+        <label className="rp-field-label">
+          {t('audit.from')}
+          <input className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums" max={to || undefined} onChange={(event) => setFrom(event.target.value)} type="date" value={from} />
+        </label>
+        <label className="rp-field-label">
+          {t('audit.to')}
