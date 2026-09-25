@@ -14,3 +14,19 @@ export default function DemoGpsButton({ onRenewed }: { onRenewed?: () => void })
   useEffect(() => {
     const controller = new AbortController();
     apiJson<{ enabled: boolean }>('/api/demo/estado', { signal: controller.signal })
+      .then((status) => setEnabled(status.enabled))
+      .catch(() => setEnabled(false));
+    return () => controller.abort();
+  }, []);
+
+  if (!enabled) return null;
+
+  const renew = async (): Promise<void> => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const response = await apiFetch('/api/demo/renovar-gps', { method: 'POST' });
+      if (!response.ok) throw new Error('failed');
+      const result = (await response.json()) as { renewed: number };
+      setMessage(t('demo.gps.done', { n: result.renewed }));
+      onRenewed?.();
