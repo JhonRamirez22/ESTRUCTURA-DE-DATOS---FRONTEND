@@ -45,3 +45,50 @@ export default function CustomerOrderChat({ guide }: CustomerOrderChatProps) {
     const timeout = window.setTimeout(() => controller.abort(), AVAILABILITY_TIMEOUT_MS);
 
     void apiFetch('/api/cliente/chat/estado', {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error('No se pudo comprobar el asistente.');
+        }
+        const payload: unknown = await response.json();
+        if (!isAssistantConfiguration(payload)) {
+          throw new Error('La configuración del asistente no tiene un formato válido.');
+        }
+        if (active) {
+          setAssistantConfiguration(payload.configured ? 'configured' : 'not-configured');
+        }
+      })
+      .catch(() => {
+        if (active) {
+          // Si falla la consulta de estado, permitimos probar el chat y mostramos el error real.
+          setAssistantConfiguration('unknown');
+        }
+      })
+      .finally(() => window.clearTimeout(timeout));
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    const viewport = conversationRef.current;
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
+    }
+  }, [conversation, submitting]);
+
+  const sendQuestion = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    const question = draft.trim();
+    if (!question || submitting) {
+      return;
+    }
+
+    const nextConversation = [...conversation, { role: 'user' as const, content: question }];
+    setConversation(nextConversation);
+    setDraft('');
