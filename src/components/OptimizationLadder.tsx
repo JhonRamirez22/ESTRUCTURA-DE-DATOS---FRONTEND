@@ -33,3 +33,38 @@ export default function OptimizationLadder({
       setExplanation(
         await apiJson<Explanation>(`/api/inteligencia/rutas/${encodeURIComponent(routeId)}/explicar`, {
           method: 'POST',
+        })
+      );
+    } catch (error) {
+      setExplainError(error instanceof Error ? error.message : 'No se pudo explicar la ruta.');
+    } finally {
+      setExplaining(false);
+    }
+  };
+  const longest = Math.max(...optimization.ladder.map((step) => step.minutes ?? 0), 1);
+  const { tomtom, groq } = optimization;
+  const closed = tomtom.closed > 0 ? t('opt.tomtom.closed', { n: tomtom.closed }) : '';
+  return (
+    <section aria-label={t('opt.title')} className="rl-ladder">
+      <p className="rl-ladder-title">{t('opt.title')}</p>
+      <ol>
+        {optimization.ladder.map((step, index) => {
+          const width = step.minutes === null ? 0 : Math.max(6, (step.minutes / longest) * 100);
+          const isAi = step.step === 'aiOrder';
+          const status = isAi
+            ? step.accepted
+              ? t('opt.ai.accepted')
+              : step.proposed
+                ? t('opt.ai.rejected')
+                : t('opt.ai.off')
+            : step.step === 'refine'
+              ? refineStatus(step, t)
+              : null;
+          return (
+            <li key={step.step} style={{ '--rung-delay': `${index * 70}ms` } as React.CSSProperties}>
+              <span className="rl-ladder-label">
+                {t(`opt.step.${step.step}` as MessageKey)}
+                {status ? <span className="rl-ladder-status">{status}</span> : null}
+              </span>
+              <span className="rl-ladder-bar" aria-hidden="true">
+                <i className={index === optimization.ladder.length - 1 ? 'is-final' : ''} style={{ width: `${width}%` }} />
