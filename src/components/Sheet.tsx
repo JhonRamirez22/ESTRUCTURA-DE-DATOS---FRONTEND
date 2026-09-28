@@ -40,3 +40,45 @@ export interface SheetProps {
   /** Acción principal: en la hoja va justo debajo del encabezado para no quedar fuera de vista. */
   foot?: ReactNode;
   children: ReactNode;
+  /** 0 completa, 1 media, 2 mínima. */
+  initialSnap?: 0 | 1 | 2;
+  /** Alto visible en la altura mínima, en px. */
+  peek?: number;
+  /** Fracción del escenario que ocupa la hoja en la altura media. */
+  mid?: number;
+  /** Ancho del escenario desde el que la hoja pasa a ser panel lateral. */
+  panelMinWidth?: number;
+  panelWidth?: number;
+  onLayout?: (layout: SheetLayout) => void;
+  className?: string;
+}
+
+const FULL_TOP = 56;
+const PANEL_MARGIN = 16;
+
+/**
+ * Hoja de vidrio sobre el mapa. En pantallas estrechas se agarra y se lanza entre tres alturas:
+ * sigue al dedo 1:1, hereda su velocidad al soltar y puede revertirse en cualquier instante.
+ * Con espacio suficiente es un panel lateral fijo. Debe ir dentro de un contenedor posicionado.
+ */
+export default function Sheet({
+  label,
+  grabberLabel,
+  head,
+  foot,
+  children,
+  initialSnap = 1,
+  peek = 150,
+  mid = 0.52,
+  panelMinWidth = 720,
+  panelWidth = 392,
+  onLayout,
+  className = '',
+}: SheetProps) {
+  const sheetRef = useRef<HTMLElement>(null);
+  const springRef = useRef<Spring | null>(null);
+  const snapsRef = useRef<number[]>([FULL_TOP, 300, 500]);
+  const indexRef = useRef<number>(initialSnap);
+  const dragRef = useRef<{ startY: number; origin: number; samples: PointerSample[] } | null>(null);
+  const onLayoutRef = useRef(onLayout);
+  const [wide, setWide] = useState(false);
