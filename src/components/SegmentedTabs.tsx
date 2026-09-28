@@ -32,3 +32,37 @@ export default function SegmentedTabs<T extends string>({ tabs, value, onChange,
     const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     xRef.current = new Spring(0, (x) => {
       if (indicatorRef.current) indicatorRef.current.style.transform = `translateX(${x}px)`;
+    }, { reducedMotion: reduced });
+    widthRef.current = new Spring(0, (width) => {
+      if (indicatorRef.current) indicatorRef.current.style.width = `${width}px`;
+    }, { reducedMotion: reduced });
+    return () => {
+      xRef.current?.stop();
+      widthRef.current?.stop();
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const active = listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!active || !xRef.current || !widthRef.current) return;
+    if (firstRef.current) {
+      xRef.current.set(active.offsetLeft);
+      widthRef.current.set(active.offsetWidth);
+      firstRef.current = false;
+    } else {
+      xRef.current.to(active.offsetLeft, { response: 0.36 });
+      widthRef.current.to(active.offsetWidth, { response: 0.36 });
+    }
+  }, [value, tabs.length]);
+
+  // El panel cambia de ancho al pasar de hoja a panel lateral: se vuelve a medir sin animar.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return undefined;
+    const observer = new ResizeObserver(() => {
+      const active = list.querySelector<HTMLElement>('[aria-selected="true"]');
+      if (!active) return;
+      xRef.current?.set(active.offsetLeft);
+      widthRef.current?.set(active.offsetWidth);
+    });
+    observer.observe(list);
