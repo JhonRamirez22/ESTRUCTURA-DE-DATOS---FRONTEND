@@ -22,3 +22,26 @@ export function RouteLine({
   stops,
   label,
   selected = false,
+}: {
+  stops: LineStop[];
+  label: string;
+  /** El recorrido seleccionado usa el verde único del mapa; el resto, café. */
+  selected?: boolean;
+}) {
+  return (
+    <ol aria-label={label} className={`rl-line ${selected ? 'is-route' : ''}`}>
+      {stops.map((stop) => {
+        const state = stop.state ?? 'pending';
+        return (
+          <li className={`rl-stop is-${state}`} key={stop.id}>
+            <span aria-hidden="true" className="rl-dot" />
+            <span className="rl-stop-label">
+              <span className="sr-only">{STATE_TEXT[state]}: </span>
+              <span className="rl-stop-text">{stop.label}</span>
+              {stop.meta ? <span className="rl-stop-meta">{stop.meta}</span> : null}
+            </span>
+            {stop.aside ? <span className="rl-stop-aside">{stop.aside}</span> : <span />}
+          </li>
+        );
+      })}
+    </ol>
