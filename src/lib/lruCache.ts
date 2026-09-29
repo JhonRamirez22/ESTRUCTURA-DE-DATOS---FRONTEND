@@ -21,3 +21,25 @@ export class LruCache<K, V> {
   ) {
     if (capacity < 1) throw new Error('La capacidad de la caché debe ser al menos 1.');
   }
+
+  get(key: K): V | undefined {
+    const node = this.nodes.get(key);
+    if (node === undefined) return undefined;
+    if (this.now() - node.value.storedAt >= this.ttlMs) {
+      this.delete(key);
+      return undefined;
+    }
+    this.order.moveToFront(node);
+    return node.value.value;
+  }
+
+  set(key: K, value: V): void {
+    this.delete(key);
+    this.nodes.set(key, this.order.appendLeft({ key, value, storedAt: this.now() }));
+    while (this.nodes.size > this.capacity) {
+      const evicted = this.order.popBack();
+      if (evicted !== undefined) this.nodes.delete(evicted.key);
+    }
+  }
+
+  delete(key: K): void {
