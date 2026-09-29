@@ -12,3 +12,16 @@ export function nearestStopsByEta(etas: StopEta[], count: number): StopEta[] {
   const heap = new MinHeap<StopEta, string>(
     (left, right) => left.estimatedMinutesFromNow - right.estimatedMinutesFromNow,
     (item) => item.stopId,
+  );
+  for (const eta of etas) {
+    if (Number.isFinite(eta.estimatedMinutesFromNow) && eta.estimatedMinutesFromNow >= 0) {
+      heap.insert(eta);
+    }
+  }
+  const nearest: StopEta[] = [];
+  while (nearest.length < count && !heap.isEmpty()) {
+    const next = heap.extractMin();
+    if (next !== undefined) nearest.push(next);
+  }
+  return nearest;
+}
