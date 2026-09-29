@@ -10,3 +10,14 @@ export function getPastoMapCenter(
   longitudeValue: string | undefined,
 ): MapCenter {
   if (!latitudeValue?.trim() || !longitudeValue?.trim()) {
+    return DEFAULT_PASTO_CENTER;
+  }
+
+  const latitude = Number(latitudeValue);
+  const longitude = Number(longitudeValue);
+  if (!isWithinPastoServiceArea(latitude, longitude)) {
+    return DEFAULT_PASTO_CENTER;
+  }
+
+  return [longitude, latitude];
+}
