@@ -18,3 +18,22 @@ export function periodProblem(from: string, to: string): 'order' | 'long' | 'mis
   if (to < from) return 'order';
   const days = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000;
   return days >= 366 ? 'long' : null;
+}
+
+export function reportUrl(kind: AuditKind, id: string, from: string, to: string): string {
+  const params = new URLSearchParams({ tipo: kind, id, desde: from, hasta: to });
+  return `/api/auditoria/informe?${params.toString()}`;
+}
+
+/** Nombre de archivo del servidor (sin datos personales); respaldo si falta la cabecera. */
+export function fileNameFrom(disposition: string | null, fallback: string): string {
+  const match = disposition?.match(/filename="([^"]+)"/);
+  return match?.[1] ?? fallback;
+}
+
+export type GeneralReportKind = 'summary' | 'couriers' | 'shipments' | 'scheduled';
+
+export const GENERAL_REPORTS: readonly GeneralReportKind[] = ['summary', 'couriers', 'shipments', 'scheduled'];
+
+export function generalReportUrl(kind: GeneralReportKind, from: string, to: string): string {
+  const params = new URLSearchParams({ tipo: kind, desde: from, hasta: to });
