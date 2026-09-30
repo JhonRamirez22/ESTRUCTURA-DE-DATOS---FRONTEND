@@ -28,3 +28,33 @@ export function normalizePastoAddress(address: string): string {
     [/\b(?:cra|carr|cr|carrera)\.?(?=\s|#|$)/gi, "Carrera"],
     [/\b(?:cll|cl|cal|calle)\.?(?=\s|#|$)/gi, "Calle"],
     [/\b(?:tr|transv|transversal)\.?(?=\s|#|$)/gi, "Transversal"],
+    [/\b(?:dg|diagonal)\.?(?=\s|#|$)/gi, "Diagonal"],
+    [/\b(?:no|num|nro|numero|número)\.?(?=\s|#|$)/gi, "#"],
+  ];
+
+  for (const [pattern, replacement] of replacements) {
+    normalized = normalized.replace(pattern, replacement);
+  }
+
+  return normalized
+    .replace(/\s*#\s*/g, ADDRESS_SEPARATOR)
+    .replace(/\s*-\s*/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Rechaza referencias explícitas a otra ciudad antes de enviar texto a la API. */
+export function containsForeignCityReference(address: string): boolean {
+  const normalized = removeAccents(address).toLowerCase();
+  const foreignCities = [
+    "bogota",
+    "medellin",
+    "cali",
+    "popayan",
+    "ipiales",
+    "tumaco",
+    "neiva",
+    "barranquilla",
+    "cartagena",
+    "armenia",
+    "pereira",
