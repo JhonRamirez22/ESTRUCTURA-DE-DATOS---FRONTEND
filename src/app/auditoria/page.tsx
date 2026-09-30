@@ -44,3 +44,49 @@ export default function AuditPage() {
           `/api/auditoria/sujetos?${params.toString()}`,
           { signal },
         );
+        setSubjects(data.subjects);
+        setSearchError(null);
+      } catch (error) {
+        if (signal.aborted) return;
+        setSearchError(error instanceof ApiRequestError ? error.message : '');
+      } finally {
+        if (!signal.aborted) setLoading(false);
+      }
+    },
+    [kind, query],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void search(controller.signal), query ? 300 : 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [search, query]);
+
+  const problem = periodProblem(from, to);
+  const problemText =
+    problem === 'order' ? t('audit.period.order') : problem === 'long' ? t('audit.period.long') : null;
+
+  const download = async (): Promise<void> => {
+    if (!selected || problem !== null || downloading) return;
+    setDownloading(true);
+    setMessage(null);
+    try {
+      const response = await apiFetch(reportUrl(kind, selected.id, from, to));
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(
+          response.status === 429 ? t('audit.tooMany') : (body?.error ?? t('audit.downloadError')),
+        );
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileNameFrom(response.headers.get('content-disposition'), 'auditoria.pdf');
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
