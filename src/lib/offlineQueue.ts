@@ -14,3 +14,19 @@ export class OfflineQueue<T> {
   get size(): number {
     return this.pending.size();
   }
+
+  /** Devuelve cuántas acciones se enviaron antes de detenerse por un fallo. */
+  async flush(send: (action: T) => Promise<void>): Promise<number> {
+    let sent = 0;
+    for (let action = this.pending.peek(); action !== undefined; action = this.pending.peek()) {
+      try {
+        await send(action);
+      } catch {
+        break;
+      }
+      this.pending.dequeue();
+      sent += 1;
+    }
+    return sent;
+  }
+}
