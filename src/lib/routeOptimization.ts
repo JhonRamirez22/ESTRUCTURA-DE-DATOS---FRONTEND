@@ -32,3 +32,37 @@ export interface RouteOptimization {
     accepted?: boolean;
     proposed?: boolean;
     /** Solo en `refine`: exacto (Held-Karp) o búsqueda local iterada. */
+    kind?: 'exact' | 'ils' | 'none';
+    provenOptimal?: boolean;
+    lowerBoundMinutes?: number | null;
+  }>;
+  baselineMinutes: number | null;
+  optimizedMinutes: number | null;
+  savedMinutes: number | null;
+  baselineOrder: string[];
+  optimizedOrder: string[];
+  baselineGeometry: { type: 'LineString'; coordinates: Array<[number, number]> } | null;
+  trafficPoints: TrafficPoint[];
+  tomtom: { configured: boolean; applied: boolean; sampled: number; adjusted: number; closed: number; segments: number };
+  groq: {
+    trafficSource: string | null;
+    trafficApplied: boolean;
+    model: string | null;
+    orderProposed: boolean;
+    orderAccepted: boolean;
+    orderSavingMinutes: number | null;
+    orderReason: string | null;
+  };
+  computedAt: string;
+}
+
+export interface CongestedPoint {
+  point: [number, number];
+  multiplier: number;
+  closed: boolean;
+}
+
+/**
+ * Los `count` tramos más lentos medidos por TomTom, en O(n log k).
+ * Un min-heap de tamaño k conserva los peores: si entra uno peor, sale el más leve.
+ */
