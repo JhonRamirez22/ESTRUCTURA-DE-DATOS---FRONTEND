@@ -25,3 +25,30 @@ export type GraphAdjacencyList<T = unknown> = Map<NodeId, Edge<T>[]>
 
 export interface RouteResult {
   path: NodeId[]
+  totalCost: number
+}
+
+export interface TSPInput {
+  stops: NodeId[]
+  timeMatrix: number[][]
+  startIndex?: number
+}
+
+export interface TSPResult {
+  orderedStops: NodeId[]
+  totalTime: number
+}
+
+export interface OrderQueueItem {
+  id: string
+  coordinates: Coordinates
+  priority: number
+  createdAt: Date
+}
+
+export type OrderStatus = 'pending' | 'assigned' | 'in_progress' | 'delivered' | 'failed'
+
+export type DriverStatus = 'available' | 'on_route' | 'offline'
+
+export interface Driver {
+  id: string
