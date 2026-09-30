@@ -31,3 +31,36 @@ export function useLiveOptimization(enabled: boolean, intervalMs = 10_000): Live
   const nextAtRef = useRef(0);
   const refreshRef = useRef<() => void>(() => undefined);
 
+  useEffect(() => {
+    if (!enabled) {
+      setProposal(null);
+      setStatus('idle');
+      setComputing(false);
+      return;
+    }
+    let disposed = false;
+    let inFlight = false;
+    let controller: AbortController | null = null;
+
+    const run = async (): Promise<void> => {
+      if (disposed || inFlight || document.visibilityState === 'hidden') return;
+      inFlight = true;
+      const startedAt = Date.now();
+      nextAtRef.current = startedAt + intervalMs;
+      controller = new AbortController();
+      setComputing(true);
+      try {
+        const data = await apiJson<LiveProposal>(POLL_PATH, {
+          signal: controller.signal,
+          cache: 'no-store',
+        });
+        if (disposed) return;
+        setProposal(data.enabled ? data : null);
+        setStatus(data.enabled ? 'ok' : 'disabled');
+        setTick((current) => current + 1);
+      } catch (error) {
+        if (disposed || controller.signal.aborted) return;
+        setStatus('error');
+        // The last good proposal stays on screen; a rate limit just slows the cadence down.
+        if (error instanceof ApiRequestError && error.status === 429) {
+          nextAtRef.current = Date.now() + RATE_LIMIT_BACKOFF_MS;
