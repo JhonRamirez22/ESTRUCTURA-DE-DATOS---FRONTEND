@@ -27,3 +27,32 @@ function format(template: string, vars?: Record<string, string | number>): strin
   return template.replace(/\{(\w+)\}/g, (match, name: string) =>
     name in vars ? String(vars[name]) : match
   );
+}
+
+export function translate(lang: Lang, key: MessageKey, vars?: Record<string, string | number>): string {
+  return format(DICTIONARY[lang][key] ?? DICTIONARY.es[key], vars);
+}
+
+function store(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Sin almacenamiento (modo privado): la preferencia dura solo esta visita.
+  }
+}
+
+export function PreferencesProvider({ children }: { children: ReactNode }) {
+  // El script inicial ya aplicó tema e idioma al documento; se leen de ahí para no parpadear.
+  const [theme, setThemeState] = useState<Theme>('light');
+  const [lang, setLangState] = useState<Lang>('es');
+  const [langNotice, setLangNotice] = useState(false);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    setThemeState(root.dataset.theme === 'dark' ? 'dark' : 'light');
+    setLangState(root.lang === 'en' ? 'en' : 'es');
+  }, []);
+
+  const setTheme = useCallback((next: Theme) => {
+    const root = document.documentElement;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
