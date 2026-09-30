@@ -111,3 +111,116 @@ interface AssignmentAiStatus {
   source: 'external-ai' | 'deterministic' | 'tomtom-live';
   applied: boolean;
   model?: string;
+  warning?: string;
+}
+
+interface LiveTrafficStatus {
+  source: string;
+  configured: boolean;
+  applied: boolean;
+  routeSegments: number;
+  sampledSegments: number;
+  adjustedSegments: number;
+  closedSegments: number;
+  coverageRatio: number;
+  warning: string;
+}
+
+const ROUTE_STATUS_PRIORITY: Record<Route['status'], number> = {
+  IN_PROGRESS: 0,
+  PLANNED: 1,
+  COMPLETED: 2,
+  CANCELLED: 3,
+};
+
+interface Notification {
+  id: string;
+  kind:
+    | 'DELIVERY_STATUS_CHANGED'
+    | 'ROUTE_CREATED'
+    | 'ROUTE_RECALCULATED'
+    | 'ROUTE_RECALCULATION_FAILED';
+  title: string;
+  message: string;
+  createdAt: string;
+}
+
+interface AssignmentProposal {
+  courierId: string;
+  deliveryPointIds: string[];
+}
+
+const EMPTY_DASHBOARD_DATA: DashboardData = {
+    couriers: [],
+    notifications: [],
+    notificationsWarning: null,
+    pendingPoints: [],
+    scheduledPoints: [],
+    routes: [],
+    metrics: {
+      routeCount: 0,
+      completedRouteCount: 0,
+      estimatedDurationMinutes: 0,
+      estimatedDistanceMeters: 0,
+      timeSavedMinutes: 0,
+      distanceSavedMeters: 0,
+      routesWithBaseline: 0,
+    },
+};
+
+/** Pedidos visibles antes de «Ver todos»: deja los repartidores a la vista sin scroll anidado. */
+const COLLAPSED_ORDERS = 5;
+
+export default function DashboardPage() {
+  const { t, lang } = usePreferences();
+  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD_DATA);
+  const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [dispatching, setDispatching] = useState(false);
+  const [recalculatingRouteId, setRecalculatingRouteId] = useState<string | null>(null);
+  const [undoingRouteId, setUndoingRouteId] = useState<string | null>(null);
+  const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
+  const [selectedCourierIds, setSelectedCourierIds] = useState<string[]>([]);
+  const knownCourierIds = useRef<Set<string>>(new Set());
+  const [assignmentPreview, setAssignmentPreview] = useState<AssignmentProposal[]>([]);
+  const [assignmentPreviewSelectionKey, setAssignmentPreviewSelectionKey] = useState<string | null>(null);
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
+  const [unassignedDeliveryPointIds, setUnassignedDeliveryPointIds] = useState<string[]>([]);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [dashboardWarning, setDashboardWarning] = useState<string | null>(null);
+  const [operationalReady, setOperationalReady] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [routeActionNotice, setRouteActionNotice] = useState<string | null>(null);
+  const [assignmentAiStatus, setAssignmentAiStatus] = useState<AssignmentAiStatus | null>(null);
+  const [assignmentImprovement, setAssignmentImprovement] = useState<AssignmentImprovement | null>(null);
+  const [liveTrafficNotice, setLiveTrafficNotice] = useState<string | null>(null);
+  const undoToast = useUndoToast(t('undo.action'));
+  const [showAllOrders, setShowAllOrders] = useState(false);
+  const [sheetTab, setSheetTab] = useState<'pedidos' | 'rutas' | 'actividad'>('pedidos');
+  const [inset, setInset] = useState<MapInset | undefined>(undefined);
+  const [stageWide, setStageWide] = useState(false);
+  const handleSheetLayout = useCallback((layout: SheetLayout) => {
+    setStageWide(layout.wide);
+    setInset((current) =>
+      current &&
+      current.top === layout.inset.top &&
+      current.right === layout.inset.right &&
+      current.bottom === layout.inset.bottom &&
+      current.left === layout.inset.left
+        ? current
+        : layout.inset
+    );
+  }, []);
+  const dashboardRequestId = useRef(0);
+  const dashboardController = useRef<AbortController | null>(null);
+  const selectionInitialized = useRef(false);
+  const assignmentSelectionKey = JSON.stringify([
+    [...selectedCourierIds].sort(),
+    [...selectedPendingIds].sort(),
+  ]);
+  const assignmentPreviewIsCurrent = assignmentPreviewSelectionKey === assignmentSelectionKey;
+
+  const loadDashboard = useCallback(async (background = false) => {
+    if (background && (dashboardController.current || document.visibilityState === 'hidden')) return;
+    dashboardController.current?.abort();
