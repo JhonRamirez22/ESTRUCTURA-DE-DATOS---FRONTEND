@@ -50,3 +50,55 @@ interface TrackingData {
       configured: boolean;
       applied: boolean;
       status: "LIVE" | "CACHE" | "STALE" | "NOT_CONFIGURED" | "UNAVAILABLE";
+      scope: "FIRST_LEG_ONLY";
+      warning: string | null;
+    };
+    estimateWarning?: string;
+    navigationWarning?: string;
+    estimateNote: string;
+  } | null;
+}
+
+export default function ClientePage() {
+  const { t, lang } = usePreferences();
+  const [guide, setGuide] = useState("");
+  const [inset, setInset] = useState<MapInset | undefined>(undefined);
+  const [stageWide, setStageWide] = useState(false);
+  const handleSheetLayout = useCallback((layout: SheetLayout) => {
+    setStageWide(layout.wide);
+    setInset((current) =>
+      current &&
+      current.top === layout.inset.top &&
+      current.right === layout.inset.right &&
+      current.bottom === layout.inset.bottom &&
+      current.left === layout.inset.left
+        ? current
+        : layout.inset
+    );
+  }, []);
+  const [tracking, setTracking] = useState<TrackingData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [trackingRefreshWarning, setTrackingRefreshWarning] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+
+  const searchTracking = useCallback(async (requestedGuide = guide): Promise<void> => {
+    const normalizedGuide = requestedGuide.trim();
+
+    if (!normalizedGuide) {
+      setError("Escribe el número de guía de tu pedido.");
+      return;
+    }
+
+    const refreshingCurrentTracking = tracking?.guide === normalizedGuide;
+    if (!refreshingCurrentTracking) {
+      setTracking(null);
+      setLastUpdatedAt(null);
+    }
+    setLoading(true);
+    setError(null);
+    setTrackingRefreshWarning(null);
+
+    let failedResponseStatus: number | null = null;
+    try {
+      const response = await apiFetch(`/api/seguimiento?guia=${encodeURIComponent(normalizedGuide)}`, {
