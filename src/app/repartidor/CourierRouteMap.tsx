@@ -24,3 +24,28 @@ export interface CourierRouteMapData {
   geometryProvider: "OSRM" | "ORS" | null;
   geometry: {
     type: "LineString";
+    coordinates: Array<[number, number]>;
+  } | null;
+}
+
+interface CurrentLocation {
+  lat: number;
+  lng: number;
+}
+
+interface CourierRouteMapProps {
+  currentLocation: CurrentLocation | null;
+  route: CourierRouteMapData;
+  trafficMarks?: MapTrafficMark[];
+  className?: string;
+  inset?: MapInset;
+}
+
+export default function CourierRouteMap({
+  currentLocation,
+  route,
+  trafficMarks = [],
+  className = "h-[340px] w-full",
+  inset,
+}: CourierRouteMapProps) {
+  const courier: MapCourier = {
