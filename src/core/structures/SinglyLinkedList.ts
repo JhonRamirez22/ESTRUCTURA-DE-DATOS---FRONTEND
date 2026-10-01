@@ -29,3 +29,34 @@ export class SinglyLinkedList<T> {
   }
 
   popFront(): T | undefined {
+    const node = this.head;
+    if (node === null) {
+      return undefined;
+    }
+    this.head = node.next;
+    if (this.head === null) {
+      this.tail = null;
+    }
+    this.count -= 1;
+    return node.value;
+  }
+
+  peekFront(): T | undefined {
+    return this.head?.value;
+  }
+
+  /** Elimina la primera ocurrencia de `value`; devuelve false si no existe. */
+  remove(value: T): boolean {
+    let previous: ListNode<T> | null = null;
+    let current = this.head;
+    while (current !== null) {
+      if (current.value === value) {
+        if (previous === null) {
+          this.head = current.next;
+        } else {
+          previous.next = current.next;
+        }
+        if (current === this.tail) {
+          this.tail = previous;
+        }
+        this.count -= 1;
