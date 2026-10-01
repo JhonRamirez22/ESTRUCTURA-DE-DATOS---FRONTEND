@@ -14,3 +14,18 @@ export class Queue<T> {
   }
 
   peek(): T | undefined {
+    return this.items.peekFront();
+  }
+
+  clear(): void {
+    this.items.clear();
+  }
+
+  isEmpty(): boolean {
+    return this.items.isEmpty();
+  }
+
+  size(): number {
+    return this.items.size();
+  }
+}
