@@ -28,3 +28,32 @@ export class DoublyLinkedList<T> {
       this.tail.next = node;
     }
     this.tail = node;
+    this.count += 1;
+    return node;
+  }
+
+  appendLeft(value: T): DoublyLinkedNode<T> {
+    const node = new DoublyLinkedNode(value, this.owner);
+    node.next = this.head;
+    if (this.head === null) {
+      this.tail = node;
+    } else {
+      this.head.previous = node;
+    }
+    this.head = node;
+    this.count += 1;
+    return node;
+  }
+
+  remove(node: DoublyLinkedNode<T>): T {
+    this.assertAttached(node);
+    if (node.previous === null) {
+      this.head = node.next;
+    } else {
+      node.previous.next = node.next;
+    }
+    if (node.next === null) {
+      this.tail = node.previous;
+    } else {
+      node.next.previous = node.previous;
+    }
