@@ -32,3 +32,36 @@ export class MinHeap<T, Id extends HeapId = HeapId> {
     const minimum = this.items[0];
     this.swap(0, this.items.length - 1);
     this.items.pop();
+    this.indices.delete(this.getId(minimum));
+    this.bubbleDown(0);
+    return minimum;
+  }
+
+  decreaseKey(id: Id, newValue: T): void {
+    const index = this.indices.get(id);
+    if (index === undefined) {
+      throw new Error(`El ID no existe en el heap: ${String(id)}`);
+    }
+    if (this.getId(newValue) !== id) {
+      throw new Error('decreaseKey no puede reemplazar un elemento con otro ID');
+    }
+    if (this.compare(newValue, this.items[index]) > 0) {
+      throw new Error('decreaseKey no puede aumentar la prioridad');
+    }
+    this.items[index] = newValue;
+    this.bubbleUp(index);
+  }
+
+  isEmpty(): boolean {
+    return this.items.length === 0;
+  }
+
+  size(): number {
+    return this.items.length;
+  }
+
+  private bubbleUp(index: number): void {
+    let current = index;
+    while (current > 0) {
+      const parent = Math.floor((current - 1) / 2);
+      if (this.compare(this.items[current], this.items[parent]) >= 0) {
