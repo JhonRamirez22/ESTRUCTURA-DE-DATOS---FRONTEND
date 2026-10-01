@@ -81,3 +81,86 @@ interface AssignedRoute {
     address: string;
     lat: number;
     lng: number;
+    sequenceIndex: number | null;
+    status: "PENDING" | "EN_ROUTE" | "DELIVERED" | "FAILED";
+  }>;
+}
+
+interface AiOrder {
+  proposed: boolean;
+  accepted: boolean;
+  savingMinutes?: number;
+  reason?: string;
+  verifiedWith?: string;
+}
+
+interface RouteProposal {
+  aiOrder?: AiOrder;
+  orderedDeliveryPointIds: string[];
+  changed: boolean;
+  worthApplying?: boolean;
+  baselineDurationMinutes?: number | null;
+  estimatedDurationMinutes: number;
+  improvementMinutes: number | null;
+  computedAt: string;
+  cached: boolean;
+  warning?: string | null;
+}
+
+interface TrafficObservation extends MapTrafficMark {
+  observedAt: string;
+}
+
+interface AppliedOptimization {
+  at: number;
+  auto: boolean;
+  savedMinutes: number | null;
+  fromMinutes: number | null;
+  toMinutes: number | null;
+}
+
+interface CourierProfile {
+  status: "AVAILABLE" | "ON_ROUTE" | "OFFLINE";
+  currentLat: number | null;
+  currentLng: number | null;
+  lastLocationAt: string | null;
+}
+
+/** Resume las mediciones de TomTom sin mezclar cobertura de toda la ciudad con la ruta. */
+function summarizeTraffic(marks: TrafficObservation[]): string {
+  const counts = { closed: 0, heavy: 0, moderate: 0, free: 0 };
+  for (const mark of marks) {
+    if (mark.roadClosure || mark.trafficLevel === "CERRADO") counts.closed += 1;
+    else if (mark.trafficLevel === "ALTO" || mark.trafficLevel === "MUY_ALTO") counts.heavy += 1;
+    else if (mark.trafficLevel === "MODERADO") counts.moderate += 1;
+    else if (mark.trafficLevel === "FLUIDO") counts.free += 1;
+  }
+  const parts = [
+    counts.closed ? `${counts.closed} cerrado` : "",
+    counts.heavy ? `${counts.heavy} con mucho tráfico` : "",
+    counts.moderate ? `${counts.moderate} moderado` : "",
+    counts.free ? `${counts.free} fluido` : "",
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : "sin mediciones claras";
+}
+
+export default function RepartidorPage() {
+  const { t } = usePreferences();
+  const [courierStatus, setCourierStatus] = useState<CourierProfile["status"]>("OFFLINE");
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [isTracking, setIsTracking] = useState(false);
+  const [lastLocation, setLastLocation] = useState<LastLocation | null>(null);
+  const [assignedRoute, setAssignedRoute] = useState<AssignedRoute | null>(null);
+  const [navigation, setNavigation] = useState<NavigationSnapshot | null>(null);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [proposal, setProposal] = useState<RouteProposal | null>(null);
+  const [proposalStatus, setProposalStatus] = useState<string | null>(null);
+  const [trafficMarks, setTrafficMarks] = useState<TrafficObservation[]>([]);
+  const [applying, setApplying] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+  const [appliedNotice, setAppliedNotice] = useState<string | null>(null);
+  const proposalInFlight = useRef(false);
+  const [dismissedProposal, setDismissedProposal] = useState<string | null>(null);
+  const [autoOptimize, setAutoOptimize] = useState(true);
+  const [optimizations, setOptimizations] = useState<AppliedOptimization[]>([]);
