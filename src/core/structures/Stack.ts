@@ -12,3 +12,16 @@ export class Stack<T> {
   pop(): T | undefined {
     return this.items.popFront();
   }
+
+  peek(): T | undefined {
+    return this.items.peekFront();
+  }
+
+  isEmpty(): boolean {
+    return this.items.isEmpty();
+  }
+
+  size(): number {
+    return this.items.size();
+  }
+}
