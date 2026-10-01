@@ -53,3 +53,58 @@ export default function StaffPage() {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<{ courierId: string; message: string } | null>(null);
+
+  const loadCouriers = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const data = await apiJson<{ couriers: Courier[] }>('/api/repartidores', { signal });
+      setCouriers([...data.couriers].sort((a, b) => a.name.localeCompare(b.name, 'es')));
+      setLoadError(null);
+    } catch (error) {
+      if (signal?.aborted) return;
+      setLoadError(
+        error instanceof ApiRequestError ? error.message : 'No se pudo cargar el equipo.'
+      );
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadCouriers(controller.signal);
+    return () => controller.abort();
+  }, [loadCouriers]);
+
+  const createCourier = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    const name = draft.name.trim();
+    const phone = draft.phone.trim();
+    const email = draft.email.trim().toLowerCase();
+    const problem = validateCourier(name, phone, email, draft.password);
+    if (problem) {
+      setFormError(problem);
+      return;
+    }
+    setCreating(true);
+    setFormError(null);
+    setNotice(null);
+    try {
+      const response = await apiFetch('/api/repartidores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone, account: { email, password: draft.password } }),
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'No se pudo registrar el repartidor.'));
+      }
+      setDraft(EMPTY_DRAFT);
+      setNotice(`${name} ya puede ingresar con ${email} y activar su GPS desde el teléfono.`);
+      await loadCouriers();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'No se pudo registrar el repartidor.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const saveAccess = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
