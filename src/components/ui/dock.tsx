@@ -40,3 +40,45 @@ export function Dock({
   distance = 150,
   panelHeight = 64,
   magnification = 68,
+  spring = { mass: 0.1, stiffness: 150, damping: 18 },
+  ariaLabel = 'Navegación rápida',
+}: {
+  children?: ReactNode;
+  className?: string;
+  distance?: number;
+  panelHeight?: number;
+  magnification?: number;
+  spring?: SpringOptions;
+  ariaLabel?: string;
+}) {
+  const mouseX = useMotionValue(Infinity);
+  const reducedMotion = useReducedMotion();
+  const [coarsePointer, setCoarsePointer] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia('(pointer: coarse)');
+    const update = () => setCoarsePointer(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  const safeMagnification = Number.isFinite(magnification)
+    ? Math.min(80, Math.max(BASE_SIZE, magnification))
+    : 68;
+  const safeDistance = Number.isFinite(distance) && distance > 0 ? distance : 150;
+  const staticMotion = Boolean(reducedMotion || coarsePointer);
+  return (
+    <nav className={cn('ui-dock', className)} aria-label={ariaLabel}>
+      <motion.div
+        className="ui-dock-panel"
+        style={{ minHeight: Number.isFinite(panelHeight) ? Math.max(BASE_SIZE, panelHeight) : 64 }}
+        onPointerMove={(event) =>
+          mouseX.set(staticMotion || event.pointerType === 'touch' ? Infinity : event.clientX)
+        }
+        onPointerLeave={() => mouseX.set(Infinity)}
+      >
+        <DockContext.Provider
+          value={{
+            mouseX,
+            spring,
+            distance: safeDistance,
+            magnification: safeMagnification,
