@@ -36,3 +36,41 @@ export function InteractiveLogin({
   const { t } = usePreferences();
 
   return (
+    <motion.section className="ui-login-panel" layout={reducedMotion ? false : 'position'}>
+      <div className="ui-login-mark">
+        <Route size={26} aria-hidden="true" />
+      </div>
+      <h1>{t('login.title')}</h1>
+      <p className="ui-login-intro">{t('login.intro')}</p>
+      <form
+        aria-busy={loading}
+        aria-describedby={error ? 'login-error' : undefined}
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (submitting.current) return;
+          submitting.current = true;
+          setLoading(true);
+          setError(null);
+          try {
+            await onSubmit({ email: email.trim(), password });
+          } catch (cause) {
+            setError(
+              cause instanceof Error
+                ? cause.message
+                : 'No se pudo iniciar sesión. Intenta nuevamente.'
+            );
+          } finally {
+            submitting.current = false;
+            setLoading(false);
+          }
+        }}
+      >
+        <label htmlFor="email">{t('login.email')}</label>
+        <input
+          id="email"
+          name="email"
+          autoComplete="username"
+          className="rp-input"
+          type="email"
+          required
+          maxLength={254}
