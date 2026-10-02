@@ -57,3 +57,32 @@ export default function BackendAccessGuard({ children }: { children: ReactNode }
       if (signal.aborted) return;
       setState("unavailable");
       setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "No se pudo verificar el acceso.",
+      );
+    }
+  }, [pathname, router]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void verifyAccess(controller.signal);
+    return () => controller.abort();
+  }, [retryCount, verifyAccess]);
+
+  if (state === "allowed") return children;
+
+  return (
+    <main
+      aria-busy={state === "checking"}
+      className="grid min-h-[70vh] place-items-center bg-[var(--background)] px-4 py-12"
+    >
+      <section
+        aria-live="polite"
+        className="w-full max-w-md rounded-2xl border border-slate-200 bg-[var(--surface)] p-6  sm:p-8"
+        role={state === "unavailable" ? "alert" : "status"}
+      >
+        <div className="flex items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#122522] text-sm font-black text-emerald-200">
+            RP
+          </span>
