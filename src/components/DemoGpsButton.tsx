@@ -30,3 +30,19 @@ export default function DemoGpsButton({ onRenewed }: { onRenewed?: () => void })
       const result = (await response.json()) as { renewed: number };
       setMessage(t('demo.gps.done', { n: result.renewed }));
       onRenewed?.();
+    } catch {
+      setMessage(t('demo.gps.error'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button className="rp-button rp-button-secondary rp-button-small" disabled={busy} onClick={() => void renew()} type="button">
+        {busy ? t('demo.gps.busy') : t('demo.gps.renew')}
+      </button>
+      {message ? <span className="text-xs" role="status">{message}</span> : null}
+    </div>
+  );
+}
