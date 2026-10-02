@@ -92,3 +92,50 @@ export default function CustomerOrderChat({ guide }: CustomerOrderChatProps) {
     const nextConversation = [...conversation, { role: 'user' as const, content: question }];
     setConversation(nextConversation);
     setDraft('');
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      const messages = nextConversation
+        .filter((message) => message.role === 'user')
+        .slice(-MAX_HISTORY_TURNS)
+        .map((message) => ({ role: 'user' as const, content: message.content }));
+      const response = await apiFetch('/api/cliente/chat', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guide, messages }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+
+      const payload: unknown = await response.json();
+      if (!isChatResponse(payload)) {
+        throw new Error('El asistente devolvió una respuesta inválida. Inténtalo de nuevo.');
+      }
+
+      setConversation((current) => [...current, { role: 'assistant', content: payload.reply }]);
+      if (payload.providerNotice) {
+        setProviderNotice(payload.providerNotice);
+      }
+    } catch (sendError) {
+      setConversation(conversation);
+      setDraft((currentDraft) => currentDraft || question);
+      setError(
+        sendError instanceof Error
+          ? sendError.message
+          : 'No se pudo enviar la pregunta. Comprueba tu conexión e inténtalo de nuevo.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const selectSuggestedQuestion = (question: string): void => {
+    setDraft(question);
+    questionRef.current?.focus();
+  };
+
+  return (
