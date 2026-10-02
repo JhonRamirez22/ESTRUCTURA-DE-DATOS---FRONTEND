@@ -34,3 +34,20 @@ export function middleware(request: NextRequest) {
     "form-action 'self'",
     "frame-ancestors 'none'",
     ...development ? [] : ['upgrade-insecure-requests'],
+  ].join('; ');
+  const headers = new Headers(request.headers);
+  // Next extrae el nonce de esta cabecera al renderizar sus scripts de hidratación.
+  headers.set('Content-Security-Policy', policy);
+  const response = NextResponse.next({ request: { headers } });
+  response.headers.set(
+    process.env.CSP_MODE === 'enforce' ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only',
+    policy,
+  );
+  // El documento y su nonce son indivisibles y no deben reutilizarse desde CDN/PWA.
+  response.headers.set('Cache-Control', 'private, no-store');
+  return response;
+}
+
+export const config = {
+  matcher: ['/api/:path*', '/((?!api/|_next/|fonts/|sw\\.js|manifest\\.webmanifest|icon\\.svg|favicon\\.ico).*)'],
+};
