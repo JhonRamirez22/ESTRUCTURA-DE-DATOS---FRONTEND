@@ -76,3 +76,42 @@ export default function CommandPalette({ open, onClose, items, label, placeholde
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       setSelected((index) => Math.max(index - 1, 0));
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      if (chosen?.href) document.getElementById(`${listId}-${chosen.id}`)?.click();
+      else activate(chosen);
+    } else if (event.key === 'Tab') {
+      event.preventDefault();
+    }
+  };
+
+  let lastGroup = '';
+  return (
+    <div
+      className={`rp-palette-scrim ${shown ? 'is-in' : ''}`}
+      onKeyDown={onKeyDown}
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div aria-label={label} aria-modal="true" className="rp-palette" role="dialog">
+        <input
+          aria-activedescendant={chosen ? `${listId}-${chosen.id}` : undefined}
+          aria-autocomplete="list"
+          aria-controls={listId}
+          aria-expanded="true"
+          autoComplete="off"
+          className="rp-palette-input"
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setSelected(0);
+          }}
+          placeholder={placeholder}
+          ref={inputRef}
+          role="combobox"
+          value={query}
+        />
+        <ul id={listId} role="listbox">
+          {results.length === 0 ? (
+            <li className="rp-palette-empty" role="presentation">
+              {emptyText}
