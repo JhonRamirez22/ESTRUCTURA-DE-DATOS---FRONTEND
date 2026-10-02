@@ -52,3 +52,30 @@ export default function AiGroupSuggestions({ onSelect }: { onSelect: (ids: strin
       {error ? <p className="rl-notice is-error mt-2">{error}</p> : null}
       {data && data.groups.length === 0 ? <p className="rl-empty">{t('groups.none')}</p> : null}
       {data && data.groups.length > 0 ? (
+        <ul className="rl-rows mt-2">
+          {data.groups.map((group) => (
+            <li className="rl-row !items-start" key={group.ids.join(',')}>
+              <span className="rl-row-main">
+                <strong>
+                  {group.ids.length} · {group.spreadMeters} m
+                </strong>
+                <span>
+                  {group.source === 'groq-validated' ? t('groups.byAi') : t('groups.deterministic')}
+                  {group.reason ? ` · ${group.reason}` : ''}
+                </span>
+              </span>
+              <button
+                className="rp-button rp-button-secondary rp-button-small"
+                onClick={() => onSelect(group.ids)}
+                type="button"
+              >
+                {t('groups.select')}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {data && data.ai.proposed === false ? <p className="mt-2 text-xs">{t('groups.aiOff')}</p> : null}
+    </section>
+  );
+}
