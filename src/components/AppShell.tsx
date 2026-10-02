@@ -88,3 +88,48 @@ export default function AppShell({ children, active }: AppShellProps) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dispatcherSurface]);
+  const paletteItems = useMemo<PaletteItem[]>(
+    () => [
+      ...navigationBySurface.dispatcher!.map((item) => ({
+        id: `go-${item.key}`,
+        group: t('palette.group.go'),
+        label: t(`nav.${item.key}` as MessageKey),
+        href: item.href,
+      })),
+      { id: 'new-order', group: t('palette.group.go'), label: t('dash.registerOrder'), href: '/pedidos' },
+      {
+        id: 'theme',
+        group: t('palette.group.prefs'),
+        label: theme === 'dark' ? t('shell.themeToLight') : t('shell.themeToDark'),
+        run: () => setTheme(theme === 'dark' ? 'light' : 'dark'),
+      },
+      { id: 'lang', group: t('palette.group.prefs'), label: t('shell.lang'), run: () => setLang(lang === 'es' ? 'en' : 'es') },
+      { id: 'help', group: t('palette.group.prefs'), label: t('shell.help'), run: () => window.dispatchEvent(new Event(OPEN_INTRO_EVENT)) },
+    ],
+    [lang, setLang, setTheme, t, theme]
+  );
+
+  return (
+    <div className={`rp-shell ${operational ? 'rp-shell-operational' : 'rp-shell-public'}`}>
+      <a className="rp-skip-link" href="#main-content">
+        {t('shell.skip')}
+      </a>
+      <header className="rp-shell-header">
+        <div className="rp-shell-header-inner">
+          <Link className="rp-brand" data-tip="tip.nav.home" href="/" aria-label="Rutas Pasto · Inicio">
+            <span className="rp-brand-mark">
+              <InterfaceIcon name="route" />
+            </span>
+            <span className="rp-brand-name">
+              Rutas<span>Pasto</span>
+            </span>
+          </Link>
+
+          <nav aria-label={t('nav.main')} className="rp-navigation" hidden={active === 'courier'}>
+            {navigation.map((item) => {
+              const isActive = active === item.key || (!active && pathname === item.href);
