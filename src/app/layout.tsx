@@ -26,3 +26,17 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       // El script previo ajusta tema e idioma antes de hidratar.
       suppressHydrationWarning
     >
+      <head>
+        {/* El navegador oculta el nonce tras cargar; React no debe compararlo al hidratar. */}
+        <script
+          nonce={nonce}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: PREFERENCES_BOOT_SCRIPT }}
+        />
+      </head>
+      <body className="min-h-full flex flex-col">
+        <PreferencesProvider>{children}</PreferencesProvider>
+      </body>
+    </html>
+  );
+}
