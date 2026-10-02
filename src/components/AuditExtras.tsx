@@ -76,3 +76,41 @@ export function GeneralReports() {
         </label>
         <label className="rp-field-label">
           {t('audit.to')}
+          <input className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums" min={from || undefined} onChange={(event) => setTo(event.target.value)} type="date" value={to} />
+        </label>
+      </div>
+      {problem && problem !== 'missing' ? (
+        <p className="rl-notice is-error mt-3" role="alert">{problem === 'order' ? t('audit.period.order') : t('audit.period.long')}</p>
+      ) : null}
+      <button className="rp-button rp-button-go mt-4" disabled={problem !== null || busy} onClick={() => void download()} type="button">
+        {busy ? t('audit.generating') : t('audit.general.download')}
+      </button>
+      {message ? (
+        <p className={`rl-notice mt-3 ${message.tone === 'ok' ? 'is-ok' : 'is-error'}`} role={message.tone === 'ok' ? 'status' : 'alert'}>{message.text}</p>
+      ) : null}
+    </section>
+  );
+}
+
+/** Bitácora de eventos de envíos y quién descargó informes. */
+export function AuditLog() {
+  const { t, lang } = usePreferences();
+  const [type, setType] = useState('');
+  const [page, setPage] = useState(1);
+  const [events, setEvents] = useState<AuditLogEvent[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [downloads, setDownloads] = useState<ReportDownload[]>([]);
+
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      try {
+        const params = new URLSearchParams({ pagina: String(page) });
+        if (type) params.set('tipo', type);
+        const body = await apiJson<{ events: AuditLogEvent[]; hasMore: boolean }>(`/api/auditoria/eventos?${params.toString()}`, { signal });
+        const incoming = Array.isArray(body.events) ? body.events : [];
+        setEvents((current) => (page === 1 ? incoming : [...current, ...incoming]));
+        setHasMore(body.hasMore === true);
+        setFailed(false);
+      } catch {
+        if (!signal.aborted) setFailed(true);
