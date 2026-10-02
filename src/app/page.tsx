@@ -48,3 +48,27 @@ export default function Home() {
           <div>
             <h2 id="route-method-title">Rutas por calles, con un orden que se puede explicar.</h2>
             <p className="mt-4">La optimización compara tiempos de la red vial. Si TomTom aporta una señal confiable, se ajustan solo segmentos muestreados; sin señal se conserva el costo vial base.</p>
+          </div>
+          <ol>
+            <li><h3>Tiempos de la red vial</h3><p>OSRM calcula duraciones por calles y el backend las normaliza a minutos.</p></li>
+            <li><h3>Orden inicial con vecino más cercano</h3><p>Desde la posición del repartidor, se elige la siguiente parada de menor costo pendiente.</p></li>
+            <li><h3>Mejora local con 2-opt</h3><p>Reordena grupos de paradas para bajar el costo del recorrido abierto: es una heurística, no una garantía de óptimo.</p></li>
+          </ol>
+        </section>
+
+        <section className="rp-home-section rp-home-method" aria-labelledby="customer-updates-title">
+          <h2 id="customer-updates-title">Información útil, ligada a tu pedido</h2>
+          <dl className="space-y-6">
+            <div><dt className="mb-2 text-sm font-semibold">Asistente del pedido</dt><dd><p>Responde sobre estado, asignación, recorrido o ETA. La consulta se normaliza: no se envía el texto libre original al proveedor de IA.</p></dd></div>
+            <div><dt className="mb-2 text-sm font-semibold">Avisos opcionales</dt><dd><p>El cliente puede autorizar correo, SMS o ambos para avisos de asignación y cercanía. Cada canal requiere estar configurado.</p></dd></div>
+          </dl>
+        </section>
+
+        <footer className="rp-home-footer">
+          <p>El ETA es aproximado y depende de la última posición GPS y los tiempos viales disponibles.</p>
+          <p>Grafo dirigido y min-heap para Dijkstra/A*; cola para GPS, pila para recálculos y listas dobles para cachés LRU.</p>
+        </footer>
+      </main>
+    </AppShell>
+  );
+}
