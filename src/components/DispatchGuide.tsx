@@ -59,3 +59,33 @@ export function DispatchAction({
   onAct,
   onBack,
 }: {
+  flow: DispatchFlow;
+  counts: Counts;
+  onAct: () => void;
+  onBack: () => void;
+}) {
+  const t = useT();
+  const busy = flow.phase === 'analyzing' || flow.phase === 'dispatching';
+  const seconds = useElapsedSeconds(busy);
+  const orderWord = t(counts.orders === 1 ? 'flow.word.order.one' : 'flow.word.order.other');
+  const courierWord = t(counts.couriers === 1 ? 'flow.word.courier.one' : 'flow.word.courier.other');
+  const params = { orders: counts.orders, couriers: counts.couriers, orderWord, courierWord, s: seconds };
+
+  const label: Record<DispatchFlow['phase'], string> = {
+    'no-orders': t('flow.noOrders'),
+    'pick-orders': t('flow.pickOrders'),
+    'no-couriers': t('flow.noCouriers'),
+    'pick-couriers': t('flow.pickCouriers'),
+    ready: t('flow.analyze', params),
+    analyzing: t('flow.analyzing', params),
+    proposal: t('flow.dispatch', params),
+    stale: t('flow.reanalyze'),
+    dispatching: t('flow.dispatching', params),
+  };
+  const hint: Partial<Record<DispatchFlow['phase'], string>> = {
+    'no-orders': t('flow.hint.noOrders'),
+    'pick-orders': t('flow.hint.pickOrders'),
+    'no-couriers': t('flow.hint.noCouriers'),
+    'pick-couriers': t('flow.hint.pickCouriers'),
+    ready: t('flow.hint.ready'),
+    analyzing: t('flow.hint.analyzing'),
