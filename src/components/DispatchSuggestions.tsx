@@ -66,3 +66,36 @@ export default function DispatchSuggestions({
       <p className="text-sm font-semibold">{t(titleKey)}</p>
       <ul className="rl-rows mt-2">
         {visible.map((item) => (
+          <li className="rl-row !items-start" key={item.id}>
+            <span className="rl-row-main">
+              <strong>{item.text}</strong>
+              <span>{item.source === 'groq-validated' ? t('suggest.byAi') : t('suggest.byRule')}</span>
+            </span>
+            <span className="flex shrink-0 gap-2">
+              {item.action ? (
+                <button
+                  className="rp-button rp-button-secondary rp-button-small"
+                  onClick={() => {
+                    onSelect(item.action?.deliveryPointIds ?? []);
+                    setDismissed((current) => [...current, item.id]);
+                  }}
+                  type="button"
+                >
+                  {t('suggest.select')}
+                </button>
+              ) : null}
+              <button
+                aria-label={t('suggest.dismiss')}
+                className="rp-button rp-button-quiet rp-button-small"
+                onClick={() => setDismissed((current) => [...current, item.id])}
+                type="button"
+              >
+                ×
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
