@@ -53,3 +53,30 @@ export default function IntroDialog() {
   useEffect(() => {
     window.addEventListener(OPEN_INTRO_EVENT, show);
     return () => window.removeEventListener(OPEN_INTRO_EVENT, show);
+  }, [show]);
+
+  return (
+    <dialog
+      aria-labelledby="intro-title"
+      className="rl-intro"
+      onClick={(event) => {
+        // Un clic en el fondo cierra; dentro del panel no.
+        if (event.target === dialog.current) close();
+      }}
+      onClose={() => {
+        markSeen();
+        setOpen(false);
+      }}
+      ref={dialog}
+    >
+      {open ? (
+        <div className="rl-intro-panel">
+          <p className="rl-intro-kicker">{t('intro.kicker')}</p>
+          <h2 id="intro-title">{t('intro.title')}</h2>
+          <p className="rl-intro-lead">{t('intro.lead')}</p>
+          <div className="rl-intro-line">
+            <RouteLine
+              label={t('intro.dialog')}
+              selected
+              stops={[
+                { id: 'registro', label: t('intro.step1'), meta: t('intro.step1.meta'), state: 'done' },
