@@ -83,3 +83,45 @@ export default function OptimizationFeed() {
     setSummarizing(true);
     setSummaryError(null);
     try {
+      const response = await apiFetch('/api/optimizaciones/resumen', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        summary?: string; cooldownSeconds?: number; detail?: string; error?: string;
+      };
+      if (!response.ok) {
+        setSummaryError(payload.detail ?? payload.error ?? 'No se pudo generar el resumen.');
+        return;
+      }
+      setSummary(payload.summary ?? null);
+      setCooldown(payload.cooldownSeconds ?? 0);
+    } catch (summaryFailure) {
+      setSummaryError(summaryFailure instanceof Error ? summaryFailure.message : 'No se pudo generar el resumen.');
+    } finally {
+      setSummarizing(false);
+    }
+  };
+
+  const stats = feed?.stats;
+  const events = feed?.events ?? [];
+
+  return (
+    <section aria-label="Optimizaciones en vivo" className="rp-feed rl-section mb-10">
+      <div className="rl-head flex-wrap">
+        <h2>
+          {t('feed.title')}
+          <span
+            aria-hidden="true"
+            className={`h-2.5 w-2.5 rounded-full ${paused ? 'bg-[var(--line-strong)]' : 'feed-pulse bg-[var(--route)]'}`}
+          />
+          <small>{paused ? t('feed.paused') : t('feed.every')}</small>
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          <button className="rp-button rp-button-quiet rp-button-small" data-tip="tip.pauseFeed" onClick={() => setPaused((value) => !value)} type="button">
+            {paused ? t('feed.resume') : t('feed.pause')}
+          </button>
+          <button
+            className="rp-button rp-button-primary rp-button-small"
+            data-tip="tip.summary"
+            disabled={summarizing || cooldown > 0 || events.length === 0}
+            onClick={() => void requestSummary()}
