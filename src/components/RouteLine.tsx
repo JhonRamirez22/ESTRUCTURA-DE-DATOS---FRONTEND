@@ -45,3 +45,26 @@ export function RouteLine({
         );
       })}
     </ol>
+  );
+}
+
+/** Progreso de una ruta de un vistazo: un punto por parada sobre una línea horizontal. */
+export function RouteStrip({
+  states,
+  label,
+  selected = false,
+}: {
+  states: Exclude<StopState, 'terminal'>[];
+  label: string;
+  selected?: boolean;
+}) {
+  return (
+    <ol aria-label={label} className={`rl-strip ${selected ? 'is-route' : ''}`}>
+      {states.map((state, index) => (
+        <li className={`is-${state}`} key={index}>
+          <i aria-hidden="true" />
+        </li>
+      ))}
+    </ol>
+  );
+}
