@@ -66,3 +66,37 @@ export default function SegmentedTabs<T extends string>({ tabs, value, onChange,
       widthRef.current?.set(active.offsetWidth);
     });
     observer.observe(list);
+    return () => observer.disconnect();
+  }, []);
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+    if (!step) return;
+    event.preventDefault();
+    const index = tabs.findIndex((tab) => tab.id === value);
+    const next = tabs[(index + step + tabs.length) % tabs.length]!;
+    onChange(next.id);
+    requestAnimationFrame(() => document.getElementById(`${idPrefix}-tab-${next.id}`)?.focus());
+  };
+
+  return (
+    <div aria-label={label} className="rp-segmented" onKeyDown={onKeyDown} ref={listRef} role="tablist">
+      <span aria-hidden="true" className="rp-segmented-indicator" ref={indicatorRef} />
+      {tabs.map((tab) => (
+        <button
+          aria-controls={`${idPrefix}-panel`}
+          aria-selected={tab.id === value}
+          id={`${idPrefix}-tab-${tab.id}`}
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          role="tab"
+          tabIndex={tab.id === value ? 0 : -1}
+          type="button"
+        >
+          {tab.label}
+          {tab.count !== undefined ? <span className="rp-segmented-count">{tab.count}</span> : null}
+        </button>
+      ))}
+    </div>
+  );
+}
