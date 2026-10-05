@@ -30,3 +30,18 @@ export function SessionChangeNotice({ role }: { role: SessionRole }) {
   return (
     <div
       role="status"
+      className="mx-auto mt-4 flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+    >
+      <p className="m-0">
+        La sesión {ROLE_LABELS[role]} cambió en otra pestaña. Recarga esta página para continuar.
+      </p>
+      <button
+        className="rp-button rp-button-secondary rp-button-small"
+        onClick={() => window.location.reload()}
+        type="button"
+      >
+        Recargar
+      </button>
+    </div>
+  );
+}
