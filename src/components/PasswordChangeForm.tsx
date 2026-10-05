@@ -50,3 +50,28 @@ export default function PasswordChangeForm({ onChanged }: { onChanged?: () => vo
     } finally {
       setBusy(false);
     }
+  };
+
+  return (
+    <form className="grid max-w-md gap-4" onSubmit={(event) => void submit(event)}>
+      <label className="rp-field-label">
+        {t('password.current')}
+        <input autoComplete="current-password" className="rp-input mt-1.5 px-3 text-[15px] font-normal" onChange={(e) => setCurrent(e.target.value)} type="password" value={current} />
+      </label>
+      <label className="rp-field-label">
+        {t('password.new')}
+        <input autoComplete="new-password" className="rp-input mt-1.5 px-3 text-[15px] font-normal" maxLength={128} onChange={(e) => setNext(e.target.value)} type="password" value={next} />
+      </label>
+      <label className="rp-field-label">
+        {t('password.confirm')}
+        <input autoComplete="new-password" className="rp-input mt-1.5 px-3 text-[15px] font-normal" maxLength={128} onChange={(e) => setConfirm(e.target.value)} type="password" value={confirm} />
+      </label>
+      {problem ? <p className="rl-notice is-error" role="alert">{problem}</p> : null}
+      {error ? <p className="rl-notice is-error" role="alert">{error}</p> : null}
+      <button className="rp-button rp-button-primary" disabled={busy || !current || !next || confirm !== next || problem !== null} type="submit">
+        {busy ? t('password.saving') : t('password.save')}
+      </button>
+      <p className="text-xs leading-5 text-[var(--ink-soft)]">{t('password.note')}</p>
+    </form>
+  );
+}
