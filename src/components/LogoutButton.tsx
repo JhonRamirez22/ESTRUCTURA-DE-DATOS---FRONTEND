@@ -27,3 +27,17 @@ export default function LogoutButton() {
         // El service worker nuevo también elimina la caché privada heredada al activarse.
       }
       window.location.replace("/");
+    }
+  };
+
+  return (
+    <button
+      className="rp-logout"
+      data-tip="tip.logout"
+      onClick={() => void logout()}
+      type="button"
+    >
+      <InterfaceIcon name="logout" /> <span className="rp-logout-text">{t("shell.logout")}</span>
+    </button>
+  );
+}
