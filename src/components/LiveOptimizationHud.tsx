@@ -72,3 +72,40 @@ export function LiveOptimizationHud({
                 <li>{t('live.balance', { a: fmt(before.balance), b: fmt(after.balance) })}</li>
               ) : null}
               {before.crossings !== after.crossings ? (
+                <li>{t('live.crossings', { a: before.crossings, b: after.crossings })}</li>
+              ) : null}
+            </ul>
+          ) : null}
+          {proposal.moves.length > 0 ? (
+            <p className="rp-live-note">{t('live.moves', { n: proposal.moves.length })}</p>
+          ) : null}
+          {gains.length > 0 ? (
+            <button className="rp-button rp-button-go rp-button-small" disabled={applying} onClick={onApplyAll} type="button">
+              {applying ? t('improve.applying') : t('live.applyAll', { n: gains.length })}
+            </button>
+          ) : null}
+        </div>
+      ) : proposal ? (
+        <p className="rp-live-ok">✓ {t('live.ok')}</p>
+      ) : null}
+
+      <ul aria-label={t('live.legend')} className="rp-live-legend">
+        {routes.map((route) => {
+          const item = perRoute.get(route.id);
+          const saved = item?.changed ? item.savedMinutes : 0;
+          return (
+            <li key={route.id}>
+              <span aria-hidden="true" className="rp-live-dot" style={{ background: route.color }} />
+              <span className="truncate">{route.courierName}</span>
+              {item?.changed ? (
+                <small className={saved > 0 ? 'is-gain' : ''}>
+                  {saved > 0 ? `−${fmt(saved)} min` : t('live.rebalanced')}
+                </small>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </aside>
+  );
+}
