@@ -68,3 +68,38 @@ export default function OptimizationLadder({
               </span>
               <span className="rl-ladder-bar" aria-hidden="true">
                 <i className={index === optimization.ladder.length - 1 ? 'is-final' : ''} style={{ width: `${width}%` }} />
+              </span>
+              <span className="rl-ladder-value">
+                {step.minutes === null ? '—' : t('opt.minutes', { min: step.minutes.toLocaleString('es-CO') })}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      {optimization.alternatives.length > 0 ? (
+        <div className="mt-3">
+          <p className="rl-ladder-title">{t('opt.alternatives')}</p>
+          <ul className="mt-1 grid gap-1 text-xs text-[var(--ink-soft)]">
+            {optimization.alternatives
+              .filter((item) => item.step !== 'refine' && (item.step !== 'orOpt' || item.deltaMinutes !== 0))
+              .map((item) => (
+                <li key={item.step} className="flex justify-between gap-3">
+                  <span>{t(`opt.step.${item.step}` as MessageKey)}</span>
+                  <span className="tabular-nums">
+                    {item.deltaMinutes !== null && item.deltaMinutes > 0.05
+                      ? t('opt.alt.worse', { min: item.deltaMinutes.toLocaleString('es-CO') })
+                      : '—'}
+                  </span>
+                </li>
+              ))}
+          </ul>
+        </div>
+      ) : null}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          className="rp-button rp-button-quiet rp-button-small"
+          data-tip="tip.explainAi"
+          disabled={explaining}
+          onClick={() => void explain()}
+          type="button"
+        >
