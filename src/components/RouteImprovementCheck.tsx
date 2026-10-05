@@ -56,3 +56,32 @@ export default function RouteImprovementCheck({
   };
 
   const apply = async (): Promise<void> => {
+    setApplying(true);
+    try {
+      await onApply(routeId);
+      setState({ kind: 'idle' });
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 text-sm">
+      {state.kind === 'idle' || state.kind === 'same' || state.kind === 'error' ? (
+        <button
+          className="rp-button rp-button-quiet rp-button-small"
+          onClick={() => void check()}
+          type="button"
+        >
+          {t('improve.check')}
+        </button>
+      ) : null}
+      {state.kind === 'checking' ? (
+        <p aria-live="polite" role="status">{t('improve.checking')}</p>
+      ) : null}
+      {state.kind === 'same' ? (
+        <p className="mt-2" role="status">{t('improve.same')}</p>
+      ) : null}
+      {state.kind === 'error' ? (
+        <p className="rl-notice is-error mt-2" role="alert">{state.message}</p>
+      ) : null}
