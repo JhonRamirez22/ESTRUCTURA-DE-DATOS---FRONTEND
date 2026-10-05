@@ -165,3 +165,86 @@ export default function MapLibreRouteMap({
   const retryMapRef = useRef<(() => void) | null>(null);
   const cameraKeyRef = useRef<string | null>(null);
   const dataRef = useRef<MapData>({ couriers, pendingPoints, routes, selectedCoordinate, trafficMarks });
+  dataRef.current = {
+    couriers, pendingPoints, routes, selectedCoordinate, trafficMarks, inset,
+    focusRouteId: selectedRouteId, routeColors, live: liveProposal,
+  };
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) {
+      return;
+    }
+
+    // Next debe emitir el worker como asset; import.meta.url del bundle apunta a la ruta de la página.
+    maplibregl.setWorkerUrl(
+      new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).toString(),
+    );
+
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: MAP_STYLE_URL || DEFAULT_STYLE_URL,
+      center: PASTO_CENTER,
+      zoom: 13,
+      maxBounds: PASTO_MAP_BOUNDS,
+      minZoom: getPastoMinimumZoom(
+        containerRef.current.clientWidth,
+        containerRef.current.clientHeight
+      ),
+      maxZoom: 18,
+      renderWorldCopies: false,
+      refreshExpiredTiles: false,
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+    mapRef.current = map;
+    let fallbackApplied = false;
+    let fallbackTimer = 0;
+    let slowTimer = 0;
+    let unavailableTimer = 0;
+    const armLoadingTimers = () => {
+      window.clearTimeout(slowTimer);
+      window.clearTimeout(unavailableTimer);
+      slowTimer = window.setTimeout(() => setMapStatus('slow'), 7000);
+      unavailableTimer = window.setTimeout(() => setMapStatus('unavailable'), 20000);
+    };
+    armLoadingTimers();
+    let styleInitialized = false;
+    const markMapReady = () => {
+      if (!styleInitialized) return;
+      window.clearTimeout(slowTimer);
+      window.clearTimeout(unavailableTimer);
+      setMapStatus('ready');
+    };
+    const renderData = () => {
+      // style.load permite añadir capas aunque las teselas sigan pendientes.
+      styleInitialized = true;
+      map.once('render', markMapReady);
+      addMapLayers(map);
+      updateMapData(map, dataRef.current, cameraKeyRef);
+    };
+    const restoreData = () => {
+      if (map.isStyleLoaded()) renderData();
+    };
+    const applyFallbackStyle = () => {
+      if (fallbackApplied) {
+        return;
+      }
+
+      fallbackApplied = true;
+      window.clearTimeout(fallbackTimer);
+      if (styleInitialized) {
+        setMapStatus('loading');
+        armLoadingTimers();
+      }
+      styleInitialized = false;
+      map.setStyle(KEYLESS_DARK_MAP_STYLE_URL);
+    };
+    retryMapRef.current = () => {
+      window.clearTimeout(fallbackTimer);
+      setMapStatus('loading');
+      styleInitialized = false;
+      armLoadingTimers();
+      fallbackApplied = false;
+      map.setStyle(MAP_STYLE_URL || DEFAULT_STYLE_URL);
+      fallbackTimer = window.setTimeout(() => {
+        if (!map.isStyleLoaded() && !fallbackApplied) {
