@@ -82,3 +82,45 @@ export default function Sheet({
   const dragRef = useRef<{ startY: number; origin: number; samples: PointerSample[] } | null>(null);
   const onLayoutRef = useRef(onLayout);
   const [wide, setWide] = useState(false);
+  const [isFull, setIsFull] = useState(initialSnap === 0);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    onLayoutRef.current = onLayout;
+  }, [onLayout]);
+
+  const paint = useCallback((y: number) => {
+    const element = sheetRef.current;
+    if (element) element.style.transform = `translate3d(0, ${y.toFixed(2)}px, 0)`;
+  }, []);
+
+  useEffect(() => {
+    const spring = new Spring(0, paint, {
+      reducedMotion: () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    });
+    springRef.current = spring;
+    return () => spring.stop();
+  }, [paint]);
+
+  useEffect(() => {
+    const stage = sheetRef.current?.parentElement;
+    const spring = springRef.current;
+    if (!stage || !spring) return undefined;
+    const layout = () => {
+      const width = stage.clientWidth;
+      const height = stage.clientHeight;
+      const isWide = width >= panelMinWidth;
+      setWide(isWide);
+      if (isWide) {
+        spring.stop();
+        if (sheetRef.current) sheetRef.current.style.transform = '';
+        onLayoutRef.current?.(
+          layoutOf(true, { x0: PANEL_MARGIN + panelWidth + 28, x1: width - 28, y0: 64, y1: height - 28 }, width, height)
+        );
+        return;
+      }
+      const middle = Math.round(height * mid);
+      snapsRef.current = [FULL_TOP, middle, height - peek];
+      stage.style.setProperty('--sheet-full', `${FULL_TOP}px`);
+      spring.set(snapsRef.current[indexRef.current]!);
+      onLayoutRef.current?.(
