@@ -37,3 +37,22 @@ export const GENERAL_REPORTS: readonly GeneralReportKind[] = ['summary', 'courie
 
 export function generalReportUrl(kind: GeneralReportKind, from: string, to: string): string {
   const params = new URLSearchParams({ tipo: kind, desde: from, hasta: to });
+  return `/api/auditoria/informe-general?${params.toString()}`;
+}
+
+export interface AuditLogEvent {
+  id: string;
+  orderRef: string;
+  type: string;
+  fromStatus: string | null;
+  toStatus: string | null;
+  actorRole: string | null;
+  detail: string | null;
+  at: string;
+}
+
+export interface ReportDownload {
+  action: string;
+  by: string;
+  at: string;
+}
