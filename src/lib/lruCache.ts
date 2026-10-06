@@ -43,3 +43,25 @@ export class LruCache<K, V> {
   }
 
   delete(key: K): void {
+    const node = this.nodes.get(key);
+    if (node === undefined) return;
+    this.order.remove(node);
+    this.nodes.delete(key);
+  }
+
+  clear(): void {
+    while (this.order.popFront() !== undefined) {
+      // Vacía la lista doble nodo por nodo.
+    }
+    this.nodes.clear();
+  }
+
+  get size(): number {
+    return this.nodes.size;
+  }
+
+  /** Claves de la más reciente a la más antigua. */
+  keys(): K[] {
+    return this.order.toArray().map((entry) => entry.key);
+  }
+}
