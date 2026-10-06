@@ -52,3 +52,30 @@ export function isReorderOnly(route: LiveRouteProposal): boolean {
 
 export function appliableRoutes(proposal: LiveProposal | null): LiveRouteProposal[] {
   return (proposal?.routes ?? []).filter(
+    (route) => isReorderOnly(route) && route.savedMinutes >= MIN_APPLY_GAIN_MINUTES,
+  );
+}
+
+/** Stops whose position changes, or that change courier: they pulse on the map. */
+export function changedStopIds(proposal: LiveProposal | null): Set<string> {
+  const ids = new Set<string>();
+  for (const route of proposal?.routes ?? []) {
+    if (!route.changed) continue;
+    route.proposedOrder.forEach((stopId, index) => {
+      if (route.currentOrder[index] !== stopId) ids.add(stopId);
+    });
+  }
+  return ids;
+}
+
+/** A short key that changes only when the proposal itself changes (not on every tick). */
+export function proposalSignature(proposal: LiveProposal | null): string {
+  if (!proposal) return '';
+  return JSON.stringify(
+    proposal.routes.filter((r) => r.changed).map((r) => [r.routeId, r.proposedOrder]),
+  );
+}
+
+export function secondsUntil(nextAt: number, now: number): number {
+  return Math.max(0, Math.ceil((nextAt - now) / 1000));
+}
