@@ -33,3 +33,20 @@ export function useUndoToast(undoLabel: string): { show: (message: string, undo:
 
   const node = state ? (
     <div className="rp-toast" role="status">
+      <span>{state.message}</span>
+      <button
+        className="rp-toast-action"
+        onClick={() => {
+          state.undo();
+          dismiss();
+        }}
+        type="button"
+      >
+        {undoLabel}
+      </button>
+      <i aria-hidden="true" className="rp-toast-bar" />
+    </div>
+  ) : null;
+
+  return { show, node };
+}
