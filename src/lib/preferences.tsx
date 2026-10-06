@@ -56,3 +56,32 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const setTheme = useCallback((next: Theme) => {
     const root = document.documentElement;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduce) {
+      root.classList.add('theme-transition');
+      window.setTimeout(() => root.classList.remove('theme-transition'), 260);
+    }
+    root.dataset.theme = next;
+    store(THEME_KEY, next);
+    setThemeState(next);
+  }, []);
+
+  const setLang = useCallback((next: Lang) => {
+    document.documentElement.lang = next;
+    store(LANG_KEY, next);
+    setLangState(next);
+    setLangNotice(true);
+  }, []);
+
+  const value = useMemo<Preferences>(
+    () => ({
+      theme,
+      lang,
+      setTheme,
+      setLang,
+      langNotice,
+      dismissLangNotice: () => setLangNotice(false),
+      t: (key, vars) => translate(lang, key, vars),
+    }),
+    [theme, lang, setTheme, setLang, langNotice]
+  );
+
