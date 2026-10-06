@@ -66,3 +66,37 @@ export interface CongestedPoint {
  * Los `count` tramos más lentos medidos por TomTom, en O(n log k).
  * Un min-heap de tamaño k conserva los peores: si entra uno peor, sale el más leve.
  */
+export function mostCongested(points: TrafficPoint[], count: number): CongestedPoint[] {
+  if (count <= 0) return [];
+  // Un cierre pesa más que cualquier multiplicador.
+  // Valor finito: dos cierres empatan en lugar de producir NaN al restar.
+  const severity = (item: CongestedPoint) => (item.closed ? 1e9 : item.multiplier);
+  const heap = new MinHeap<CongestedPoint, string>(
+    (left, right) => severity(left) - severity(right),
+    (item) => `${item.point[0]},${item.point[1]}`
+  );
+  const seen = new Set<string>();
+  for (const item of points) {
+    // Mismo umbral que el tráfico en rojo: ALTO o más (≥ 1,5).
+    if (!item.point || (!item.closed && (item.multiplier === null || item.multiplier < 1.5))) continue;
+    const key = `${item.point[0]},${item.point[1]}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    heap.insert({ point: item.point, multiplier: item.multiplier ?? 1, closed: item.closed });
+    if (heap.size() > count) heap.extractMin();
+  }
+  const result: CongestedPoint[] = [];
+  while (!heap.isEmpty()) result.push(heap.extractMin()!);
+  return result.reverse();
+}
+
+/** Solo ALTO, MUY_ALTO y cierres se pintan en rojo: lo grave, sin competir con la ruta. */
+export function isSevereTraffic(level: string | null, closed: boolean): boolean {
+  return closed || level === 'ALTO' || level === 'MUY_ALTO' || level === 'CERRADO';
+}
+
+/** Porcentaje de tiempo extra de un tramo («+40 %»), o «cerrado». */
+export function congestionLabel(item: CongestedPoint, closedText: string): string {
+  if (item.closed) return closedText;
+  return `+${Math.round((item.multiplier - 1) * 100)} %`;
+}
