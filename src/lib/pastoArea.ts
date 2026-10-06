@@ -58,3 +58,33 @@ export function containsForeignCityReference(address: string): boolean {
     "cartagena",
     "armenia",
     "pereira",
+    "manizales",
+    "ibague",
+    "quito",
+    "guayaquil",
+    "lima",
+    "caracas",
+    "santiago",
+    "buenos aires",
+    "paris",
+    "madrid",
+    "london",
+    "new york",
+    "miami",
+    "ecuador",
+    "peru",
+    "venezuela",
+    "argentina",
+    "francia",
+    "espana",
+    "reino unido",
+    "estados unidos",
+    "usa",
+  ];
+
+  return foreignCities.some((city) => new RegExp("\\b" + city + "\\b", "u").test(normalized));
+}
+
+function removeAccents(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
