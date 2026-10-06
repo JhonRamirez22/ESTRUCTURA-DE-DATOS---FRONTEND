@@ -41,3 +41,24 @@ export function dispatchFlow(input: DispatchFlowInput): DispatchFlow {
   if (analyzing) return { phase: 'analyzing', step: 2, canAct: false, actionIsDispatch: false };
   if (hasProposal) {
     return proposalIsCurrent
+      ? { phase: 'proposal', step: 3, canAct: true, actionIsDispatch: true }
+      : { phase: 'stale', step: 2, canAct: selectedOrders > 0 && selectedCouriers > 0, actionIsDispatch: false };
+  }
+  if (pendingCount === 0) return { phase: 'no-orders', step: 1, canAct: false, actionIsDispatch: false };
+  if (selectedOrders === 0) return { phase: 'pick-orders', step: 1, canAct: false, actionIsDispatch: false };
+  if (availableCouriers === 0) return { phase: 'no-couriers', step: 2, canAct: false, actionIsDispatch: false };
+  if (selectedCouriers === 0) return { phase: 'pick-couriers', step: 2, canAct: false, actionIsDispatch: false };
+  return { phase: 'ready', step: 2, canAct: true, actionIsDispatch: false };
+}
+
+/** Repartidores a marcar al cargar: todos los disponibles, para repartir la carga entre ellos. */
+export function defaultCourierSelection(
+  available: readonly string[],
+  known: ReadonlySet<string>,
+  current: readonly string[],
+): { selection: string[]; known: Set<string> } {
+  const stillThere = current.filter((id) => available.includes(id));
+  const fresh = available.filter((id) => !known.has(id));
+  // «Conocidos» son solo los disponibles ahora: quien se desconecta y vuelve cuenta como nuevo.
+  return { selection: [...stillThere, ...fresh], known: new Set(available) };
+}
