@@ -78,3 +78,42 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     ? AbortSignal.any([init.signal, AbortSignal.timeout(API_TIMEOUT_MS)])
     : AbortSignal.timeout(API_TIMEOUT_MS);
   const headers = new Headers(init.headers);
+  const unsafe = !['GET', 'HEAD', 'OPTIONS'].includes(method);
+  // Escrituras públicas: no hay sesión de personal ni prueba CSRF; el backend exige su origen.
+  const staffMutation =
+    unsafe &&
+    ![
+      '/api/v1/auth/login',
+      '/api/v1/cliente/chat',
+      '/api/v1/solicitudes',
+      '/api/v1/solicitudes/direccion',
+    ].includes(url);
+  const role = sessionRole;
+  if (role) headers.set(SESSION_ROLE_HEADER, role);
+  const bearer = role ? accessTokens[role] : undefined;
+  if (bearer && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${bearer}`);
+  try {
+    if (staffMutation && csrfProof?.role !== role) csrfProof = null;
+    // Con token Bearer no hace falta prueba CSRF: no hay credencial ambiente.
+    if (staffMutation && !bearer && !csrfProof) {
+      const session = await fetch('/api/v1/auth/session', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: role ? { [SESSION_ROLE_HEADER]: role } : undefined,
+        signal,
+      });
+      const proof = session.headers.get('X-CSRF-Token');
+      if (!session.ok || !proof) {
+        throw new ApiRequestError('La sesión expiró. Vuelve a ingresar.', requestId);
+      }
+      csrfProof = { role: (session.headers.get(SESSION_ROLE_HEADER) as SessionRole | null) ?? role, value: proof };
+    }
+    headers.set('X-Request-ID', requestId);
+    if (unsafe && csrfProof) headers.set('X-CSRF-Token', csrfProof.value);
+    const response = await fetch(url, {
+      ...init,
+      headers,
+      signal,
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
