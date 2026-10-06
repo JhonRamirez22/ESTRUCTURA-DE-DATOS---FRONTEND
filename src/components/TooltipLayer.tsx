@@ -58,3 +58,33 @@ export default function TooltipLayer() {
       if (target.current === element) return;
       clearTimer();
       const warm = tip !== null || Date.now() - lastClosed.current < WARM_WINDOW_MS;
+      if (target.current) hide();
+      if (warm || viaKeyboard) {
+        show(element, true);
+        return;
+      }
+      timer.current = window.setTimeout(() => show(element, false), OPEN_DELAY_MS);
+    };
+
+    const onPointerOver = (event: PointerEvent) => {
+      // En pantallas táctiles el "hover" llega con el toque: no se describe.
+      if (event.pointerType !== 'mouse') return;
+      const element = (event.target as Element | null)?.closest<HTMLElement>('[data-tip]');
+      if (element) schedule(element, false);
+    };
+    const onPointerOut = (event: PointerEvent) => {
+      const element = (event.target as Element | null)?.closest<HTMLElement>('[data-tip]');
+      const next = (event.relatedTarget as Element | null)?.closest('[data-tip]');
+      if (element && element !== next) hide();
+    };
+    const onFocusIn = (event: FocusEvent) => {
+      const element = (event.target as Element | null)?.closest<HTMLElement>('[data-tip]');
+      if (element?.matches(':focus-visible')) schedule(element, true);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') hide();
+    };
+
+    document.addEventListener('pointerover', onPointerOver);
+    document.addEventListener('pointerout', onPointerOut);
+    document.addEventListener('focusin', onFocusIn);
