@@ -64,3 +64,36 @@ export function historyQuery(filter: HistoryFilter, pageSize = 25): string {
   params.set('tamano', String(pageSize));
   return params.toString();
 }
+
+export function pageCount(total: number, pageSize: number): number {
+  return Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
+}
+
+/** «21 nov., 3:05 p. m.» en hora de Bogotá, sin depender de la zona del navegador. */
+export function formatBogota(iso: string | null | undefined, lang: 'es' | 'en' = 'es'): string {
+  if (!iso) return '—';
+  const moment = new Date(iso);
+  if (Number.isNaN(moment.getTime())) return '—';
+  return new Intl.DateTimeFormat(lang === 'es' ? 'es-CO' : 'en-US', {
+    timeZone: 'America/Bogota',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(moment);
+}
+
+/** Valor de `<input type="datetime-local">` (hora de Bogotá) para el servidor; vacío = sin programar. */
+export function scheduleToPayload(local: string): string | null {
+  const value = local.trim();
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) ? value : null;
+}
+
+/** Mínimo y máximo permitidos por el servidor para el selector (hora local de Bogotá). */
+export function scheduleBounds(now: Date = new Date()): { min: string; max: string } {
+  const toLocal = (offsetDays: number): string =>
+    new Date(now.getTime() - 5 * 3600_000 + offsetDays * 86_400_000).toISOString().slice(0, 16);
+  return { min: toLocal(0), max: toLocal(60) };
+}
+
+interface Schedulable {
