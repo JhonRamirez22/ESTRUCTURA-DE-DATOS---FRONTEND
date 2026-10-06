@@ -71,3 +71,39 @@ export default function TrafficOverlay({ routeId }: { routeId: string }) {
             ? 'unavailable'
             : !data.available || observations.length === 0
               ? 'no-coverage'
+              : observations.some(
+                    (item) =>
+                      item.cacheStatus === 'STALE' ||
+                      Date.now() - Date.parse(item.observedAt) >= REFRESH_MS
+                  )
+                ? 'stale'
+                : 'consulted'
+        );
+      } catch {
+        if (!disposed && !controller.signal.aborted) {
+          setStatus(previous?.observations.length ? 'stale' : 'unavailable');
+        }
+      }
+    };
+    const visibility = () => {
+      if (document.visibilityState === 'hidden') pending?.abort();
+      else void refresh();
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), REFRESH_MS);
+    document.addEventListener('visibilitychange', visibility);
+    return () => {
+      disposed = true;
+      pending?.abort();
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', visibility);
+    };
+  }, [routeId]);
+
+  const labels: Record<TrafficState, string> = {
+    loading: 'Consultando esta ruta…',
+    consulted: 'Tráfico de esta ruta',
+    stale: 'Datos anteriores de esta ruta',
+    unavailable: 'Tráfico no disponible',
+    'no-coverage': 'Sin cobertura utilizable en esta ruta',
+  };
