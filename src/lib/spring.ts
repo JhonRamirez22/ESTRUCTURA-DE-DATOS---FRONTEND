@@ -68,3 +68,38 @@ export class Spring {
     this.value = initial;
     this.target = initial;
   }
+
+  private get requestFrame(): Frame {
+    return this.options.requestFrame ?? ((callback) => requestAnimationFrame(callback));
+  }
+
+  to(target: number, options: SpringOptions = {}): void {
+    this.target = target;
+    if (options.velocity !== undefined) this.velocity = options.velocity;
+    this.response = options.response ?? 0.4;
+    this.damping = options.damping ?? 1;
+    if (this.options.reducedMotion?.()) {
+      this.set(target);
+      return;
+    }
+    if (!this.frame) {
+      this.last = (this.options.now ?? (() => performance.now()))();
+      this.frame = this.requestFrame((time) => this.tick(time));
+    }
+  }
+
+  /** Detiene la animación conservando el valor visible, como al agarrar la hoja. */
+  stop(): void {
+    if (this.frame) (this.options.cancelFrame ?? ((handle) => cancelAnimationFrame(handle)))(this.frame);
+    this.frame = 0;
+  }
+
+  set(value: number): void {
+    this.stop();
+    this.value = value;
+    this.target = value;
+    this.velocity = 0;
+    this.onUpdate(value);
+  }
+
+  /** Mueve el valor sin animar (arrastre 1:1) manteniendo el resorte detenido. */
