@@ -164,3 +164,86 @@ export default function RepartidorPage() {
   const [dismissedProposal, setDismissedProposal] = useState<string | null>(null);
   const [autoOptimize, setAutoOptimize] = useState(true);
   const [optimizations, setOptimizations] = useState<AppliedOptimization[]>([]);
+  const [lastReviewAt, setLastReviewAt] = useState<number | null>(null);
+  const lastAutoAt = useRef(0);
+  const autoReview = useRef<(candidate: RouteProposal) => void>(() => undefined);
+  const [stopEtas, setStopEtas] = useState<StopEta[]>([]);
+  const [historySimulated, setHistorySimulated] = useState(false);
+  // Cola FIFO: las entregas marcadas sin conexión se reenvían en orden al recuperarla.
+  const [offlineUpdates] = useState(() => new OfflineQueue<DeliveryUpdate>());
+  const [pendingUpdates, setPendingUpdates] = useState(0);
+  const routeGeneration = useRef(0);
+  const watchId = useRef<number | null>(null);
+  const lastSentAt = useRef(0);
+  const pendingLocations = useRef(new Queue<LastLocation>());
+  const isSendingLocations = useRef(false);
+  const activeDeliveryPoints =
+    assignedRoute?.deliveryPoints.filter(
+      (point) => point.status === "PENDING" || point.status === "EN_ROUTE",
+    ) ?? [];
+
+  const loadCourierProfile = useCallback(async (): Promise<void> => {
+    setLoadingProfile(true);
+
+    try {
+      const response = await apiFetch("/api/repartidores/me", { cache: "no-store" });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "No se pudo validar tu sesión."));
+      }
+
+      const payload = (await response.json()) as { courier: CourierProfile };
+      setCourierStatus(payload.courier.status);
+      setLastLocation(
+        payload.courier.currentLat !== null &&
+          payload.courier.currentLng !== null &&
+          payload.courier.lastLocationAt
+          ? {
+              lat: payload.courier.currentLat,
+              lng: payload.courier.currentLng,
+              recordedAt: payload.courier.lastLocationAt,
+            }
+          : null,
+      );
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "No se pudo validar tu sesión.",
+      );
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, []);
+
+  const refreshNavigation = useCallback(async (routeId: string): Promise<void> => {
+    const generation = routeGeneration.current;
+    const response = await apiFetch(`/api/rutas/${encodeURIComponent(routeId)}/navegacion`, {
+      cache: "no-store",
+    });
+    if (generation !== routeGeneration.current) return;
+
+    if (!response.ok) {
+      throw new Error(await readApiError(response, "No se pudo actualizar la navegación."));
+    }
+
+    const payload = (await response.json()) as {
+      navigation: NavigationSnapshot | null;
+    };
+    if (generation !== routeGeneration.current) return;
+    setNavigation(payload.navigation);
+    setNavigationError(null);
+
+    if (payload.navigation) {
+      setAssignedRoute((currentRoute) =>
+        currentRoute?.id === routeId
+          ? {
+              ...currentRoute,
+              geometry: payload.navigation!.geometry,
+              geometryProvider: payload.navigation!.geometryProvider,
+              deliveryPoints: currentRoute.deliveryPoints
+                .map((point) => {
+                  const index = payload.navigation!.remainingDeliveryPointIds.indexOf(point.id);
+                  return index < 0 ? point : { ...point, sequenceIndex: index };
+                })
+                .sort((a, b) => (a.sequenceIndex ?? 0) - (b.sequenceIndex ?? 0)),
