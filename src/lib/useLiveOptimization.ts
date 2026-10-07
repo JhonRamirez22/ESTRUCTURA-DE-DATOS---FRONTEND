@@ -64,3 +64,36 @@ export function useLiveOptimization(enabled: boolean, intervalMs = 10_000): Live
         // The last good proposal stays on screen; a rate limit just slows the cadence down.
         if (error instanceof ApiRequestError && error.status === 429) {
           nextAtRef.current = Date.now() + RATE_LIMIT_BACKOFF_MS;
+        }
+      } finally {
+        inFlight = false;
+        if (!disposed) setComputing(false);
+      }
+    };
+
+    refreshRef.current = () => {
+      nextAtRef.current = 0;
+      void run();
+    };
+    nextAtRef.current = 0;
+    void run();
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setSecondsLeft(secondsUntil(nextAtRef.current, now));
+      if (now >= nextAtRef.current) void run();
+    }, 500);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() >= nextAtRef.current) void run();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      disposed = true;
+      controller?.abort();
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [enabled, intervalMs]);
+
+  const refresh = useCallback(() => refreshRef.current(), []);
+  return { proposal, status, secondsLeft, computing, tick, refresh };
+}
