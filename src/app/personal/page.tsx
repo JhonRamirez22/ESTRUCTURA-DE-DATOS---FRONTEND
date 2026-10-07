@@ -108,3 +108,58 @@ export default function StaffPage() {
   };
 
   const saveAccess = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (!access) return;
+    const email = access.email.trim().toLowerCase();
+    if (!EMAIL_PATTERN.test(email)) {
+      setAccessError('Escribe un correo válido, por ejemplo nombre@empresa.com.');
+      return;
+    }
+    if (access.password.length < MIN_PASSWORD) {
+      setAccessError(`La contraseña necesita al menos ${MIN_PASSWORD} caracteres.`);
+      return;
+    }
+    setSavingAccess(true);
+    setAccessError(null);
+    try {
+      const response = await apiFetch('/api/auth/courier-account', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courierId: access.courierId, email, password: access.password }),
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'No se pudo guardar el acceso.'));
+      }
+      const courierName = couriers.find((courier) => courier.id === access.courierId)?.name;
+      setAccess(null);
+      setNotice(`Acceso actualizado para ${courierName ?? 'el repartidor'}.`);
+    } catch (error) {
+      setAccessError(error instanceof Error ? error.message : 'No se pudo guardar el acceso.');
+    } finally {
+      setSavingAccess(false);
+    }
+  };
+
+  const deleteCourier = async (courier: Courier): Promise<void> => {
+    setDeletingId(courier.id);
+    setDeleteError(null);
+    setNotice(null);
+    try {
+      const response = await apiFetch(`/api/repartidores/${encodeURIComponent(courier.id)}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const message =
+          response.status === 409
+            ? `${courier.name} tiene rutas en su historial; se conserva para no perder ese registro.`
+            : await readApiError(response, 'No se pudo eliminar el repartidor.');
+        throw new Error(message);
+      }
+      setConfirmingDeleteId(null);
+      if (access?.courierId === courier.id) setAccess(null);
+      setNotice(`${courier.name} fue eliminado y su cuenta ya no puede ingresar.`);
+      await loadCouriers();
+    } catch (error) {
+      setConfirmingDeleteId(null);
+      setDeleteError({
+        courierId: courier.id,
