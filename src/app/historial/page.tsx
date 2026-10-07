@@ -84,3 +84,46 @@ export default function HistoryPage() {
     const key = `history.event.${type}` as MessageKey;
     return t(key) === key ? type : t(key);
   };
+  const actorLabel = (actor: string | null): string => {
+    if (!actor) return '';
+    const key = `history.actor.${actor}` as MessageKey;
+    return t(key) === key ? actor : t(key);
+  };
+
+  return (
+    <AppShell active="history">
+      <SessionChangeNotice role="dispatcher" />
+      <main className="rl-page">
+        <header className="rl-page-head">
+          <div>
+            <h1>{t('history.title')}</h1>
+            <p>{t('history.lead')}</p>
+          </div>
+        </header>
+
+        <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" onSubmit={(event) => event.preventDefault()}>
+          <label className="rp-field-label">
+            {t('history.from')}
+            <input className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums" max={filter.to || undefined}
+              onChange={(event) => update({ from: event.target.value })} type="date" value={filter.from} />
+          </label>
+          <label className="rp-field-label">
+            {t('history.to')}
+            <input className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums" min={filter.from || undefined}
+              onChange={(event) => update({ to: event.target.value })} type="date" value={filter.to} />
+          </label>
+          <label className="rp-field-label">
+            {t('history.status')}
+            <select className="rp-input mt-1.5 px-3 text-[15px] font-normal"
+              onChange={(event) => update({ status: event.target.value })} value={filter.status}>
+              <option value="">{t('history.statusAll')}</option>
+              {HISTORY_STATUSES.map((status) => (
+                <option key={status} value={status}>{statusLabel(status)}</option>
+              ))}
+            </select>
+          </label>
+          <label className="rp-field-label sm:col-span-2 lg:col-span-2">
+            {t('history.search')}
+            <input className="rp-input mt-1.5 px-3 text-[15px] font-normal" maxLength={80}
+              onChange={(event) => setTyped(event.target.value)} placeholder={t('history.search.placeholder')}
+              value={typed} />
