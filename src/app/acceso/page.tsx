@@ -45,3 +45,26 @@ export default function AccessPage() {
           </h2>
           <p>
             {t('access.lead')}
+          </p>
+          <div className="rp-access-line">
+            <RouteLine
+              label={t('access.line')}
+              selected
+              stops={[
+                { id: 'registro', label: t('access.line.1'), meta: t('access.line.1.meta'), state: 'done' },
+                { id: 'despacho', label: t('access.line.2'), meta: t('access.line.2.meta'), state: 'done' },
+                { id: 'ruta', label: t('access.line.3'), meta: t('access.line.3.meta'), state: 'current' },
+                { id: 'puerta', label: t('access.line.4'), meta: t('access.line.4.meta'), state: 'pending' },
+              ]}
+            />
+          </div>
+          <div className="rp-access-meta">
+            <MapPin size={16} aria-hidden="true" />
+            <span>{t('shell.area')}</span>
+          </div>
+        </div>
+        <InteractiveLogin onSubmit={signIn} />
+      </main>
+    </AppShell>
+  );
+}
