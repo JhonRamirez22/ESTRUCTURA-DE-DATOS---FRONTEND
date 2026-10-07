@@ -90,3 +90,49 @@ export default function AuditPage() {
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      setMessage({ tone: 'ok', text: t('audit.downloaded') });
+    } catch (error) {
+      setMessage({ tone: 'error', text: error instanceof Error ? error.message : t('audit.downloadError') });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <AppShell active="audit">
+      <SessionChangeNotice role="dispatcher" />
+      <main className="rl-page">
+        <header className="rl-page-head">
+          <div>
+            <h1>{t('audit.title')}</h1>
+            <p>{t('audit.lead')}</p>
+          </div>
+        </header>
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+          <section aria-label={t('audit.pick')} className="min-w-0">
+            <div className="rl-head">
+              <h2>{t('audit.pick')}</h2>
+            </div>
+            <div aria-label={t('audit.kind')} className="flex flex-wrap gap-2" role="group">
+              {KINDS.map((item) => (
+                <button
+                  aria-pressed={kind === item.kind}
+                  className={`rp-button rp-button-small ${kind === item.kind ? 'rp-button-secondary' : 'rp-button-quiet'}`}
+                  key={item.kind}
+                  onClick={() => {
+                    setKind(item.kind);
+                    setSelected(null);
+                    setQuery('');
+                    setMessage(null);
+                  }}
+                  type="button"
+                >
+                  {t(item.label)}
+                </button>
+              ))}
+            </div>
+            <label className="rp-field-label mt-4 block">
+              {t('audit.search')}
+              <input
+                className="rp-input mt-1.5 px-3 text-[15px] font-normal"
