@@ -49,3 +49,28 @@ export default function CourierRouteMap({
   inset,
 }: CourierRouteMapProps) {
   const courier: MapCourier = {
+    id: "current-courier",
+    name: "Tu ubicación",
+    currentLat: currentLocation?.lat ?? route.courier.currentLat,
+    currentLng: currentLocation?.lng ?? route.courier.currentLng,
+  };
+  const mapRoute: MapRoute = {
+    id: route.id,
+    courier,
+    deliveryPoints: route.deliveryPoints,
+    geometryProvider: route.geometryProvider,
+    geometry: route.geometry,
+  };
+
+  return (
+    <MapLibreRouteMap
+      showTraffic
+      trafficMarks={trafficMarks}
+      ariaLabel="Mapa de mi ruta"
+      className={className}
+      inset={inset}
+      couriers={[courier]}
+      routes={[mapRoute]}
+    />
+  );
+}
