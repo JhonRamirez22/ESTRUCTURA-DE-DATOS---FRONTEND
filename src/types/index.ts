@@ -52,3 +52,29 @@ export type DriverStatus = 'available' | 'on_route' | 'offline'
 
 export interface Driver {
   id: string
+  name: string
+  phone: string
+  status: DriverStatus
+  currentPosition?: Coordinates
+  lastPositionUpdate?: Date
+}
+
+export interface DeliveryPoint {
+  id: string
+  address: string
+  coordinates: Coordinates
+  timeWindow?: { start: Date; end: Date }
+  status: OrderStatus
+  orderId: string
+}
+
+export interface Route {
+  id: string
+  driverId: string
+  stops: DeliveryPoint[]
+  status: 'planned' | 'active' | 'completed'
+  estimatedTotalTime: number
+  estimatedTotalDistance: number
+  createdAt: Date
+  updatedAt: Date
+}
