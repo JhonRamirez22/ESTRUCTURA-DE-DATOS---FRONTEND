@@ -113,3 +113,60 @@ export default function OrdersPage() {
             error?: string;
             detail?: string;
           };
+          if (controller.signal.aborted || sequence !== lookupSequence.current) return;
+          if (!response.ok)
+            throw new Error(
+              payload.error ??
+                (typeof payload.detail === 'string'
+                  ? payload.detail
+                  : 'No se pudo buscar la dirección.')
+            );
+          const suggestions = payload.candidates ?? [];
+          rememberResolvedAddress(cacheKey, { candidates: suggestions, warning: payload.warning });
+          setCandidates(suggestions);
+          setAddressNotice(payload.warning ?? 'Confirma la ubicación sugerida antes de guardar.');
+          if (suggestions.length === 1) {
+            setSelectedCoordinate([suggestions[0]!.lat, suggestions[0]!.lng]);
+          }
+        } catch (cause) {
+          if (controller.signal.aborted || sequence !== lookupSequence.current) return;
+          setAddressNotice(
+            cause instanceof Error ? cause.message : 'No se pudo buscar la dirección.'
+          );
+        } finally {
+          if (sequence === lookupSequence.current) setFindingAddress(false);
+        }
+      })();
+    }, 500);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [draft.address]);
+
+  const confirmAddress = (candidate: AddressCandidate) => {
+    ++lookupSequence.current;
+    setFindingAddress(false);
+    setSelectedCoordinate([candidate.lat, candidate.lng]);
+    setDraft((current) => ({
+      ...current, lat: candidate.lat.toFixed(6), lng: candidate.lng.toFixed(6),
+    }));
+    setAddressNotice(
+      candidate.precision === 'address'
+        ? 'Ubicación confirmada.'
+        : 'Confirmaste una ubicación aproximada; revisa la referencia de entrega.'
+    );
+    setCandidates([]);
+  };
+
+  /** Solicitudes de clientes: no entran al despacho hasta que se aceptan aquí. */
+  const loadRequests = useCallback(async (): Promise<void> => {
+    try {
+      const response = await apiFetch('/api/pedidos?status=REQUESTED', { cache: 'no-store' });
+      if (!response.ok) throw new Error('No se pudieron cargar las solicitudes de clientes.');
+      const payload = (await response.json()) as {
+        deliveryPoints: Array<{ id: string; orderId: string; address: string; lat: number; lng: number }>;
+      };
+      setRequests(
+        payload.deliveryPoints.map((point) => ({ ...point, status: 'PENDING' as const, sequenceIndex: null }))
+      );
