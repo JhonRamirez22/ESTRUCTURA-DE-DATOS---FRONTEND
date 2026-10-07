@@ -224,3 +224,116 @@ export default function DashboardPage() {
   const loadDashboard = useCallback(async (background = false) => {
     if (background && (dashboardController.current || document.visibilityState === 'hidden')) return;
     dashboardController.current?.abort();
+    const controller = new AbortController();
+    dashboardController.current = controller;
+    const requestId = ++dashboardRequestId.current;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const options = { signal: controller.signal };
+      const results = await Promise.allSettled([
+        apiJson<{ couriers: Courier[] }>('/api/repartidores', options),
+        apiJson<{ deliveryPoints: DeliveryPoint[] }>('/api/pedidos?status=PENDING', options),
+        apiJson<{ routes: Route[] }>('/api/rutas', options),
+        apiJson<{ notifications: Notification[]; warning?: string }>('/api/notificaciones?recipientId=dispatcher&limit=5', options),
+        apiJson<{ metrics: FleetMetrics }>('/api/analitica', options),
+      ]);
+      if (controller.signal.aborted || requestId !== dashboardRequestId.current) return;
+      const names = ['Repartidores', 'Pedidos', 'Rutas', 'Avisos', 'Analítica'];
+      const describeFailure = (index: number) => {
+        const result = results[index];
+        if (result.status !== 'rejected') return '';
+        const cause: unknown = result.reason;
+        return `${names[index]}: ${cause instanceof Error ? cause.message : 'No disponible.'}${cause instanceof ApiRequestError ? ` Referencia: ${cause.requestId}.` : ''}`;
+      };
+      const denied = results.findIndex((result) => result.status === 'rejected' &&
+        result.reason instanceof ApiRequestError && [401, 403].includes(result.reason.status ?? 0));
+      if (denied !== -1) {
+        setOperationalReady(false);
+        setSessionExpired(results[denied].status === 'rejected' && results[denied].reason.status === 401);
+        setData(EMPTY_DASHBOARD_DATA);
+        setLastUpdatedAt(null);
+        setDashboardWarning(null);
+        setSelectedCourierIds([]);
+        setSelectedPendingIds([]);
+        setAssignmentPreview([]);
+        setAssignmentPreviewSelectionKey(null);
+        setUnassignedDeliveryPointIds([]);
+        setRouteActionNotice(null);
+        setAssignmentAiStatus(null);
+        setLiveTrafficNotice(null);
+        throw new Error(describeFailure(denied));
+      }
+      const [couriers, orders, routes, notifications, analytics] = results;
+      setDashboardWarning(results.slice(3).map((result, index) => result.status === 'rejected'
+        ? describeFailure(index + 3) : '').filter(Boolean).join(' ') || null);
+      if (couriers.status !== 'fulfilled' || orders.status !== 'fulfilled' || routes.status !== 'fulfilled') {
+        setOperationalReady(false);
+        throw new Error(results.slice(0, 3).map((result, index) => result.status === 'rejected'
+          ? describeFailure(index) : '').filter(Boolean).join(' '));
+      }
+      const couriersPayload = couriers.value;
+      const ordersPayload = orders.value;
+      const routesPayload = routes.value;
+      if (!Array.isArray(couriersPayload?.couriers) || !Array.isArray(ordersPayload?.deliveryPoints) ||
+          !Array.isArray(routesPayload?.routes)) {
+        setOperationalReady(false);
+        throw new Error('Los datos operativos tienen un formato inválido. Reintenta la actualización.');
+      }
+      const availableCourierIds = couriersPayload.couriers
+        .filter(
+          (courier) =>
+            courier.status === 'AVAILABLE' &&
+            courier.currentLat !== null &&
+            courier.currentLng !== null &&
+            isCourierLocationFresh(
+              courier.lastLocationAt ? new Date(courier.lastLocationAt) : null
+            )
+        )
+        .map((courier) => courier.id);
+
+      // Todos los repartidores disponibles quedan marcados para repartir la carga; quien el
+      // despachador desmarca se respeta y solo se suman los que se acaban de conectar.
+      // El «updater» debe ser puro (React lo puede ejecutar dos veces): se lee una copia de los
+      // conocidos y la referencia se actualiza fuera de él.
+      const knownBefore = knownCourierIds.current;
+      knownCourierIds.current = new Set(availableCourierIds);
+      setSelectedCourierIds(
+        (current) => defaultCourierSelection(availableCourierIds, knownBefore, current).selection
+      );
+      // Un pedido PENDING con ruta ya está asignado: no está disponible para despachar otra vez.
+      // Los programados lejanos esperan en su cola; vencidos y próximos entran primero a la de despacho.
+      const { ready: unassigned, waiting: scheduled } = splitSchedule(
+        ordersPayload.deliveryPoints.filter((point) => !point.routeId)
+      );
+      if (!selectionInitialized.current) {
+        setSelectedPendingIds(unassigned.map((point) => point.id));
+        selectionInitialized.current = true;
+      } else {
+        setSelectedPendingIds((current) =>
+          current.filter((id) => unassigned.some((point) => point.id === id))
+        );
+      }
+
+      setData((previous) => ({
+        couriers: couriersPayload.couriers,
+        notifications: notifications.status === 'fulfilled' && Array.isArray(notifications.value?.notifications)
+          ? notifications.value.notifications : previous.notifications,
+        notificationsWarning: notifications.status === 'fulfilled' ? notifications.value?.warning ?? null : 'Avisos anteriores; no se pudieron actualizar.',
+        pendingPoints: unassigned,
+        scheduledPoints: scheduled,
+        routes: routesPayload.routes,
+        metrics: analytics.status === 'fulfilled' && analytics.value?.metrics
+          ? analytics.value.metrics : previous.metrics,
+      }));
+      setOperationalReady(true);
+      setSessionExpired(false);
+      setLastUpdatedAt(new Date());
+    } catch (loadError) {
+      if (controller.signal.aborted || requestId !== dashboardRequestId.current) return;
+      setOperationalReady(false);
+      setError(loadError instanceof TypeError || loadError instanceof SyntaxError
+        ? 'La respuesta operativa tiene un formato inválido. Actualiza antes de continuar.'
+        : loadError instanceof Error ? loadError.message : 'No se pudo actualizar la operación.');
+    } finally {
