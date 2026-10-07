@@ -102,3 +102,55 @@ export default function ClientePage() {
     let failedResponseStatus: number | null = null;
     try {
       const response = await apiFetch(`/api/seguimiento?guia=${encodeURIComponent(normalizedGuide)}`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        failedResponseStatus = response.status;
+        throw new Error(await readApiError(response, "No se pudo consultar el pedido."));
+      }
+
+      const payload = (await response.json()) as { tracking: TrackingData };
+      setTracking(payload.tracking);
+      setLastUpdatedAt(new Date());
+    } catch (searchError) {
+      // La caída temporal admite mostrar datos previos; un rechazo de acceso debe borrarlos.
+      const canKeepPreviousTracking =
+        failedResponseStatus === null || failedResponseStatus === 429 || failedResponseStatus >= 500;
+      if (refreshingCurrentTracking && canKeepPreviousTracking) {
+        setTrackingRefreshWarning(
+          "No pudimos actualizar ahora. Conservamos la última información consultada; puedes reintentar."
+        );
+      } else {
+        setTracking(null);
+        setLastUpdatedAt(null);
+        setError(searchError instanceof Error ? searchError.message : "No se pudo consultar el pedido.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [guide, tracking?.guide]);
+
+  // El enlace de una solicitud recién enviada trae la guía: se consulta una sola vez.
+  const guideFromLink = useRef(false);
+  useEffect(() => {
+    if (guideFromLink.current) return;
+    guideFromLink.current = true;
+    const linked = new URLSearchParams(window.location.search).get("guia")?.trim();
+    if (linked) {
+      setGuide(linked);
+      void searchTracking(linked);
+    }
+  }, [searchTracking]);
+
+  useEffect(() => {
+    if (!tracking || tracking.status === "DELIVERED" || tracking.status === "FAILED") {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void searchTracking(tracking.guide);
+    }, 30_000);
+
+    return () => window.clearInterval(interval);
+  }, [searchTracking, tracking]);
