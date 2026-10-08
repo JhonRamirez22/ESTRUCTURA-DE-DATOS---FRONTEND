@@ -115,3 +115,41 @@ export default function CommandPalette({ open, onClose, items, label, placeholde
           {results.length === 0 ? (
             <li className="rp-palette-empty" role="presentation">
               {emptyText}
+            </li>
+          ) : null}
+          {results.map((item, index) => {
+            const heading = item.group !== lastGroup ? item.group : null;
+            lastGroup = item.group;
+            const content = (
+              <>
+                <span>{item.label}</span>
+                {item.hint ? <small>{item.hint}</small> : null}
+              </>
+            );
+            const common = {
+              className: 'rp-palette-option',
+              id: `${listId}-${item.id}`,
+              onMouseMove: () => setSelected(index),
+              role: 'option' as const,
+              'aria-selected': index === selected,
+            };
+            return (
+              <li key={item.id} role="presentation">
+                {heading ? <p className="rp-palette-group">{heading}</p> : null}
+                {item.href ? (
+                  <Link {...common} href={item.href} onClick={onClose}>
+                    {content}
+                  </Link>
+                ) : (
+                  <button {...common} onClick={() => activate(item)} tabIndex={-1} type="button">
+                    {content}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
