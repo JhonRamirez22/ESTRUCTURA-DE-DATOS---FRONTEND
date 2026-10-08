@@ -65,3 +65,36 @@ export class MinHeap<T, Id extends HeapId = HeapId> {
     while (current > 0) {
       const parent = Math.floor((current - 1) / 2);
       if (this.compare(this.items[current], this.items[parent]) >= 0) {
+        break;
+      }
+      this.swap(current, parent);
+      current = parent;
+    }
+  }
+
+  private bubbleDown(index: number): void {
+    let current = index;
+    for (;;) {
+      const left = current * 2 + 1;
+      const right = left + 1;
+      let smallest = current;
+      if (left < this.items.length && this.compare(this.items[left], this.items[smallest]) < 0) {
+        smallest = left;
+      }
+      if (right < this.items.length && this.compare(this.items[right], this.items[smallest]) < 0) {
+        smallest = right;
+      }
+      if (smallest === current) {
+        return;
+      }
+      this.swap(current, smallest);
+      current = smallest;
+    }
+  }
+
+  private swap(left: number, right: number): void {
+    [this.items[left], this.items[right]] = [this.items[right], this.items[left]];
+    this.indices.set(this.getId(this.items[left]), left);
+    this.indices.set(this.getId(this.items[right]), right);
+  }
+}
