@@ -139,3 +139,50 @@ export default function CustomerOrderChat({ guide }: CustomerOrderChatProps) {
   };
 
   return (
+    <section
+      aria-labelledby="customer-order-chat-title"
+      className="rl-section"
+    >
+      <div className="rl-head flex-col !items-start sm:flex-row sm:!items-center">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900" id="customer-order-chat-title">
+            ¿Tienes dudas sobre este pedido?
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Resuelve dudas sobre esta guía. La conexión con el proveedor se confirma al enviar.
+          </p>
+        </div>
+        <span
+          className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
+            assistantConfiguration === 'configured'
+              ? 'bg-emerald-50 text-emerald-800'
+              : assistantConfiguration === 'checking'
+                ? 'bg-slate-100 text-slate-700'
+                : 'bg-amber-50 text-amber-900'
+          }`}
+        >
+          <span
+            aria-hidden="true"
+            className={`h-2 w-2 rounded-full ${
+              assistantConfiguration === 'configured' ? 'bg-emerald-600' : 'bg-amber-600'
+            }`}
+          />
+          {assistantConfiguration === 'configured'
+            ? 'IA configurada'
+            : assistantConfiguration === 'checking'
+              ? 'Verificando configuración'
+              : assistantConfiguration === 'unknown'
+                ? 'Configuración sin confirmar'
+                : 'IA sin configurar'}
+        </span>
+      </div>
+
+      {assistantConfiguration === 'not-configured' ? (
+        <p className="px-4 py-5 text-sm leading-6 text-slate-700 sm:px-5" role="status">
+          El asistente no está configurado por ahora. Puedes seguir consultando el estado del pedido
+          y su ubicación con esta misma guía.
+        </p>
+      ) : assistantConfiguration === 'checking' ? (
+        <p className="px-4 py-5 text-sm text-slate-600 sm:px-5" role="status">
+          Comprobando la configuración del asistente…
+        </p>
