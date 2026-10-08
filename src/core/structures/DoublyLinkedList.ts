@@ -57,3 +57,32 @@ export class DoublyLinkedList<T> {
     } else {
       node.next.previous = node.previous;
     }
+    node.previous = null;
+    node.next = null;
+    node.owner = null;
+    this.count -= 1;
+    return node.value;
+  }
+
+  moveToFront(node: DoublyLinkedNode<T>): void {
+    this.assertAttached(node);
+    if (node === this.head) {
+      return;
+    }
+    if (node.previous !== null) {
+      node.previous.next = node.next;
+    }
+    if (node.next === null) {
+      this.tail = node.previous;
+    } else {
+      node.next.previous = node.previous;
+    }
+    node.previous = null;
+    node.next = this.head;
+    if (this.head !== null) {
+      this.head.previous = node;
+    }
+    this.head = node;
+  }
+
+  popFront(): T | undefined {
