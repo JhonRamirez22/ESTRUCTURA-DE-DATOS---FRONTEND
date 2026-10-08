@@ -133,3 +133,47 @@ export default function AppShell({ children, active }: AppShellProps) {
           <nav aria-label={t('nav.main')} className="rp-navigation" hidden={active === 'courier'}>
             {navigation.map((item) => {
               const isActive = active === item.key || (!active && pathname === item.href);
+              return (
+                <Link
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`rp-nav-item ${isActive ? 'is-active' : ''}`}
+                  data-tip={`tip.nav.${item.key}`}
+                  href={item.href}
+                  key={item.href}
+                >
+                  <InterfaceIcon name={NAV_ICON[item.key]} />
+                  <span>{label(item.key)}</span>
+                  <InterfaceIcon name="arrow" className="rp-nav-arrow" />
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="rp-shell-account">
+            <div className="rp-shell-tools" role="group" aria-label={t('shell.help')}>
+              {dispatcherSurface ? (
+                <button
+                  aria-label={t('palette.open')}
+                  className="rp-tool"
+                  data-tip="tip.palette"
+                  onClick={() => setPaletteOpen(true)}
+                  type="button"
+                >
+                  <Search aria-hidden="true" />
+                </button>
+              ) : null}
+              <button
+                aria-label={t('shell.help')}
+                className="rp-tool"
+                data-tip="tip.help"
+                onClick={() => window.dispatchEvent(new Event(OPEN_INTRO_EVENT))}
+                type="button"
+              >
+                <CircleHelp aria-hidden="true" />
+              </button>
+              <button
+                aria-label={theme === 'dark' ? t('shell.themeToLight') : t('shell.themeToDark')}
+                className="rp-tool rp-tool-theme"
+                data-tip="tip.theme"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                type="button"
+              >
