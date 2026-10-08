@@ -74,3 +74,41 @@ export function InteractiveLogin({
           type="email"
           required
           maxLength={254}
+          value={email}
+          disabled={loading}
+          aria-invalid={emailInvalid}
+          aria-describedby={emailInvalid ? 'email-hint' : undefined}
+          onBlur={() => setEmailTouched(true)}
+          onChange={(event) => setEmail(event.target.value)}
+        />
+        {emailInvalid ? (
+          <p className="ui-login-error" id="email-hint">
+            {t('login.email.invalid')}
+          </p>
+        ) : null}
+        <label htmlFor="password">{t('login.password')}</label>
+        <div className="ui-password-field">
+          <input
+            id="password"
+            name="password"
+            autoComplete="current-password"
+            className="rp-input"
+            type={visiblePassword ? 'text' : 'password'}
+            required
+            maxLength={128}
+            value={password}
+            disabled={loading}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="ui-password-toggle"
+            aria-label={visiblePassword ? t('login.hide') : t('login.show')}
+            data-tip="tip.showPassword"
+            aria-pressed={visiblePassword}
+            onClick={() => setVisiblePassword(!visiblePassword)}
+            disabled={loading}
+          >
+            {visiblePassword ? (
+              <EyeOff size={18} aria-hidden="true" />
