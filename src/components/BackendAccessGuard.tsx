@@ -86,3 +86,32 @@ export default function BackendAccessGuard({ children }: { children: ReactNode }
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#122522] text-sm font-black text-emerald-200">
             RP
           </span>
+          <div>
+            <h1 className="text-base font-semibold text-slate-900">
+              {state === "checking" ? "Verificando acceso" : "No se pudo validar tu sesión"}
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              {state === "checking"
+                ? "Consultando permisos de forma segura…"
+                : error ?? "Intenta nuevamente en unos segundos."}
+            </p>
+          </div>
+        </div>
+        {state === "checking" ? (
+          <div className="mt-6 space-y-2" aria-hidden="true">
+            <div className="h-2 w-full animate-pulse rounded-full bg-slate-100 motion-reduce:animate-none" />
+            <div className="h-2 w-2/3 animate-pulse rounded-full bg-slate-100 motion-reduce:animate-none" />
+          </div>
+        ) : (
+          <button
+            className="rp-button rp-button-primary mt-6 w-full"
+            onClick={() => setRetryCount((count) => count + 1)}
+            type="button"
+          >
+            Reintentar
+          </button>
+        )}
+      </section>
+    </main>
+  );
+}
