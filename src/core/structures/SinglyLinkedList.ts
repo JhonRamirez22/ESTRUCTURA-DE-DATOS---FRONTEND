@@ -60,3 +60,33 @@ export class SinglyLinkedList<T> {
           this.tail = previous;
         }
         this.count -= 1;
+        return true;
+      }
+      previous = current;
+      current = current.next;
+    }
+    return false;
+  }
+
+  toArray(): T[] {
+    const values: T[] = [];
+    for (let current = this.head; current !== null; current = current.next) {
+      values.push(current.value);
+    }
+    return values;
+  }
+
+  clear(): void {
+    this.head = null;
+    this.tail = null;
+    this.count = 0;
+  }
+
+  size(): number {
+    return this.count;
+  }
+
+  isEmpty(): boolean {
+    return this.count === 0;
+  }
+}
