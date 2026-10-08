@@ -114,3 +114,41 @@ export function AuditLog() {
         setFailed(false);
       } catch {
         if (!signal.aborted) setFailed(true);
+      }
+    },
+    [page, type],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    apiJson<{ downloads: ReportDownload[] }>('/api/auditoria/descargas', { signal: controller.signal })
+      .then((body) => setDownloads(Array.isArray(body.downloads) ? body.downloads : []))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+
+  const label = (value: string): string => {
+    const key = `history.event.${value}` as MessageKey;
+    return t(key) === key ? value : t(key);
+  };
+
+  return (
+    <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      <section aria-label={t('audit.log.title')} className="min-w-0">
+        <div className="rl-head"><h2>{t('audit.log.title')}</h2></div>
+        <label className="rp-field-label block">
+          {t('history.status')}
+          <select className="rp-input mt-1.5 px-3 text-[15px] font-normal" onChange={(event) => { setType(event.target.value); setPage(1); }} value={type}>
+            <option value="">{t('audit.log.all')}</option>
+            {EVENT_TYPES.map((item) => <option key={item} value={item}>{label(item)}</option>)}
+          </select>
+        </label>
+        {failed ? <p className="rl-notice is-error mt-3" role="alert">{t('audit.log.error')}</p> : null}
+        <ul className="rl-rows mt-3">
+          {events.map((entry) => (
