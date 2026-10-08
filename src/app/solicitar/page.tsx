@@ -96,3 +96,52 @@ export default function RequestDeliveryPage() {
           if (!response.ok || !payload) {
             setLookup({
               candidates: [],
+              source: 'local',
+              normalizedAddress: text,
+              warning: payload?.error ?? null,
+            });
+            return;
+          }
+          setLookup(payload);
+        } catch {
+          if (sequence === lookupSequence.current) setLookup(null);
+        } finally {
+          if (sequence === lookupSequence.current) setLooking(false);
+        }
+      })();
+    }, LOOKUP_DEBOUNCE_MS);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [address, picked]);
+
+  const pickCandidate = (candidate: AddressCandidate) => {
+    ++lookupSequence.current;
+    setPicked(true);
+    setAddress(candidate.address);
+    setPoint([candidate.lat, candidate.lng]);
+    setLookup(null);
+    setError(null);
+  };
+
+  const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    const text = address.trim();
+    if (text.length < 5) {
+      setError('Escribe la dirección de entrega (al menos 5 caracteres).');
+      return;
+    }
+    if (containsForeignCityReference(text)) {
+      setError('Por ahora solo atendemos direcciones dentro de Pasto, Nariño.');
+      return;
+    }
+    if (!point) {
+      setError('Marca en el mapa el punto exacto de entrega.');
+      return;
+    }
+    setSending(true);
+    setError(null);
+    try {
+      const response = await apiFetch('/api/solicitudes', {
+        method: 'POST',
