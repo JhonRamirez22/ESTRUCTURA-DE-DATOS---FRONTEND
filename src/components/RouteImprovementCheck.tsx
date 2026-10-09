@@ -85,3 +85,31 @@ export default function RouteImprovementCheck({
       {state.kind === 'error' ? (
         <p className="rl-notice is-error mt-2" role="alert">{state.message}</p>
       ) : null}
+      {state.kind === 'better' ? (
+        <div className="rl-notice is-ok !block mt-1" role="status">
+          <p className="font-semibold">
+            {state.proposal.improvementMinutes !== null && state.proposal.improvementMinutes > 0
+              ? t('improve.saves', { min: Math.round(state.proposal.improvementMinutes) })
+              : t('improve.different')}
+          </p>
+          {state.proposal.baselineDurationMinutes != null ? (
+            <p className="mt-1 tabular-nums">
+              {t('improve.fromTo', {
+                from: Math.round(state.proposal.baselineDurationMinutes),
+                to: Math.round(state.proposal.estimatedDurationMinutes),
+              })}
+            </p>
+          ) : null}
+          <div className="mt-2 flex gap-2">
+            <button className="rp-button rp-button-go rp-button-small" disabled={applying} onClick={() => void apply()} type="button">
+              {applying ? t('improve.applying') : t('improve.apply')}
+            </button>
+            <button className="rp-button rp-button-quiet rp-button-small" disabled={applying} onClick={() => setState({ kind: 'idle' })} type="button">
+              {t('improve.later')}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
