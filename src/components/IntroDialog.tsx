@@ -80,3 +80,30 @@ export default function IntroDialog() {
               selected
               stops={[
                 { id: 'registro', label: t('intro.step1'), meta: t('intro.step1.meta'), state: 'done' },
+                { id: 'despacho', label: t('intro.step2'), meta: t('intro.step2.meta'), state: 'done' },
+                { id: 'ruta', label: t('intro.step3'), meta: t('intro.step3.meta'), state: 'current' },
+                { id: 'cliente', label: t('intro.step4'), meta: t('intro.step4.meta'), state: 'pending' },
+              ]}
+            />
+          </div>
+          <div className="rl-intro-roles">
+            <p className="font-semibold">{t('intro.roles')}</p>
+            <ul>
+              <li>{t('intro.role.dispatch')}</li>
+              <li>{t('intro.role.courier')}</li>
+              <li>{t('intro.role.client')}</li>
+            </ul>
+          </div>
+          <div className="rl-intro-actions">
+            <button className="rp-button rp-button-quiet" onClick={close} type="button">
+              {t('intro.skip')}
+            </button>
+            <button autoFocus className="rp-button rp-button-go" onClick={close} type="button">
+              {t('intro.start')}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </dialog>
+  );
+}
