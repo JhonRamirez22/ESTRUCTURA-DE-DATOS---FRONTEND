@@ -103,3 +103,38 @@ export default function OptimizationLadder({
           onClick={() => void explain()}
           type="button"
         >
+          {explaining ? t('opt.explaining') : t('opt.explain')}
+        </button>
+        {explainError ? <span className="text-xs text-[var(--danger-ink)]">{explainError}</span> : null}
+      </div>
+      {explanation ? (
+        <div className="rl-notice is-ok mt-2 !block text-sm" role="status">
+          <p>{explanation.text}</p>
+          <p className="mt-1 text-xs">
+            {explanation.source === 'groq-validated' ? t('opt.explainedBy') : t('opt.explainFallback')}
+          </p>
+        </div>
+      ) : null}
+      <p className="rl-ladder-note">
+        {tomtom.sampled > 0
+          ? t('opt.tomtom', { sampled: tomtom.sampled, segments: tomtom.segments, adjusted: tomtom.adjusted, closed })
+          : t('opt.tomtom.off')}{' '}
+        {groq.trafficApplied && groq.model ? t('opt.groq.traffic', { model: groq.model }) : null}{' '}
+        {t('opt.sameMatrix')}
+      </p>
+    </section>
+  );
+}
+
+/** Sello del refinamiento: óptimo demostrado, o cuánto puede quedar sobre la cota inferior. */
+function refineStatus(
+  step: RouteOptimization['ladder'][number],
+  t: ReturnType<typeof useT>
+): string | null {
+  if (step.provenOptimal) return t('opt.refine.optimal');
+  if (step.minutes !== null && step.lowerBoundMinutes) {
+    const gap = Math.max(0, ((step.minutes - step.lowerBoundMinutes) / step.lowerBoundMinutes) * 100);
+    return t('opt.refine.bound', { pct: Math.round(gap).toLocaleString('es-CO') });
+  }
+  return null;
+}
