@@ -125,3 +125,45 @@ export default function OptimizationFeed() {
             data-tip="tip.summary"
             disabled={summarizing || cooldown > 0 || events.length === 0}
             onClick={() => void requestSummary()}
+            type="button"
+          >
+            {summarizing ? 'Generando…' : cooldown > 0 ? `Resumen IA en ${cooldown} s` : t('feed.summary')}
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-x-10 gap-y-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+        {stats ? (
+          <dl className="grid grid-cols-2 content-start gap-x-6 gap-y-4">
+            <Stat label={t('feed.proposals')} value={stats.proposals} />
+            <Stat label={t('feed.cache')} value={stats.cacheHits} />
+            <Stat label={t('feed.applied')} value={stats.applied} />
+            <Stat label={t('feed.saved')} value={stats.savedMinutes} />
+          </dl>
+        ) : <div />}
+
+        <div className="min-w-0">
+          {error ? <p className="rl-notice is-warn mb-3" role="status">{error}</p> : null}
+          {summary ? (
+            <p className="rl-notice is-ok feed-enter mb-3 !block leading-6" role="status">
+              <strong className="block font-semibold">Resumen de la IA (no cambia rutas)</strong>
+              {summary}
+            </p>
+          ) : null}
+          {summaryError ? <p className="rl-notice is-warn mb-3" role="status">{summaryError}</p> : null}
+
+          <ol className="rl-rows max-h-72 overflow-y-auto" aria-live="polite">
+            {events.length === 0 ? (
+              <li className="rl-empty">{t('feed.empty')}</li>
+            ) : null}
+            {events.map((event) => (
+              <li key={`${event.at}-${event.routeAlias}-${event.kind}`} className="rl-row feed-enter flex-wrap !gap-x-3 !gap-y-1 text-sm">
+                <time className="w-20 shrink-0 text-xs tabular-nums text-[var(--ink-soft)]" dateTime={event.at}>
+                  {new Date(event.at).toLocaleTimeString('es-CO')}
+                </time>
+                <span className={`rl-state w-20 ${event.kind === 'aplicada' ? 'is-route' : 'is-muted'}`}>
+                  {event.kind === 'aplicada' ? t('feed.kind.applied') : t('feed.kind.proposal')}
+                </span>
+                <span className="font-semibold">Ruta {event.routeAlias}</span>
+                <span className="text-[var(--ink-soft)]">{describe(event)}</span>
+                {event.aiOrderAccepted ? (
