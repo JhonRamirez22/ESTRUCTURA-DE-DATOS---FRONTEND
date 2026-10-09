@@ -85,3 +85,32 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     [theme, lang, setTheme, setLang, langNotice]
   );
 
+  return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
+}
+
+/** Sin proveedor (pruebas aisladas) responde en español, el idioma por defecto. */
+export function usePreferences(): Preferences {
+  const context = useContext(PreferencesContext);
+  if (context) return context;
+  return {
+    theme: 'light',
+    lang: 'es',
+    setTheme: () => undefined,
+    setLang: () => undefined,
+    langNotice: false,
+    dismissLangNotice: () => undefined,
+    t: (key, vars) => translate('es', key, vars),
+  };
+}
+
+export function useT() {
+  return usePreferences().t;
+}
+
+/** Texto traducido; sirve también dentro de componentes de servidor. */
+export function Tx({ k, vars }: { k: MessageKey; vars?: Record<string, string | number> }) {
+  return <>{usePreferences().t(k, vars)}</>;
+}
+
+/** Script previo al pintado: aplica tema e idioma guardados sin parpadeo. */
+export const PREFERENCES_BOOT_SCRIPT = `(function(){try{var d=document.documentElement;var t=localStorage.getItem('${THEME_KEY}');if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}d.dataset.theme=t;var l=localStorage.getItem('${LANG_KEY}');if(l==='en'){d.lang='en'}}catch(e){}})();`;
