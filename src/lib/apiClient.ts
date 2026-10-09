@@ -117,3 +117,42 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
       credentials: 'same-origin',
       cache: 'no-store',
     });
+    const proof = response.headers.get('X-CSRF-Token');
+    const responseRole = response.headers.get(SESSION_ROLE_HEADER) as SessionRole | null;
+    if (proof) csrfProof = { role: responseRole ?? role, value: proof };
+    if (response.status === 401 || url === '/api/v1/auth/logout') csrfProof = null;
+    if (response.ok && url === '/api/v1/auth/login' && responseRole) {
+      const token = await response.clone().json().then(
+        (data: { accessToken?: unknown }) => (typeof data.accessToken === 'string' ? data.accessToken : null),
+        () => null
+      );
+      if (token) accessTokens[responseRole] = token;
+      announceSessionChange({ role: responseRole, kind: 'login' });
+    }
+    if (response.status === 401 && role) delete accessTokens[role];
+    if (response.ok && url === '/api/v1/auth/logout') {
+      if (role) delete accessTokens[role];
+      else { delete accessTokens.dispatcher; delete accessTokens.courier; }
+      announceSessionChange({ role: role ?? 'all', kind: 'logout' });
+    }
+    if (!response.ok && !response.headers.get('Content-Type')?.includes('application/json')) {
+      return Response.json(
+        {
+          error: 'El servicio de acceso no respondió correctamente. Intenta nuevamente.',
+          requestId: response.headers.get('X-Request-ID') ?? requestId,
+        },
+        { status: response.status, headers: { 'X-Request-ID': response.headers.get('X-Request-ID') ?? requestId } }
+      );
+    }
+    return response;
+  } catch (error) {
+    if (init.signal?.aborted) throw error;
+    if (error instanceof ApiRequestError) throw error;
+    throw new ApiRequestError(
+      signal.aborted
+        ? 'La petición tardó demasiado. Intenta nuevamente.'
+        : 'No se pudo conectar con el servidor.',
+      requestId
+    );
+  }
+}
