@@ -97,3 +97,35 @@ export function scheduleBounds(now: Date = new Date()): { min: string; max: stri
 }
 
 interface Schedulable {
+  priority?: number;
+  scheduledFor?: string | null;
+  scheduleState?: ScheduleState | null;
+}
+
+const STATE_RANK: Record<ScheduleState, number> = { overdue: 0, 'due-soon': 1, scheduled: 2 };
+
+/** Cola de despacho: vencidos primero, luego los próximos, después prioridad y hora. */
+export function queueOrder<T extends Schedulable>(points: readonly T[]): T[] {
+  const rank = (point: T): number =>
+    point.scheduleState === 'overdue' || point.scheduleState === 'due-soon'
+      ? STATE_RANK[point.scheduleState]
+      : 2;
+  return [...points].sort(
+    (a, b) =>
+      rank(a) - rank(b) ||
+      (b.priority ?? 1) - (a.priority ?? 1) ||
+      (a.scheduledFor ?? '9999').localeCompare(b.scheduledFor ?? '9999'),
+  );
+}
+
+/** Los programados lejanos esperan en su cola; el resto entra a la de despacho. */
+export function splitSchedule<T extends Schedulable>(points: readonly T[]): { ready: T[]; waiting: T[] } {
+  const waiting = points
+    .filter((point) => point.scheduleState === 'scheduled')
+    .sort((a, b) => (a.scheduledFor ?? '').localeCompare(b.scheduledFor ?? ''));
+  const ready = queueOrder(points.filter((point) => point.scheduleState !== 'scheduled'));
+  return { ready, waiting };
+}
+
+/** Eventos que el cliente puede ver, en orden, con la clave de su etiqueta. */
+export const CUSTOMER_MILESTONES = ['CREATED', 'ASSIGNED', 'STARTED', 'DELIVERED'] as const;
