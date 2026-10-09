@@ -109,3 +109,39 @@ export function LiveOptimizationHud({
     </aside>
   );
 }
+
+/** What the live recalculation suggests for one route card. */
+export function LiveRouteSuggestion({
+  proposal,
+  applying,
+  onApply,
+}: {
+  proposal: LiveRouteProposal;
+  applying: boolean;
+  onApply: () => void;
+}) {
+  const t = useT();
+  if (!proposal.changed) {
+    return <p className="mt-3 text-xs text-[var(--ink-soft)]">✓ {t('live.route.same')}</p>;
+  }
+  const moves = proposal.movedIn.length + proposal.movedOut.length;
+  return (
+    <div className="rl-notice is-ok !block mt-3 text-sm" role="status">
+      {isReorderOnly(proposal) && proposal.savedMinutes >= 0.2 ? (
+        <>
+          <p className="font-semibold">
+            {t('live.route.reorder', {
+              min: fmt(proposal.savedMinutes),
+              a: proposal.currentMinutes === null ? '—' : fmt(proposal.currentMinutes),
+              b: proposal.proposedMinutes === null ? '—' : fmt(proposal.proposedMinutes),
+            })}
+          </p>
+          <button className="rp-button rp-button-go rp-button-small mt-2" disabled={applying} onClick={onApply} type="button">
+            {applying ? t('improve.applying') : t('live.route.apply')}
+          </button>
+        </>
+      ) : null}
+      {moves > 0 ? <p className="leading-5">{t('live.route.moves', { n: moves })}</p> : null}
+    </div>
+  );
+}
