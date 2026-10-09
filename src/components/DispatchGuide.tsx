@@ -89,3 +89,33 @@ export function DispatchAction({
     'pick-couriers': t('flow.hint.pickCouriers'),
     ready: t('flow.hint.ready'),
     analyzing: t('flow.hint.analyzing'),
+    proposal: t('flow.hint.proposal'),
+    stale: t('flow.hint.stale'),
+    dispatching: t('flow.hint.dispatching'),
+  };
+  const showBack = flow.phase === 'proposal' || flow.phase === 'stale';
+
+  return (
+    <div className="grid gap-2">
+      <p className={`dispatch-hint ${flow.canAct && !busy ? '' : 'is-reason'}`} id="dispatch-hint" role="status">
+        {hint[flow.phase]}
+      </p>
+      <button
+        aria-describedby="dispatch-hint"
+        aria-busy={busy}
+        className={`rp-button rp-button-block ${flow.actionIsDispatch ? 'rp-button-go' : 'rp-button-primary'}`}
+        data-tip={flow.actionIsDispatch ? 'tip.dispatch' : 'tip.analyze'}
+        disabled={!flow.canAct}
+        onClick={onAct}
+        type="button"
+      >
+        {label[flow.phase]}
+      </button>
+      {showBack ? (
+        <button className="rp-button rp-button-quiet rp-button-small justify-self-center" onClick={onBack} type="button">
+          {t('flow.back')}
+        </button>
+      ) : null}
+    </div>
+  );
+}
