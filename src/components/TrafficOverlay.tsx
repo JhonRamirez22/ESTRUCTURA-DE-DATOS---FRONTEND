@@ -107,3 +107,39 @@ export default function TrafficOverlay({ routeId }: { routeId: string }) {
     unavailable: 'Tráfico no disponible',
     'no-coverage': 'Sin cobertura utilizable en esta ruta',
   };
+  const observations = snapshot?.observations ?? [];
+  const trafficDescription = observations.some(
+    (item) => item.roadClosure || item.trafficLevel === 'CERRADO'
+  )
+    ? 'Cierre reportado'
+    : observations.some((item) => item.trafficLevel === 'ALTO' || item.trafficLevel === 'MUY_ALTO')
+      ? 'Demoras detectadas'
+      : observations.some((item) => item.trafficLevel === 'MODERADO')
+        ? 'Tráfico moderado'
+        : observations.length > 0 && observations.every((item) => item.trafficLevel === 'FLUIDO')
+          ? 'Fluido en los puntos consultados'
+          : 'Señal parcial';
+  const oldest = observations.length
+    ? Math.min(...observations.map((item) => Date.parse(item.observedAt)))
+    : null;
+  const time =
+    oldest === null
+      ? null
+      : new Date(oldest).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  return (
+    <div className="rp-traffic-panel absolute bottom-3 left-3 z-10 max-w-[calc(100%-84px)] rounded-lg border border-[var(--line)] bg-[var(--surface)] p-3 text-xs text-[var(--foreground)] shadow-sm">
+      <p className="font-semibold">TomTom · recorrido seleccionado</p>
+      <p role="status">
+        {labels[status]}
+        {time ? ` · ${time}` : ''}
+      </p>
+      {observations.length > 0 ? (
+        <p className="mt-1 opacity-75">
+          {observations.length} puntos muestreados · cobertura parcial
+          {' · '}
+          {trafficDescription}
+        </p>
+      ) : null}
+    </div>
+  );
+}
