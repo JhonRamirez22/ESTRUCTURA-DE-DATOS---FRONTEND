@@ -88,3 +88,32 @@ export default function TooltipLayer() {
     document.addEventListener('pointerover', onPointerOver);
     document.addEventListener('pointerout', onPointerOut);
     document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', hide);
+    document.addEventListener('pointerdown', hide, true);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', hide, true);
+    return () => {
+      clearTimer();
+      document.removeEventListener('pointerover', onPointerOver);
+      document.removeEventListener('pointerout', onPointerOut);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', hide);
+      document.removeEventListener('pointerdown', hide, true);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', hide, true);
+    };
+  }, [tip]);
+
+  if (!tip || typeof document === 'undefined') return null;
+  return createPortal(
+    <div
+      className={`rl-tooltip ${tip.below ? 'is-below' : ''} ${tip.instant ? 'is-instant' : ''}`}
+      id={TOOLTIP_ID}
+      role="tooltip"
+      style={{ left: tip.x, top: tip.y }}
+    >
+      {t(tip.key)}
+    </div>,
+    document.body
+  );
+}
