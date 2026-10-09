@@ -124,3 +124,45 @@ export default function Sheet({
       stage.style.setProperty('--sheet-full', `${FULL_TOP}px`);
       spring.set(snapsRef.current[indexRef.current]!);
       onLayoutRef.current?.(
+        layoutOf(false, { x0: 16, x1: width - 16, y0: 64, y1: Math.max(120, middle - 14) }, width, height)
+      );
+    };
+    layout();
+    const observer = new ResizeObserver(layout);
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [mid, panelMinWidth, panelWidth, peek]);
+
+  const snapTo = useCallback((index: number, velocity = 0, damping = 1) => {
+    const spring = springRef.current;
+    if (!spring) return;
+    indexRef.current = Math.min(2, Math.max(0, index));
+    setIsFull(indexRef.current === 0);
+    spring.to(snapsRef.current[indexRef.current]!, { velocity, response: 0.38, damping });
+  }, []);
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    const spring = springRef.current;
+    if (!spring || wide || event.button > 0) return;
+    if (event.currentTarget !== event.target && (event.target as HTMLElement).closest('button,input,a,select,textarea,[role=tab]') && !(event.currentTarget as HTMLElement).classList.contains('rp-sheet-grabber')) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    spring.stop();
+    dragRef.current = { startY: event.clientY, origin: spring.value, samples: [{ time: event.timeStamp, y: event.clientY }] };
+    setDragging(true);
+  };
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLElement>) => {
+    const drag = dragRef.current;
+    const spring = springRef.current;
+    if (!drag || !spring) return;
+    const snaps = snapsRef.current;
+    spring.drag(constrainDrag(drag.origin + (event.clientY - drag.startY), snaps[0]!, snaps[2]!));
+    drag.samples.push({ time: event.timeStamp, y: event.clientY });
+    while (drag.samples.length > 2 && event.timeStamp - drag.samples[0]!.time > 100) drag.samples.shift();
+  };
+
+  const onPointerUp = () => {
+    const drag = dragRef.current;
+    const spring = springRef.current;
+    if (!drag || !spring) return;
+    dragRef.current = null;
