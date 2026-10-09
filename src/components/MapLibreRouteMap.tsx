@@ -248,3 +248,86 @@ export default function MapLibreRouteMap({
       map.setStyle(MAP_STYLE_URL || DEFAULT_STYLE_URL);
       fallbackTimer = window.setTimeout(() => {
         if (!map.isStyleLoaded() && !fallbackApplied) {
+          applyFallbackStyle();
+        }
+      }, 5000);
+    };
+    const handleMapError = (event: unknown) => {
+      if (isMapStyleAuthorizationError(event)) {
+        applyFallbackStyle();
+      }
+    };
+    map.on('error', handleMapError);
+    map.on('idle', markMapReady);
+    fallbackTimer = window.setTimeout(() => {
+      if (!map.isStyleLoaded() && !fallbackApplied) {
+        applyFallbackStyle();
+      }
+    }, 5000);
+
+    map.on('style.load', renderData);
+    if (map.isStyleLoaded()) renderData();
+    map.on('webglcontextrestored', restoreData);
+    const resizeTimer = window.setTimeout(() => map.resize(), 0);
+    const resizeObserver = new ResizeObserver(() => {
+      map.resize();
+      if (containerRef.current)
+        map.setMinZoom(
+          getPastoMinimumZoom(containerRef.current.clientWidth, containerRef.current.clientHeight)
+        );
+    });
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      window.clearTimeout(resizeTimer);
+      window.clearTimeout(fallbackTimer);
+      window.clearTimeout(slowTimer);
+      window.clearTimeout(unavailableTimer);
+      resizeObserver.disconnect();
+      map.off('error', handleMapError);
+      map.off('idle', markMapReady);
+      map.off('style.load', renderData);
+      map.off('webglcontextrestored', restoreData);
+      map.remove();
+      mapRef.current = null;
+      retryMapRef.current = null;
+      cameraKeyRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map || !map.isStyleLoaded()) {
+      return;
+    }
+
+    updateMapData(map, dataRef.current, cameraKeyRef);
+  }, [couriers, pendingPoints, routes, selectedCoordinate, selectedRouteId, trafficMarks, routeColors, liveProposal, inset?.top, inset?.right, inset?.bottom, inset?.left]);
+
+  // Una optimización nueva se dibuja de la salida a la última parada (una vez por sesión).
+  const drawKey = selectedRoute?.optimization?.computedAt
+    ? `${selectedRoute.id}:${selectedRoute.optimization.computedAt}`
+    : null;
+  useEffect(() => {
+    const map = mapRef.current;
+    const coordinates = selectedRoute?.geometry?.coordinates;
+    if (!map || !drawKey || !coordinates || coordinates.length < 2 || mapStatus !== 'ready') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let drawn: string[] = [];
+    try {
+      drawn = JSON.parse(window.sessionStorage.getItem(DRAWN_KEYS) ?? '[]') as string[];
+    } catch {
+      drawn = [];
+    }
+    if (drawn.includes(drawKey)) return;
+    try {
+      window.sessionStorage.setItem(DRAWN_KEYS, JSON.stringify([...drawn.slice(-20), drawKey]));
+    } catch {
+      // Sin almacenamiento se vuelve a dibujar en la próxima visita; no afecta los datos.
+    }
+    const source = map.getSource('delivery-directions') as GeoJSONSource | undefined;
+    if (!source) return;
+    let frame = 0;
+    const started = performance.now();
+    const step = (now: number) => {
