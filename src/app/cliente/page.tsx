@@ -154,3 +154,55 @@ export default function ClientePage() {
 
     return () => window.clearInterval(interval);
   }, [searchTracking, tracking]);
+
+  const courierPosition = tracking?.route &&
+    tracking.route.courier.currentLat !== null &&
+    tracking.route.courier.currentLng !== null
+      ? {
+        id: "courier",
+        name: "En camino",
+        currentLat: tracking.route.courier.currentLat,
+        currentLng: tracking.route.courier.currentLng,
+      }
+    : null;
+  const targetPoint = tracking
+    ? {
+        id: "customer-order",
+        address: tracking.address,
+        lat: tracking.coordinates.lat,
+        lng: tracking.coordinates.lng,
+        sequenceIndex: null,
+        // El mapa dibuja una solicitud en revisión igual que un pedido pendiente.
+        status: tracking.status === "REQUESTED" ? ("PENDING" as const) : tracking.status,
+      }
+    : null;
+
+  return (
+    <AppShell active="tracking">
+      <main className="rp-tracking rl-page !max-w-5xl">
+        <Link className="ui-back-link !text-[var(--ink-soft)] hover:!text-[var(--foreground)]" href="/">
+          ← Inicio
+        </Link>
+        <header className="rl-page-head mt-2">
+          <div>
+            <h1>{t("tracking.title")}</h1>
+            <p>{t("tracking.lead")}</p>
+          </div>
+        </header>
+
+        <form
+          className="flex flex-col gap-3 sm:flex-row sm:items-start"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void searchTracking();
+          }}
+        >
+          <label className="rp-field-label flex-1" htmlFor="tracking-guide">
+            {t("tracking.guide")}
+            <input
+              aria-describedby="tracking-guide-help"
+              autoCapitalize="none"
+              autoComplete="off"
+              className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
+              id="tracking-guide"
+              onChange={(event) => setGuide(event.target.value)}
