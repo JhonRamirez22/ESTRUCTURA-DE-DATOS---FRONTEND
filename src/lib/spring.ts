@@ -103,3 +103,38 @@ export class Spring {
   }
 
   /** Mueve el valor sin animar (arrastre 1:1) manteniendo el resorte detenido. */
+  drag(value: number): void {
+    this.stop();
+    this.value = value;
+    this.velocity = 0;
+    this.onUpdate(value);
+  }
+
+  private tick(time: number): void {
+    const dt = Math.min(Math.max((time - this.last) / 1000, 0), MAX_FRAME);
+    this.last = time;
+    const next = stepSpring({ value: this.value, velocity: this.velocity }, this.target, dt, this.response, this.damping);
+    this.value = next.value;
+    this.velocity = next.velocity;
+    if (isAtRest(next, this.target)) {
+      this.value = this.target;
+      this.velocity = 0;
+      this.frame = 0;
+      this.onUpdate(this.value);
+      return;
+    }
+    this.onUpdate(this.value);
+    this.frame = this.requestFrame((nextTime) => this.tick(nextTime));
+  }
+}
+
+/** Dónde se detendría un gesto que sale con `velocity` px/s (decaimiento exponencial, como el scroll). */
+export function project(velocity: number, deceleration = 0.998): number {
+  return ((velocity / 1000) * deceleration) / (1 - deceleration);
+}
+
+/** Resistencia progresiva más allá de un borde: la hoja sigue al dedo cada vez menos. */
+export function rubberband(overshoot: number, dimension: number, constant = 0.55): number {
+  return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+}
+
