@@ -136,3 +136,49 @@ export default function AuditPage() {
               {t('audit.search')}
               <input
                 className="rp-input mt-1.5 px-3 text-[15px] font-normal"
+                maxLength={80}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t('audit.search.placeholder')}
+                value={query}
+              />
+            </label>
+            {searchError !== null ? <p className="rl-notice is-error mt-3" role="alert">{searchError || t('audit.searchError')}</p> : null}
+            <ul className="rl-rows mt-3" aria-busy={loading}>
+              {subjects.map((subject) => (
+                <li className="rl-row" key={subject.id}>
+                  <span className="rl-row-main">
+                    <strong className="truncate">{subject.label}</strong>
+                    <span className="truncate">{subject.detail}</span>
+                  </span>
+                  <button
+                    aria-pressed={selected?.id === subject.id}
+                    className={`rp-button rp-button-small ${selected?.id === subject.id ? 'rp-button-go' : 'rp-button-secondary'}`}
+                    onClick={() => {
+                      setSelected(subject);
+                      setMessage(null);
+                    }}
+                    type="button"
+                  >
+                    {selected?.id === subject.id ? t('audit.selected') : t('audit.select')}
+                  </button>
+                </li>
+              ))}
+              {!loading && subjects.length === 0 && searchError === null ? (
+                <li className="rl-empty">{t('audit.none')}</li>
+              ) : null}
+            </ul>
+          </section>
+
+          <section aria-label={t('audit.report')} className="min-w-0">
+            <div className="rl-head">
+              <h2>{t('audit.report')}</h2>
+            </div>
+            <p className="text-sm" aria-live="polite">
+              {selected ? (
+                <>
+                  <span className="font-semibold">{t('audit.subject')}: </span>
+                  {selected.label}
+                </>
+              ) : (
+                t('audit.chooseFirst')
+              )}
