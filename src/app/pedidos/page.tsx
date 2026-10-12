@@ -170,3 +170,60 @@ export default function OrdersPage() {
       setRequests(
         payload.deliveryPoints.map((point) => ({ ...point, status: 'PENDING' as const, sequenceIndex: null }))
       );
+      setRequestError(null);
+    } catch (loadError) {
+      setRequestError(
+        loadError instanceof Error ? loadError.message : 'No se pudieron cargar las solicitudes de clientes.'
+      );
+    }
+  }, []);
+
+  const resolveRequest = async (request: PendingOrderPoint, action: 'aceptar' | 'rechazar'): Promise<void> => {
+    setResolvingId(request.id);
+    setRequestError(null);
+    setSuccess(null);
+    try {
+      const response = await apiFetch(`/api/solicitudes/${encodeURIComponent(request.id)}/${action}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'No se pudo resolver la solicitud.'));
+      }
+      setSuccess(
+        action === 'aceptar'
+          ? `Solicitud ${formatOrderReference(request.orderId)} aceptada: ya está en pendientes para despachar.`
+          : `Solicitud ${formatOrderReference(request.orderId)} rechazada.`
+      );
+      await Promise.all([loadRequests(), loadPendingOrders()]);
+    } catch (resolveError) {
+      setRequestError(resolveError instanceof Error ? resolveError.message : 'No se pudo resolver la solicitud.');
+      await loadRequests();
+    } finally {
+      setResolvingId(null);
+    }
+  };
+
+  const loadPendingOrders = useCallback(async (): Promise<void> => {
+    try {
+      const response = await apiFetch('/api/pedidos?status=PENDING', { cache: 'no-store' });
+
+      if (!response.ok) {
+        throw new Error('No se pudieron cargar los pedidos pendientes.');
+      }
+
+      const payload = (await response.json()) as {
+        deliveryPoints: Array<{
+          id: string;
+          orderId: string;
+          address: string;
+          lat: number;
+          lng: number;
+          status: 'PENDING';
+          priority?: number;
+          timeWindow?: { start?: string; end?: string } | null;
+        }>;
+      };
+
+      setPendingPoints(
+        payload.deliveryPoints.map((point) => ({
+          ...point,
