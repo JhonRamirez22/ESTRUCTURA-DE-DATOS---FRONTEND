@@ -145,3 +145,52 @@ export default function RequestDeliveryPage() {
     try {
       const response = await apiFetch('/api/solicitudes', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: text, lat: point[0], lng: point[1] }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as Partial<CreatedRequest> & { error?: unknown };
+      if (!response.ok || !payload.trackingGuide || !payload.reference) {
+        throw new Error(typeof payload.error === 'string' ? payload.error : 'No se pudo enviar la solicitud.');
+      }
+      setCreated({ trackingGuide: payload.trackingGuide, reference: payload.reference });
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'No se pudo enviar la solicitud.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const copyGuide = async (): Promise<void> => {
+    if (!created) return;
+    try {
+      await navigator.clipboard.writeText(created.trackingGuide);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <AppShell active="request">
+      <main className="rl-page">
+        <header className="rl-page-head">
+          <div>
+            <h1>{t('request.title')}</h1>
+            <p>{t('request.lead')}</p>
+          </div>
+        </header>
+
+        {created ? (
+          <section aria-labelledby="request-done" className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="rl-board route-proposal">
+              <h2 className="text-2xl font-semibold !text-[var(--board-ink)]" id="request-done">
+                {t('request.done')}
+              </h2>
+              <p className="mt-2 text-sm">
+                Referencia <span className="font-semibold tabular-nums !text-[var(--board-ink)]">{created.reference}</span>.
+                Guarda tu guía: es la única forma de consultar el estado.
+              </p>
+              {created.nearbyStop ? (
+                <p className="rl-notice is-ok mt-4 !block text-sm" role="status">
+                  {t('request.nearby')}
+                </p>
