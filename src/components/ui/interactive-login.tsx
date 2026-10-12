@@ -112,3 +112,40 @@ export function InteractiveLogin({
           >
             {visiblePassword ? (
               <EyeOff size={18} aria-hidden="true" />
+            ) : (
+              <Eye size={18} aria-hidden="true" />
+            )}
+          </Button>
+        </div>
+        <AnimatePresence initial={false}>
+          {error ? (
+            <motion.p
+              id="login-error"
+              className="ui-login-error"
+              role="alert"
+              initial={{ opacity: reducedMotion ? 1 : 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reducedMotion ? 0 : 0.15 }}
+            >
+              {error}
+            </motion.p>
+          ) : null}
+        </AnimatePresence>
+        <Button type="submit" className="ui-login-submit" data-tip="tip.login" disabled={loading}>
+          {loading ? (
+            <LoaderCircle className="ui-loading-icon" size={17} aria-hidden="true" />
+          ) : (
+            <LockKeyhole size={17} aria-hidden="true" />
+          )}
+          {loading ? t('login.verifying') : t('login.submit')}
+          {!loading ? <ArrowRight size={17} aria-hidden="true" /> : null}
+        </Button>
+      </form>
+      <div className="ui-login-privacy">
+        <ShieldCheck size={16} aria-hidden="true" />
+        <span>{t('login.privacy')}</span>
+      </div>
+    </motion.section>
+  );
+}
