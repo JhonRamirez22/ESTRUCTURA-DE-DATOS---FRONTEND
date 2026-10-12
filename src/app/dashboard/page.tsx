@@ -337,3 +337,116 @@ export default function DashboardPage() {
         ? 'La respuesta operativa tiene un formato inválido. Actualiza antes de continuar.'
         : loadError instanceof Error ? loadError.message : 'No se pudo actualizar la operación.');
     } finally {
+      if (requestId === dashboardRequestId.current) {
+        dashboardController.current = null;
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDashboard();
+    return () => dashboardController.current?.abort();
+  }, [loadDashboard]);
+
+  useEffect(() => {
+    const refreshInterval = window.setInterval(() => {
+      void loadDashboard(true);
+    }, 10_000);
+
+    return () => window.clearInterval(refreshInterval);
+  }, [loadDashboard]);
+
+  const routesByOperationalPriority = [...data.routes].sort(
+    (left, right) => ROUTE_STATUS_PRIORITY[left.status] - ROUTE_STATUS_PRIORITY[right.status]
+  );
+  const activeRoutes = routesByOperationalPriority.filter(
+    (route) => route.status === 'PLANNED' || route.status === 'IN_PROGRESS'
+  );
+  // Cada ruta conserva su color mientras exista; el mapa y las tarjetas comparten la paleta.
+  const colorAssigner = useRef(new RouteColorAssigner());
+  const activeRouteIds = activeRoutes.map((route) => route.id).join(',');
+  const routeColors = useMemo(
+    () => colorAssigner.current.assign(activeRouteIds ? activeRouteIds.split(',') : []),
+    [activeRouteIds],
+  );
+  // Recalcula toda la flota cada 10 s y propone mejoras; nada se aplica solo.
+  const live = useLiveOptimization(activeRoutes.length > 0 && operationalReady, 10_000);
+  const [applyingLive, setApplyingLive] = useState(false);
+  const applyLiveRoute = async (routeId: string): Promise<void> => {
+    await recalculateRouteGeometry(routeId);
+    live.refresh();
+  };
+  const applyAllLive = async (): Promise<void> => {
+    setApplyingLive(true);
+    try {
+      for (const item of appliableRoutes(live.proposal)) await recalculateRouteGeometry(item.routeId);
+    } finally {
+      setApplyingLive(false);
+      live.refresh();
+    }
+  };
+  const liveByRoute = new Map((live.proposal?.routes ?? []).map((item) => [item.routeId, item]));
+  const historicalRoutes = routesByOperationalPriority.filter(
+    (route) => route.status === 'COMPLETED' || route.status === 'CANCELLED'
+  );
+  const pendingStops = activeRoutes.reduce(
+    (total, route) =>
+      total +
+      route.deliveryPoints.filter(
+        (point) => point.status === 'PENDING' || point.status === 'EN_ROUTE'
+      ).length,
+    0
+  );
+
+  const updateRouteStatus = async (
+    routeId: string,
+    status: 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  ): Promise<void> => {
+    try {
+      const response = await apiFetch(`/api/rutas/${encodeURIComponent(routeId)}`, {
+        body: JSON.stringify({ status }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: unknown };
+        throw new Error(
+          typeof payload.error === 'string' ? payload.error : 'No se pudo actualizar la ruta.'
+        );
+      }
+
+      await loadDashboard();
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error ? updateError.message : 'No se pudo actualizar la ruta.'
+      );
+    }
+  };
+
+  const recalculateRouteGeometry = async (routeId: string): Promise<void> => {
+    setRecalculatingRouteId(routeId);
+    setError(null);
+
+    try {
+      const response = await apiFetch(`/api/rutas/${encodeURIComponent(routeId)}/recalcular`, {
+        body: JSON.stringify({}),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'No se pudo recalcular el trazado vial.'));
+      }
+
+      const result = (await response.json()) as { liveTraffic?: LiveTrafficStatus };
+      if (result.liveTraffic) {
+        setLiveTrafficNotice(summarizeLiveTraffic([result.liveTraffic]));
+      }
+      await loadDashboard();
+    } catch (recalculationError) {
+      setError(
+        recalculationError instanceof Error
+          ? recalculationError.message
+          : 'No se pudo recalcular el trazado vial.'
