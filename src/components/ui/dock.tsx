@@ -124,3 +124,45 @@ export function DockItem({ children, className }: { children: ReactNode; classNa
           targetWidth.set(BASE_SIZE);
         }
       }}
+    >
+      <ItemContext.Provider value={{ width, hovered: hovered || focused }}>
+        {children}
+      </ItemContext.Provider>
+    </motion.div>
+  );
+}
+
+export function DockLabel({ children, className }: { children: ReactNode; className?: string }) {
+  const { hovered } = useDockItem();
+  const { staticMotion } = useDock();
+  return (
+    <AnimatePresence>
+      {hovered ? (
+        <motion.span
+          className={cn('ui-dock-label', className)}
+          aria-hidden="true"
+          initial={{ opacity: staticMotion ? 1 : 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: staticMotion ? 0 : 0.15 }}
+        >
+          {children}
+        </motion.span>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+export function DockIcon({ children, className }: { children: ReactNode; className?: string }) {
+  const { width } = useDockItem();
+  const { staticMotion } = useDock();
+  const iconWidth = useTransform(width, (value) => value / 2);
+  return (
+    <motion.span
+      className={cn('ui-dock-icon', className)}
+      style={{ width: staticMotion ? BASE_SIZE / 2 : iconWidth }}
+      aria-hidden="true"
+    >
+      {children}
+    </motion.span>
+  );
+}
