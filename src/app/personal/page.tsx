@@ -163,3 +163,58 @@ export default function StaffPage() {
       setConfirmingDeleteId(null);
       setDeleteError({
         courierId: courier.id,
+        message: error instanceof Error ? error.message : 'No se pudo eliminar el repartidor.',
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const connected = couriers.filter(
+    (courier) => courier.status !== 'OFFLINE' && isFresh(courier.lastLocationAt)
+  ).length;
+
+  return (
+    <AppShell active="team">
+      <SessionChangeNotice role="dispatcher" />
+      <main className="rl-page">
+        <header className="rl-page-head">
+          <div>
+            <h1>{t('staff.title')}</h1>
+            <p>{t('staff.lead')}</p>
+          </div>
+          <dl className="rl-figures">
+            <div>
+              <dt>{t('staff.team')}</dt>
+              <dd>{couriers.length}</dd>
+            </div>
+            <div>
+              <dt>{t('staff.gps')}</dt>
+              <dd className="is-route">{connected}</dd>
+            </div>
+          </dl>
+        </header>
+
+        {notice ? (
+          <p
+            className="rl-notice is-ok feed-enter mb-6"
+            role="status"
+          >
+            {notice}
+          </p>
+        ) : null}
+
+        <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_420px]">
+          <section
+            aria-labelledby="team-heading"
+            className="rl-section"
+          >
+            <div className="rl-head">
+              <h2 id="team-heading">{t('staff.couriers')}</h2>
+            </div>
+            {loading ? (
+              <p className="rl-empty" role="status">
+                Cargando equipo…
+              </p>
+            ) : loadError ? (
+              <div className="rl-notice is-error mt-4" role="alert">
