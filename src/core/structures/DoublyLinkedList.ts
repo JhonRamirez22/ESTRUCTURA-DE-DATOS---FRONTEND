@@ -86,3 +86,32 @@ export class DoublyLinkedList<T> {
   }
 
   popFront(): T | undefined {
+    return this.head === null ? undefined : this.remove(this.head);
+  }
+
+  popBack(): T | undefined {
+    return this.tail === null ? undefined : this.remove(this.tail);
+  }
+
+  toArray(): T[] {
+    const values: T[] = [];
+    for (let current = this.head; current !== null; current = current.next) {
+      values.push(current.value);
+    }
+    return values;
+  }
+
+  size(): number {
+    return this.count;
+  }
+
+  isEmpty(): boolean {
+    return this.count === 0;
+  }
+
+  private assertAttached(node: DoublyLinkedNode<T>): void {
+    if (node.owner !== this.owner) {
+      throw new Error('El nodo no pertenece a esta lista.');
+    }
+  }
+}
