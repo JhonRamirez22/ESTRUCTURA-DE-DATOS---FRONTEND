@@ -247,3 +247,85 @@ export default function RepartidorPage() {
                   return index < 0 ? point : { ...point, sequenceIndex: index };
                 })
                 .sort((a, b) => (a.sequenceIndex ?? 0) - (b.sequenceIndex ?? 0)),
+            }
+          : currentRoute,
+      );
+    }
+  }, []);
+
+  const loadAssignedRoute = useCallback(async (): Promise<void> => {
+    const generation = routeGeneration.current;
+    try {
+      const response = await apiFetch("/api/rutas", { cache: "no-store" });
+      if (generation !== routeGeneration.current) return;
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "No se pudo cargar la ruta asignada."));
+      }
+
+      const payload = (await response.json()) as { routes: AssignedRoute[] };
+      if (generation !== routeGeneration.current) return;
+      const route = payload.routes.find(
+        (candidate) =>
+          candidate.status === "PLANNED" || candidate.status === "IN_PROGRESS",
+      ) ?? null;
+
+      setAssignedRoute(route);
+      setNavigation(null);
+
+      if (route) {
+        void refreshNavigation(route.id).catch((navigationError) => {
+          setNavigationError(
+            navigationError instanceof Error
+              ? navigationError.message
+              : "No se pudo actualizar la ruta vial; se conserva solo la geometría vial guardada.",
+          );
+        });
+      } else {
+        setNavigationError(null);
+      }
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "No se pudo cargar la ruta asignada. Recupera la conexión e inténtalo de nuevo.",
+      );
+    }
+  }, [refreshNavigation]);
+
+  const sendDeliveryStatus = useCallback(async ({ deliveryPointId, status }: DeliveryUpdate): Promise<void> => {
+    const response = await apiFetch(`/api/pedidos/${encodeURIComponent(deliveryPointId)}`, {
+      body: JSON.stringify({ status }),
+      headers: { "Content-Type": "application/json" },
+      method: "PATCH",
+    });
+    if (!response.ok) {
+      throw new Error(await readApiError(response, "No se pudo actualizar la entrega."));
+    }
+  }, []);
+
+  const flushOfflineUpdates = useCallback(async (): Promise<void> => {
+    if (offlineUpdates.size === 0) return;
+    const sent = await offlineUpdates.flush(sendDeliveryStatus);
+    setPendingUpdates(offlineUpdates.size);
+    if (sent > 0) await loadAssignedRoute();
+  }, [loadAssignedRoute, offlineUpdates, sendDeliveryStatus]);
+
+  const applyProposal = async (auto = false, source: RouteProposal | null = proposal): Promise<void> => {
+    if (!assignedRoute || applying) return;
+    routeGeneration.current += 1;
+    setApplying(true);
+    setError(null);
+    try {
+      const response = await apiFetch(`/api/rutas/${encodeURIComponent(assignedRoute.id)}/recalcular`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+      });
+      if (!response.ok) throw new Error(await readApiError(response, "No se pudo aplicar la ruta optimizada."));
+      const result = (await response.json()) as { route: AssignedRoute };
+      setAssignedRoute(result.route);
+      setNavigation(null);
+      setNavigationError(null);
+      setProposal(null);
+      const saved = source?.improvementMinutes ?? null;
+      setOptimizations((current) => [
+        ...current.slice(-19),
