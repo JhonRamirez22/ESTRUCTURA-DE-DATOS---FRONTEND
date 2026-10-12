@@ -127,3 +127,46 @@ export default function HistoryPage() {
             <input className="rp-input mt-1.5 px-3 text-[15px] font-normal" maxLength={80}
               onChange={(event) => setTyped(event.target.value)} placeholder={t('history.search.placeholder')}
               value={typed} />
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input checked={filter.scheduledOnly} className="h-[18px] w-[18px]"
+              onChange={(event) => update({ scheduledOnly: event.target.checked })} type="checkbox" />
+            {t('history.scheduledOnly')}
+          </label>
+          <button className="rp-button rp-button-quiet rp-button-small justify-self-start" onClick={() => { setTyped(''); setFilter(EMPTY_FILTER); }} type="button">
+            {t('history.clear')}
+          </button>
+        </form>
+
+        {error !== null ? <p className="rl-notice is-error mt-4" role="alert">{error || t('history.error')}</p> : null}
+        <p aria-live="polite" className="mt-4 text-sm">{data ? t('history.total', { n: data.total }) : ''}</p>
+
+        <div className="mt-2 grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+          <ul aria-busy={loading} className="rl-rows">
+            {data?.items.map((item) => (
+              <li className={`rl-row ${opened?.id === item.id ? 'is-selected' : ''}`} key={item.id}>
+                <span className="rl-row-main">
+                  <strong className="truncate">{item.address}</strong>
+                  <span className="rl-ref">
+                    {item.orderId} · {statusLabel(item.status)}
+                    {item.courierName ? ` · ${item.courierName}` : ''}
+                    {` · ${formatBogota(item.createdAt, lang)}`}
+                    {item.scheduledFor ? ` · ${t('history.scheduled')} ${formatBogota(item.scheduledFor, lang)}` : ''}
+                  </span>
+                </span>
+                <button aria-pressed={opened?.id === item.id} className="rp-button rp-button-secondary rp-button-small"
+                  onClick={() => setOpened(item)} type="button">
+                  {t('history.open')}
+                </button>
+              </li>
+            ))}
+            {!loading && data && data.items.length === 0 ? <li className="rl-empty">{t('history.none')}</li> : null}
+          </ul>
+
+          <section aria-label={t('history.timeline')} className="min-w-0">
+            {opened ? (
+              <>
+                <div className="rl-head">
+                  <h2>{t('history.timeline')} · {opened.orderId}</h2>
+                  <button className="text-sm font-semibold underline-offset-4 hover:underline" onClick={() => setOpened(null)} type="button">
+                    {t('history.close')}
