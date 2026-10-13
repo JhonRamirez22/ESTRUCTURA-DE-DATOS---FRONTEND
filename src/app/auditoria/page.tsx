@@ -182,3 +182,49 @@ export default function AuditPage() {
               ) : (
                 t('audit.chooseFirst')
               )}
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <label className="rp-field-label">
+                {t('audit.from')}
+                <input
+                  className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
+                  max={to || undefined}
+                  onChange={(event) => setFrom(event.target.value)}
+                  type="date"
+                  value={from}
+                />
+              </label>
+              <label className="rp-field-label">
+                {t('audit.to')}
+                <input
+                  className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
+                  min={from || undefined}
+                  onChange={(event) => setTo(event.target.value)}
+                  type="date"
+                  value={to}
+                />
+              </label>
+            </div>
+            {problemText ? <p className="rl-notice is-error mt-3" role="alert">{problemText}</p> : null}
+            <button
+              className="rp-button rp-button-go mt-4"
+              disabled={!selected || problem !== null || downloading}
+              onClick={() => void download()}
+              type="button"
+            >
+              {downloading ? t('audit.generating') : t('audit.download')}
+            </button>
+            {message ? (
+              <p className={`rl-notice mt-3 ${message.tone === 'ok' ? 'is-ok' : 'is-error'}`} role={message.tone === 'ok' ? 'status' : 'alert'}>
+                {message.text}
+              </p>
+            ) : null}
+            <p className="mt-5 text-xs leading-5 text-[var(--ink-soft)]">{t('audit.privacy')}</p>
+          </section>
+        </div>
+        <GeneralReports />
+        <AuditLog />
+      </main>
+    </AppShell>
+  );
+}
