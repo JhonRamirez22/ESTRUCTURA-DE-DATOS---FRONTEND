@@ -152,3 +152,41 @@ export function AuditLog() {
         {failed ? <p className="rl-notice is-error mt-3" role="alert">{t('audit.log.error')}</p> : null}
         <ul className="rl-rows mt-3">
           {events.map((entry) => (
+            <li className="rl-row" key={entry.id}>
+              <span className="rl-row-main">
+                <strong className="truncate">{label(entry.type)} · {entry.orderRef}</strong>
+                <span className="rl-ref">
+                  {formatBogota(entry.at, lang)}
+                  {entry.actorRole ? ` · ${t(`history.actor.${entry.actorRole}` as MessageKey)}` : ''}
+                  {entry.toStatus ? ` · ${entry.fromStatus ?? '—'} → ${entry.toStatus}` : ''}
+                  {entry.detail ? ` · ${entry.detail}` : ''}
+                </span>
+              </span>
+            </li>
+          ))}
+          {!failed && events.length === 0 ? <li className="rl-empty">{t('audit.log.empty')}</li> : null}
+        </ul>
+        {hasMore ? (
+          <button className="rp-button rp-button-quiet rp-button-small mt-3" onClick={() => setPage((current) => current + 1)} type="button">
+            {t('audit.log.more')}
+          </button>
+        ) : null}
+      </section>
+      <section aria-label={t('audit.downloads.title')} className="min-w-0">
+        <div className="rl-head"><h2>{t('audit.downloads.title')}</h2></div>
+        <ul className="rl-rows">
+          {downloads.map((item, index) => (
+            <li className="rl-row" key={`${item.at}-${index}`}>
+              <span className="rl-row-main">
+                <strong className="truncate">{item.action}</strong>
+                <span className="rl-ref">{item.by} · {formatBogota(item.at, lang)}</span>
+              </span>
+            </li>
+          ))}
+          {downloads.length === 0 ? <li className="rl-empty">{t('audit.downloads.empty')}</li> : null}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
