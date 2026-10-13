@@ -166,3 +166,44 @@ export default function Sheet({
     const spring = springRef.current;
     if (!drag || !spring) return;
     dragRef.current = null;
+    setDragging(false);
+    const velocity = releaseVelocity(drag.samples);
+    const target = nearestSnap(snapsRef.current, spring.value + project(velocity));
+    snapTo(target, velocity, dampingForRelease(velocity));
+  };
+
+  const onGrabberKey = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      snapTo(indexRef.current - 1);
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      snapTo(indexRef.current + 1);
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      snapTo(indexRef.current === 0 ? 2 : indexRef.current - 1);
+    }
+  };
+
+  const handlers = { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp };
+  const state = [wide ? 'is-panel' : '', isFull ? 'is-full' : '', dragging ? 'is-dragging' : ''].filter(Boolean).join(' ');
+
+  return (
+    <aside aria-label={label} className={`rp-sheet ${state} ${className}`.trim()} ref={sheetRef}>
+      <button
+        aria-label={grabberLabel}
+        className="rp-sheet-grabber"
+        onKeyDown={onGrabberKey}
+        type="button"
+        {...handlers}
+      >
+        <span className="rp-sheet-grip" />
+      </button>
+      <div className="rp-sheet-head" {...handlers}>
+        {head}
+      </div>
+      {foot ? <div className="rp-sheet-foot">{foot}</div> : null}
+      <div className="rp-sheet-body">{children}</div>
+    </aside>
+  );
+}
