@@ -167,3 +167,45 @@ export default function OptimizationFeed() {
                 <span className="font-semibold">Ruta {event.routeAlias}</span>
                 <span className="text-[var(--ink-soft)]">{describe(event)}</span>
                 {event.aiOrderAccepted ? (
+                  <span className="text-xs font-semibold text-[var(--route-ink)]">
+                    IA ordenó · verificado con Dijkstra −{event.aiOrderSavingMinutes ?? 0} min
+                  </span>
+                ) : event.aiApplied ? (
+                  <span className="text-xs font-semibold text-[var(--route-ink)]">IA con ajustes validados</span>
+                ) : null}
+                {event.trafficSegments > 0 ? (
+                  <span className="text-xs tabular-nums text-[var(--ink-soft)]">{event.trafficSegments} tramos medidos</span>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+          {feed?.incidents && feed.incidents.length > 0 ? (
+            <p className="rl-notice is-warn mt-3 text-xs" role="status">
+              Incidencias de proveedores recientes: {feed.incidents.slice(0, 3).map((item) => `${item.provider} (${item.kind})`).join(', ')}. El sistema reintentó y conservó el orden del algoritmo.
+            </p>
+          ) : null}
+          <p className="mt-3 text-xs text-[var(--ink-soft)]">
+            {t('feed.footer')}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex flex-col-reverse">
+      <dt className="text-xs text-[var(--ink-soft)]">{label}</dt>
+      <dd className="text-2xl font-semibold tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+function describe(event: FeedEvent): string {
+  if (event.kind === 'aplicada') return 'El repartidor aplicó el nuevo orden.';
+  if (!event.changed) return 'El orden actual sigue siendo el mejor con el tráfico de ahora.';
+  return event.improvementMinutes !== null && event.improvementMinutes > 0
+    ? `Reordenaría paradas · ahorro ~${event.improvementMinutes.toFixed(1)} min`
+    : 'Reordenaría paradas según el tráfico de ahora.';
+}
