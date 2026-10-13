@@ -902,3 +902,229 @@ a {
     border-radius: 8px;
     font-size: 12px;
     color: var(--foreground);
+  }
+  .rp-map-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .rp-home {
+    padding: 48px 20px 24px;
+  }
+  .rp-home-intro {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding-bottom: 48px;
+  }
+  .rp-home h1 {
+    font-size: 38px;
+  }
+  .rp-home-actions {
+    padding: 0;
+    border-left: 0;
+  }
+  .rp-home-method {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .rp-home-footer {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .rp-access {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 32px;
+    padding: 24px 20px 32px;
+    min-height: 0;
+  }
+  .rp-access-story h2 {
+    font-size: 32px;
+    margin-top: 16px;
+  }
+  .rp-access-story p {
+    margin-top: 16px;
+  }
+  .rp-access-meta {
+    display: none;
+  }
+  .ui-login-panel {
+    padding: 24px;
+  }
+  /* En móvil el dock ocupa espacio real y no cubre campos ni acciones al desplazar. */
+  .rp-application-dock {
+    position: static;
+    transform: none;
+    max-width: none;
+    margin: 0 auto;
+    padding: 24px 16px 0;
+  }
+  .rp-shell {
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .rp-button,
+  .ui-button,
+  .rp-nav-item,
+  .rp-entry-arrow,
+  .rp-input,
+  .rp-entry-link,
+  .ui-dock-action {
+    transition: none;
+  }
+  .rp-button:active:not(:disabled),
+  .ui-button:active:not(:disabled),
+  .ui-dock-action:active,
+  .rp-nav-item:active {
+    transform: none;
+  }
+  .ui-loading-icon {
+    animation: none;
+  }
+  .rp-entry-link {
+    transition: color 200ms ease;
+  }
+}
+
+/* Optimización automática: la ruta "respira" al aplicarse y la propuesta entra suavemente. */
+.route-celebrate {
+  animation: route-celebrate 1.6s ease-out 2;
+}
+.route-proposal {
+  animation: route-proposal-in 260ms var(--ease-out);
+}
+@keyframes route-celebrate {
+  0% { box-shadow: 0 0 0 0 rgba(62, 155, 106, 0.55); }
+  70% { box-shadow: 0 0 0 18px rgba(62, 155, 106, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(62, 155, 106, 0); }
+}
+@keyframes route-proposal-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-celebrate,
+  .route-proposal {
+    animation: none;
+  }
+}
+
+/* Panel de optimizaciones en vivo: entradas nuevas y punto de estado. */
+.feed-enter {
+  animation: feed-enter 240ms var(--ease-out);
+}
+.feed-pulse {
+  animation: feed-pulse 1.8s ease-in-out infinite;
+}
+@keyframes feed-enter {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes feed-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(62, 155, 106, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(62, 155, 106, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .feed-enter,
+  .feed-pulse {
+    animation: none;
+  }
+}
+
+/* Despacho: barra lateral fija en escritorio; en pantallas menores se conserva el encabezado. */
+.rp-panel-primary {
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+}
+.rp-panel-quiet {
+  background: var(--secondary);
+  border-radius: 12px;
+}
+/* Móvil: cuatro destinos caben sin desbordar si se omiten los iconos. */
+@media (max-width: 1023px) {
+  .rp-shell-sidebar .rp-nav-item {
+    padding-inline: 6px;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .rp-shell-sidebar .rp-nav-item > svg {
+    display: none;
+  }
+}
+
+/* ============================================================
+   Líneas de ruta: cada ruta se lee como una línea de transporte.
+   Barra de paradero oscura, secciones por franjas y filetes,
+   radio 4px, controles rectangulares. Paleta y Public Sans intactas.
+   ============================================================ */
+:root {
+  --board: #32261f;
+  --board-ink: #fffcf7;
+  --board-soft: #cdbfae;
+  --band: #eee5d9;
+  --line-strong: #c9b9a8;
+  --route: #3e9b6a;
+  --route-ink: #1f5c3e;
+  --warn: #8a5a12;
+  --warn-band: #f6ead2;
+  --danger: #8e2635;
+  --danger-band: #f8e4e6;
+  --ok-band: #e6f2ea;
+  --action: #32261f;
+  --action-hover: #4a3429;
+  --action-ink: #fffcf7;
+  --danger-ink: #5e1a24;
+  --warn-ink: #4c330c;
+}
+
+/* Barra de paradero */
+.rp-shell-header {
+  background: var(--board);
+  color: var(--board-ink);
+  border-bottom: 0;
+}
+.rp-shell-header-inner {
+  min-height: 60px;
+  padding: 8px 32px;
+  gap: 28px;
+}
+.rp-brand-mark {
+  color: var(--route);
+}
+.rp-brand-name span {
+  color: var(--board-soft);
+}
+.rp-navigation {
+  margin-left: 12px;
+  gap: 2px;
+  align-self: stretch;
+}
+.rp-nav-item {
+  position: relative;
+  border-radius: 0;
+  color: var(--board-soft);
+  font-size: 14px;
+  padding: 0 14px;
+  min-height: 44px;
+  height: 100%;
+}
+.rp-nav-item:hover {
+  color: var(--board-ink);
+  background: transparent;
+}
+.rp-nav-item.is-active {
+  color: var(--board-ink);
+  background: transparent;
+  font-weight: 600;
+}
+.rp-nav-item.is-active::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
