@@ -227,3 +227,60 @@ export default function OrdersPage() {
       setPendingPoints(
         payload.deliveryPoints.map((point) => ({
           ...point,
+          sequenceIndex: null,
+        }))
+      );
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error ? loadError.message : 'No se pudieron cargar los pedidos.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPendingOrders();
+    void loadRequests();
+  }, [loadPendingOrders, loadRequests]);
+
+  const handleMapClick = ({ lat, lng }: { lat: number; lng: number }) => {
+    ++lookupSequence.current;
+    setFindingAddress(false);
+    setCandidates([]);
+    setAddressNotice('Ubicación seleccionada manualmente.');
+    setSelectedCoordinate([lat, lng]);
+    setDraft((current) => ({
+      ...current,
+      lat: lat.toFixed(6),
+      lng: lng.toFixed(6),
+    }));
+    setError(null);
+    setSuccess(null);
+  };
+
+  const createOrder = async (): Promise<void> => {
+    const lat = Number(draft.lat);
+    const lng = Number(draft.lng);
+    if (
+      draft.address.trim() === '' ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      !isWithinPastoServiceArea(lat, lng)
+    ) {
+      setError(
+        'Escribe la dirección y confirma una sugerencia o selecciona un punto dentro de Pasto.'
+      );
+      return;
+    }
+    if (windowInvalid) {
+      setError(t('orders.windowInvalid'));
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await apiFetch('/api/pedidos', {
+        method: 'POST',
