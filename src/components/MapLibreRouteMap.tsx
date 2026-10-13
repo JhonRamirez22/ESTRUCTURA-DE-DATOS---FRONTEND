@@ -331,3 +331,86 @@ export default function MapLibreRouteMap({
     let frame = 0;
     const started = performance.now();
     const step = (now: number) => {
+      const progress = Math.min(1, (now - started) / DRAW_DURATION_MS);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const visible = coordinates.slice(0, Math.max(2, Math.ceil(eased * coordinates.length)));
+      const current = dataRef.current;
+      const features: MapFeature[] = [];
+      for (const route of current.routes) {
+        const full = route.geometry?.coordinates;
+        if (!full || full.length < 2 || !isRoadGeometryProvider(route.geometryProvider)) continue;
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: route.id === selectedRoute?.id ? visible : full },
+          properties: {
+            route: 'SELECTED',
+            color: current.routeColors?.[route.id] ?? DEFAULT_ROUTE_COLOR,
+            dim: Boolean(current.focusRouteId) && current.focusRouteId !== route.id,
+            routeId: route.id,
+          },
+        });
+      }
+      source.setData(featureCollection(features));
+      if (progress < 1) frame = requestAnimationFrame(step);
+      else updateMapData(map, dataRef.current, cameraKeyRef);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [drawKey, mapStatus, selectedRoute?.id, selectedRoute?.geometry?.coordinates]);
+
+  // Recálculo en vivo: la ruta propuesta «fluye» y las paradas afectadas laten.
+  const liveActive = Boolean(liveProposal?.changed);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || mapStatus !== 'ready' || !liveActive) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let frame = 0;
+    let last = 0;
+    const started = performance.now();
+    const step = (now: number) => {
+      if (now - last >= 70) {
+        last = now;
+        const seconds = (now - started) / 1000;
+        if (map.getLayer('live-proposal')) {
+          map.setPaintProperty(
+            'live-proposal',
+            'line-dasharray',
+            DASH_FRAMES[Math.floor(seconds * 12) % DASH_FRAMES.length]
+          );
+        }
+        if (map.getLayer('live-stops-halo')) {
+          const phase = (seconds % 1.6) / 1.6;
+          map.setPaintProperty('live-stops-halo', 'circle-radius', 12 + 14 * phase);
+          map.setPaintProperty('live-stops-halo', 'circle-opacity', 0.5 * (1 - phase));
+        }
+      }
+      frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [liveActive, mapStatus]);
+
+  // Al pasar el puntero sobre una parada: minutos del tramo que llega a ella desde la anterior.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const popup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: 14,
+      className: 'rl-leg-popup',
+    });
+    const show = (event: maplibregl.MapLayerMouseEvent) => {
+      const stopId = event.features?.[0]?.properties?.stopId as string | undefined;
+      const hoveredRoute = event.features?.[0]?.properties?.routeId as string | undefined;
+      const optimization = (
+        dataRef.current.routes.find((item) => item.id === hoveredRoute) ?? dataRef.current.routes[0]
+      )?.optimization;
+      const leg = stopId ? optimization?.legs.find((item) => item.toStop === stopId) : undefined;
+      if (!leg || leg.minutes === null) {
+        popup.remove();
+        return;
+      }
+      map.getCanvas().style.cursor = 'pointer';
+      popup
+        .setLngLat(event.lngLat)
