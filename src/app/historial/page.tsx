@@ -170,3 +170,45 @@ export default function HistoryPage() {
                   <h2>{t('history.timeline')} · {opened.orderId}</h2>
                   <button className="text-sm font-semibold underline-offset-4 hover:underline" onClick={() => setOpened(null)} type="button">
                     {t('history.close')}
+                  </button>
+                </div>
+                {timelineError ? <p className="rl-notice is-error" role="alert">{t('history.timeline.error')}</p> : null}
+                {events === null && !timelineError ? <div aria-busy="true" className="rp-skeleton h-24" /> : null}
+                {events !== null && events.length === 0 ? <p className="rl-empty">{t('history.timeline.empty')}</p> : null}
+                <ol className="grid gap-3">
+                  {events?.map((entry, index) => (
+                    <li className="rl-row" key={`${entry.type}-${entry.at}-${index}`}>
+                      <span className="rl-row-main">
+                        <strong>{eventLabel(entry.type)}</strong>
+                        <span className="rl-ref">
+                          {formatBogota(entry.at, lang)}
+                          {entry.actor ? ` · ${actorLabel(entry.actor)}` : ''}
+                          {entry.courierName ? ` · ${entry.courierName}` : ''}
+                          {entry.detail ? ` · ${entry.detail}` : ''}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            ) : null}
+          </section>
+        </div>
+
+        {data && pages > 1 ? (
+          <nav aria-label={t('history.page', { page: filter.page, pages })} className="mt-4 flex items-center gap-3">
+            <button className="rp-button rp-button-quiet rp-button-small" disabled={filter.page <= 1}
+              onClick={() => setFilter((current) => ({ ...current, page: current.page - 1 }))} type="button">
+              {t('history.prev')}
+            </button>
+            <span className="text-sm tabular-nums">{t('history.page', { page: filter.page, pages })}</span>
+            <button className="rp-button rp-button-quiet rp-button-small" disabled={filter.page >= pages}
+              onClick={() => setFilter((current) => ({ ...current, page: current.page + 1 }))} type="button">
+              {t('history.next')}
+            </button>
+          </nav>
+        ) : null}
+      </main>
+    </AppShell>
+  );
+}
