@@ -138,3 +138,37 @@ export function rubberband(overshoot: number, dimension: number, constant = 0.55
   return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
 }
 
+/** Índice del punto de reposo más cercano a `position`. */
+export function nearestSnap(snaps: readonly number[], position: number): number {
+  let best = 0;
+  snaps.forEach((snap, index) => {
+    if (Math.abs(snap - position) < Math.abs(snaps[best]! - position)) best = index;
+  });
+  return best;
+}
+
+export interface PointerSample {
+  time: number;
+  y: number;
+}
+
+/** Velocidad vertical (px/s) con las últimas muestras; 0 si no hay movimiento medible. */
+export function releaseVelocity(samples: readonly PointerSample[]): number {
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+  if (!first || !last) return 0;
+  const seconds = (last.time - first.time) / 1000;
+  return seconds > 0.005 ? (last.y - first.y) / seconds : 0;
+}
+
+/** Posición con resistencia: libre entre los extremos, comprimida fuera de ellos. */
+export function constrainDrag(position: number, low: number, high: number, dimension = 220): number {
+  if (position < low) return low - rubberband(low - position, dimension);
+  if (position > high) return high + rubberband(position - high, dimension);
+  return position;
+}
+
+/** El rebote solo aparece si el gesto traía impulso; en el resto de casos se asienta sin oscilar. */
+export function dampingForRelease(velocity: number): number {
+  return Math.abs(velocity) > 420 ? 0.8 : 1;
+}
