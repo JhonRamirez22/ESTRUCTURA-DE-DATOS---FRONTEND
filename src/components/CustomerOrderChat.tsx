@@ -186,3 +186,50 @@ export default function CustomerOrderChat({ guide }: CustomerOrderChatProps) {
         <p className="px-4 py-5 text-sm text-slate-600 sm:px-5" role="status">
           Comprobando la configuración del asistente…
         </p>
+      ) : (
+        <>
+          <div
+            aria-label="Conversación sobre el pedido"
+            aria-live="polite"
+            className="max-h-72 min-h-32 space-y-3 overflow-y-auto px-4 py-4 sm:px-5"
+            ref={conversationRef}
+            role="log"
+          >
+            {conversation.length === 0 ? (
+              <div className="flex min-h-24 flex-col justify-center gap-3">
+                <p className="text-sm text-slate-600">Puedes preguntar, por ejemplo:</p>
+                <div className="flex flex-wrap gap-2">
+                  {SUGGESTED_QUESTIONS.map((question) => (
+                    <button
+                      className="min-h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-emerald-950 transition-colors hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:opacity-50"
+                      disabled={submitting}
+                      key={question}
+                      onClick={() => selectSuggestedQuestion(question)}
+                      type="button"
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              conversation.map((message, index) => (
+                <div
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  key={`${message.role}-${index}`}
+                >
+                  <p
+                    className={`max-w-[min(90%,42rem)] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${
+                      message.role === 'user'
+                        ? 'bg-[var(--board)] text-[var(--board-ink)]'
+                        : 'rounded-bl-md border border-slate-200 bg-slate-50 text-slate-800'
+                    }`}
+                  >
+                    {message.content}
+                  </p>
+                </div>
+              ))
+            )}
+            {submitting ? (
+              <p className="text-sm text-slate-600" role="status">
+                Consultando el estado de tu pedido…
