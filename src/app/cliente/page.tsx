@@ -206,3 +206,55 @@ export default function ClientePage() {
               className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
               id="tracking-guide"
               onChange={(event) => setGuide(event.target.value)}
+              placeholder="Pega aquí tu guía privada"
+              spellCheck={false}
+              value={guide}
+            />
+            <span className="rp-field-help" id="tracking-guide-help">
+              Es distinta al número de pedido. Si no la tienes, solicítala al comercio donde compraste.
+            </span>
+          </label>
+          <button className="rp-button rp-button-primary min-h-12 px-6 sm:mt-[25px]" data-tip="tip.searchGuide" disabled={loading} type="submit">
+            {loading ? t("tracking.searching") : t("tracking.search")}
+          </button>
+        </form>
+
+        {error ? (
+          <div className="rl-notice is-error mt-5" role="alert">
+            {error}
+          </div>
+        ) : null}
+
+        {tracking ? (
+          <section
+            aria-label={t("tracking.map")}
+            className={`rp-stage mt-8 ${stageWide ? "is-wide" : ""}`}
+          >
+            <TrackingMap
+              ariaLabel="Mapa de seguimiento del pedido"
+              className="absolute inset-0 h-full w-full"
+              couriers={courierPosition ? [courierPosition] : []}
+              inset={inset}
+              pendingPoints={targetPoint && !tracking.route ? [targetPoint] : []}
+              routes={
+                tracking.route && courierPosition && targetPoint
+                  ? [{
+                      id: tracking.route.id,
+                      courier: courierPosition,
+                      deliveryPoints: [targetPoint],
+                      geometryProvider: tracking.route.geometryProvider,
+                      geometry: tracking.route.geometry,
+                    }]
+                  : []
+              }
+            />
+            <Sheet
+              foot={
+                <div className="rl-board !p-4">
+                  <p className="break-all text-xs font-semibold">Guía {tracking.guide}</p>
+                  <p className="mt-2 text-3xl font-semibold leading-tight !text-[var(--board-ink)]">
+                    {tracking.route
+                      ? tracking.route.estimatedMinutesFromNow === null
+                        ? t("tracking.assigned")
+                        : t("tracking.approx", { min: Math.max(1, Math.round(tracking.route.estimatedMinutesFromNow)) })
+                      : formatStatus(tracking.status)}
