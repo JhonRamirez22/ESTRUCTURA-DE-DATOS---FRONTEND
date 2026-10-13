@@ -177,3 +177,47 @@ export default function AppShell({ children, active }: AppShellProps) {
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                 type="button"
               >
+                <Sun aria-hidden="true" className="rp-tool-sun" />
+                <Moon aria-hidden="true" className="rp-tool-moon" />
+              </button>
+              <button
+                aria-label={t('shell.lang')}
+                className="rp-tool rp-tool-lang"
+                data-tip="tip.lang"
+                lang={lang === 'es' ? 'en' : 'es'}
+                onClick={() => setLang(lang === 'es' ? 'en' : 'es')}
+                type="button"
+              >
+                <Languages aria-hidden="true" />
+                <span>{t('shell.langShort')}</span>
+              </button>
+            </div>
+            {operational ? <LogoutButton /> : null}
+            <span className="rp-service-area">
+              <InterfaceIcon name="locate" />
+              {t('shell.area')}
+            </span>
+          </div>
+        </div>
+      </header>
+      {langNotice ? (
+        <div className="rl-lang-notice" role="status">
+          <p>{t('lang.notice')}</p>
+          <button className="rp-button rp-button-quiet rp-button-small" onClick={dismissLangNotice} type="button">
+            {t('lang.close')}
+          </button>
+        </div>
+      ) : null}
+      <div className="rp-shell-content" id="main-content" tabIndex={-1}>
+        {children}
+      </div>
+      {operational ? null : (
+        <Dock className="rp-application-dock" ariaLabel={t('nav.quick')}>
+          <DockItem>
+            <Link href="/" className="ui-dock-action" aria-label={t('nav.home')} data-tip="tip.nav.home">
+              <DockIcon>
+                <Home />
+              </DockIcon>
+            </Link>
+            <DockLabel>{t('nav.home')}</DockLabel>
+          </DockItem>
