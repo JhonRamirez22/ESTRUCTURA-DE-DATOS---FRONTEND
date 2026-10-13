@@ -450,3 +450,116 @@ export default function DashboardPage() {
         recalculationError instanceof Error
           ? recalculationError.message
           : 'No se pudo recalcular el trazado vial.'
+      );
+    } finally {
+      setRecalculatingRouteId(null);
+    }
+  };
+
+  const undoRouteRecalculation = async (routeId: string): Promise<void> => {
+    setUndoingRouteId(routeId);
+    setError(null);
+    setRouteActionNotice(null);
+
+    try {
+      const response = await apiFetch(`/api/rutas/${encodeURIComponent(routeId)}/deshacer-recalculo`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'No se pudo restaurar la ruta anterior.'));
+      }
+
+      const result = (await response.json()) as { releasedDeliveryPointIds?: unknown };
+      const releasedCount = Array.isArray(result.releasedDeliveryPointIds)
+        ? result.releasedDeliveryPointIds.length
+        : 0;
+      setRouteActionNotice(
+        releasedCount > 0
+          ? `Se restauró la ruta anterior y ${releasedCount} parada${releasedCount === 1 ? ' volvió' : 's volvieron'} a pedidos pendientes.`
+          : 'Se restauró el recálculo anterior de la ruta.'
+      );
+      await loadDashboard();
+    } catch (undoError) {
+      setError(
+        undoError instanceof Error ? undoError.message : 'No se pudo restaurar la ruta anterior.'
+      );
+    } finally {
+      setUndoingRouteId(null);
+    }
+  };
+
+  const analyzeAssignments = async (): Promise<void> => {
+    if (selectedCourierIds.length === 0) {
+      setError('Selecciona al menos un repartidor disponible.');
+      return;
+    }
+
+    if (selectedPendingIds.length === 0) {
+      setError('Selecciona al menos un pedido pendiente.');
+      return;
+    }
+
+    setAnalyzing(true);
+    setError(null);
+    setLiveTrafficNotice(null);
+    setAssignmentPreview([]);
+    setAssignmentPreviewSelectionKey(null);
+    setUnassignedDeliveryPointIds([]);
+    setAssignmentImprovement(null);
+    const analyzedSelectionKey = assignmentSelectionKey;
+
+    try {
+      const assignmentResponse = await apiFetch('/api/asignaciones', {
+        body: JSON.stringify({
+          courierIds: selectedCourierIds,
+          deliveryPointIds: selectedPendingIds,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      });
+
+      if (!assignmentResponse.ok) {
+        throw new Error(await readApiError(assignmentResponse, 'No se pudo asignar el pedido.'));
+      }
+
+      const assignmentPayload = (await assignmentResponse.json()) as {
+        assignments: Array<{ courierId: string; deliveryPointIds: string[] }>;
+        unassignedDeliveryPointIds?: string[];
+        ai?: AssignmentAiStatus;
+        improvement?: AssignmentImprovement;
+      };
+      setAssignmentAiStatus(assignmentPayload.ai ?? null);
+      setAssignmentImprovement(assignmentPayload.improvement ?? null);
+      const unassignedIds = assignmentPayload.unassignedDeliveryPointIds ?? [];
+      setUnassignedDeliveryPointIds(unassignedIds);
+      const assignments = assignmentPayload.assignments.filter(
+        (assignment) => assignment.deliveryPointIds.length > 0
+      );
+
+      if (assignments.length === 0 && unassignedIds.length === 0) {
+        throw new Error('No hay pedidos asignables para ese repartidor.');
+      }
+
+      setAssignmentPreview(assignments);
+      setAssignmentPreviewSelectionKey(analyzedSelectionKey);
+    } catch (analysisError) {
+      setError(
+        analysisError instanceof Error
+          ? analysisError.message
+          : 'No se pudo analizar la asignación.'
+      );
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const dispatchAssignments = async (): Promise<void> => {
+    if (assignmentPreview.length === 0 || !assignmentPreviewIsCurrent) {
+      setError(
+        assignmentPreview.length > 0
+          ? 'La selección cambió. Vuelve a analizar antes de despachar.'
+          : 'Primero analiza una asignación para generar la propuesta de ruta.'
+      );
+      return;
+    }
+
