@@ -1128,3 +1128,229 @@ a {
   left: 14px;
   right: 14px;
   bottom: 0;
+  height: 4px;
+  background: var(--route);
+}
+.rp-shell-account {
+  margin-left: auto;
+}
+.rp-service-area,
+.rp-logout {
+  color: var(--board-soft);
+}
+.rp-logout {
+  border-radius: 4px;
+}
+.rp-logout:hover {
+  color: var(--board-ink);
+  background: rgb(255 252 247 / 10%);
+}
+.rp-skip-link {
+  background: var(--board);
+  border-radius: 4px;
+}
+
+/* Botones: rectangulares, sin degradados ni sombras */
+.rp-button,
+.ui-button {
+  border-radius: 4px;
+  border-width: 2px;
+  font-weight: 600;
+}
+.rp-button-primary,
+.ui-button-primary {
+  background: var(--action);
+  border-color: var(--action);
+  color: var(--action-ink);
+}
+.rp-button-primary:hover:not(:disabled),
+.ui-button-primary:hover:not(:disabled) {
+  background: var(--action-hover);
+  border-color: var(--action-hover);
+  color: var(--action-ink);
+}
+.rp-button-secondary,
+.ui-button-secondary {
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--foreground);
+}
+.rp-button-secondary:hover:not(:disabled),
+.ui-button-secondary:hover:not(:disabled) {
+  background: var(--band);
+}
+.rp-button-quiet,
+.ui-button-outline {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--foreground);
+}
+.rp-button-quiet:hover:not(:disabled),
+.ui-button-outline:hover:not(:disabled) {
+  background: var(--band);
+  border-color: var(--accent);
+}
+.rp-button-danger,
+.ui-button-destructive {
+  background: transparent;
+  border-color: #d9a3ab;
+  color: var(--danger);
+}
+.rp-button-danger:hover:not(:disabled),
+.ui-button-destructive:hover:not(:disabled) {
+  background: var(--danger-band);
+  border-color: var(--danger);
+}
+.ui-button-ghost {
+  border-color: transparent;
+}
+.rp-button-go {
+  background: var(--route);
+  border-color: var(--route);
+  color: #fff;
+}
+.rp-button-go:hover:not(:disabled) {
+  background: var(--route-ink);
+  border-color: var(--route-ink);
+}
+.rp-button-block {
+  width: 100%;
+  min-height: 52px;
+  font-size: 15px;
+}
+
+/* Campos: fondo claro con borde inferior fuerte */
+.rp-input {
+  min-height: 48px;
+  border: 0;
+  border-bottom: 2px solid var(--line-strong);
+  border-radius: 4px 4px 0 0;
+  background: var(--surface);
+}
+.rp-input:hover {
+  border-bottom-color: var(--accent);
+}
+.rp-input:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-bottom-color: var(--board);
+}
+.rp-field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.rp-field-help {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+input[type='checkbox'] {
+  accent-color: var(--board);
+}
+
+/* Encabezado de pantalla y cifras del día */
+.rl-page {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 28px 32px 48px;
+}
+.rl-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 32px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--board);
+  margin-bottom: 24px;
+}
+.rl-page-head h1 {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.rl-page-head p {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.rl-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 0;
+}
+.rl-figures > div {
+  display: flex;
+  flex-direction: column-reverse;
+}
+.rl-figures dt {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.rl-figures dd {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.rl-figures dd.is-route {
+  color: var(--route-ink);
+}
+.rl-figures dd.is-warn {
+  color: var(--warn);
+}
+
+/* Secciones por franjas, no tarjetas */
+.rl-section {
+  min-width: 0;
+}
+.rl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--line-strong);
+}
+.rl-head h2,
+.rl-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.rl-head h2::before,
+.rl-head h3::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 3px solid var(--board);
+  flex: none;
+}
+.rl-head small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+.rl-columns {
+  display: grid;
+  gap: 0 32px;
+}
+@media (min-width: 1280px) {
+  .rl-columns-dispatch {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) 360px;
+  }
+}
+.rl-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
