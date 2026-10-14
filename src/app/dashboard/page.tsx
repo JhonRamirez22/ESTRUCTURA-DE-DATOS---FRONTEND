@@ -563,3 +563,116 @@ export default function DashboardPage() {
       return;
     }
 
+    setDispatching(true);
+    setError(null);
+
+    try {
+      const routeResponse = await apiFetch('/api/asignaciones/aplicar', {
+        body: JSON.stringify({ assignments: assignmentPreview }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      });
+
+      if (!routeResponse.ok) {
+        throw new Error(await readApiError(routeResponse, 'No se pudo optimizar la ruta.'));
+      }
+
+      const routePayload = (await routeResponse.json()) as {
+        routes?: Array<{
+          trafficAi?: AssignmentAiStatus;
+          liveTraffic?: LiveTrafficStatus;
+        }>;
+      };
+      const trafficSummaries = (routePayload.routes ?? [])
+        .map((route) => route.liveTraffic)
+        .filter((status): status is LiveTrafficStatus => status !== undefined);
+      if (trafficSummaries.length > 0) {
+        setLiveTrafficNotice(summarizeLiveTraffic(trafficSummaries));
+      }
+      const routeAiStatus = routePayload.routes?.find(
+        (route) => route.trafficAi !== undefined
+      )?.trafficAi;
+      if (routeAiStatus !== undefined) {
+        setAssignmentAiStatus(routeAiStatus);
+      }
+
+      setAssignmentPreview([]);
+      setAssignmentPreviewSelectionKey(null);
+      setUnassignedDeliveryPointIds([]);
+      setAssignmentImprovement(null);
+      setSelectedPendingIds([]);
+      setSheetTab('rutas');
+      await loadDashboard();
+    } catch (dispatchError) {
+      setError(
+        dispatchError instanceof Error ? dispatchError.message : 'No se pudo despachar la ruta.'
+      );
+    } finally {
+      setDispatching(false);
+    }
+  };
+
+  const [markingReadyId, setMarkingReadyId] = useState<string | null>(null);
+  const [readyError, setReadyError] = useState<string | null>(null);
+
+  /** Quita la programación: el pedido pasa a la cola de despacho; sigue siendo decisión del despacho. */
+  const markReady = async (point: DeliveryPoint): Promise<void> => {
+    setMarkingReadyId(point.id);
+    setReadyError(null);
+    try {
+      const response = await apiFetch(`/api/pedidos/${encodeURIComponent(point.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduledFor: null }),
+      });
+      if (!response.ok) throw new Error('failed');
+      await loadDashboard();
+    } catch {
+      setReadyError(t('dash.scheduled.readyError'));
+    } finally {
+      setMarkingReadyId(null);
+    }
+  };
+
+  const deletePendingOrder = async (point: DeliveryPoint): Promise<void> => {
+    if (
+      !window.confirm(
+        `¿Eliminar el pedido ${formatOrderReference(point.orderId)}? Esta acción no se puede deshacer.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingOrderId(point.id);
+    setError(null);
+    try {
+      const response = await apiFetch(`/api/pedidos/${encodeURIComponent(point.id)}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'No se pudo eliminar el pedido.'));
+      }
+
+      setSelectedPendingIds((current) => current.filter((id) => id !== point.id));
+      setAssignmentPreview([]);
+      setAssignmentPreviewSelectionKey(null);
+      setUnassignedDeliveryPointIds([]);
+      await loadDashboard();
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'No se pudo eliminar el pedido. Si ya fue asignado, conserva su historial.'
+      );
+      await loadDashboard();
+    } finally {
+      setDeletingOrderId(null);
+    }
+  };
+
+  const availableCouriers = data.couriers.filter(
+    (courier) =>
+      courier.status === 'AVAILABLE' &&
+      courier.currentLat !== null &&
+      courier.currentLng !== null &&
+      isCourierLocationFresh(courier.lastLocationAt ? new Date(courier.lastLocationAt) : null)
