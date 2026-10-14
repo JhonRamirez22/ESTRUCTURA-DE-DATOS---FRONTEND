@@ -221,3 +221,47 @@ export default function AppShell({ children, active }: AppShellProps) {
             </Link>
             <DockLabel>{t('nav.home')}</DockLabel>
           </DockItem>
+          {navigation.map((item) => {
+            const Icon =
+              item.key === 'orders' || item.key === 'request'
+                ? Package
+                : item.key === 'tracking'
+                  ? Search
+                  : item.key === 'staff'
+                    ? LogIn
+                    : Route;
+            const isActive = active === item.key || (!active && pathname === item.href);
+            return (
+              <DockItem key={item.href} className={isActive ? 'is-active' : undefined}>
+                <Link
+                  href={item.href}
+                  className="ui-dock-action"
+                  aria-label={label(item.key)}
+                  aria-current={isActive ? 'page' : undefined}
+                  data-tip={`tip.nav.${item.key}`}
+                >
+                  <DockIcon>
+                    <Icon />
+                  </DockIcon>
+                </Link>
+                <DockLabel>{label(item.key)}</DockLabel>
+              </DockItem>
+            );
+          })}
+        </Dock>
+      )}
+      {dispatcherSurface ? (
+        <CommandPalette
+          emptyText={t('palette.empty')}
+          items={paletteItems}
+          label={t('palette.open')}
+          onClose={() => setPaletteOpen(false)}
+          open={paletteOpen}
+          placeholder={t('palette.placeholder')}
+        />
+      ) : null}
+      <TooltipLayer />
+      <IntroDialog />
+    </div>
+  );
+}
