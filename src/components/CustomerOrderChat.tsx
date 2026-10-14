@@ -233,3 +233,50 @@ export default function CustomerOrderChat({ guide }: CustomerOrderChatProps) {
             {submitting ? (
               <p className="text-sm text-slate-600" role="status">
                 Consultando el estado de tu pedido…
+              </p>
+            ) : null}
+          </div>
+
+          <div className="border-t border-slate-100 px-4 py-4 sm:px-5">
+            <details className="mb-3 rounded-xl bg-slate-50 px-3 text-xs text-slate-600">
+              <summary className="min-h-11 cursor-pointer py-3 font-medium leading-5 text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+                {PROVIDER_NOTICE_SUMMARY}
+              </summary>
+              <p className="pb-3 leading-5">{providerNotice}</p>
+            </details>
+            {assistantConfiguration === 'unknown' ? (
+              <p className="mb-3 text-sm leading-5 text-amber-900" role="status">
+                No pudimos confirmar si el asistente está configurado. Puedes intentar enviar tu pregunta.
+              </p>
+            ) : null}
+            {error ? (
+              <p
+                className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm leading-5 text-amber-950"
+                role="alert"
+              >
+                {error}
+              </p>
+            ) : null}
+            <form
+              className="flex flex-col gap-2 sm:flex-row"
+              onSubmit={(event) => void sendQuestion(event)}
+            >
+              <label className="sr-only" htmlFor="customer-order-question">
+                Escribe tu pregunta sobre el pedido
+              </label>
+              <input
+                autoComplete="off"
+                className="rp-input min-h-11 flex-1 px-3 py-2.5 text-sm"
+                id="customer-order-question"
+                maxLength={MAX_MESSAGE_LENGTH}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder="Ej. ¿Ya fue asignado a una ruta?"
+                ref={questionRef}
+                value={draft}
+              />
+              <button
+                className="rp-button rp-button-primary min-w-28"
+                disabled={!draft.trim() || submitting}
+                type="submit"
+              >
+                {submitting ? 'Enviando…' : 'Preguntar'}
