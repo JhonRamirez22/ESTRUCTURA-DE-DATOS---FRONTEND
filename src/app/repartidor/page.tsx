@@ -329,3 +329,85 @@ export default function RepartidorPage() {
       const saved = source?.improvementMinutes ?? null;
       setOptimizations((current) => [
         ...current.slice(-19),
+        {
+          at: Date.now(),
+          auto,
+          savedMinutes: saved !== null && saved > 0 ? saved : null,
+          fromMinutes: source?.baselineDurationMinutes ?? null,
+          toMinutes: source?.estimatedDurationMinutes ?? null,
+        },
+      ]);
+      setAppliedNotice(
+        auto
+          ? `Ruta optimizada automáticamente${saved !== null && saved >= 1 ? `: ahorras unos ${Math.round(saved)} min` : ""}. El nuevo orden ya está en tu lista.`
+          : "Ruta optimizada aplicada: el orden de tus paradas ya está actualizado.",
+      );
+      setCelebrating(true);
+      void refreshNavigation(result.route.id).catch(() => undefined);
+    } catch (applyError) {
+      setError(applyError instanceof Error ? applyError.message : "No se pudo aplicar la ruta optimizada.");
+    } finally {
+      routeGeneration.current += 1;
+      setApplying(false);
+    }
+  };
+
+  autoReview.current = (candidate: RouteProposal) => {
+    const worth = candidate.worthApplying ?? candidate.changed;
+    const saving = candidate.improvementMinutes ?? candidate.aiOrder?.savingMinutes ?? 0;
+    if (
+      !autoOptimize ||
+      applying ||
+      !assignedRoute ||
+      !worth ||
+      saving < AUTO_MIN_SAVING_MINUTES ||
+      activeDeliveryPoints.length < 2 ||
+      candidate.orderedDeliveryPointIds.join(",") === dismissedProposal ||
+      Date.now() - lastAutoAt.current < AUTO_COOLDOWN_MS
+    ) {
+      return;
+    }
+    lastAutoAt.current = Date.now();
+    void applyProposal(true, candidate);
+  };
+
+  useEffect(() => {
+    // Retira identificadores y rutas privadas almacenados por versiones antiguas de la PWA.
+    window.localStorage.removeItem("rutas-pasto:courier-id");
+    for (const key of Object.keys(window.localStorage)) {
+      if (key.startsWith("rutas-pasto:assigned-route:")) {
+        window.localStorage.removeItem(key);
+      }
+    }
+    void loadCourierProfile();
+    void loadAssignedRoute();
+
+    return () => {
+      if (watchId.current !== null) {
+        navigator.geolocation.clearWatch(watchId.current);
+      }
+    };
+  }, [loadAssignedRoute, loadCourierProfile]);
+
+  useEffect(() => {
+    if (!celebrating) return;
+    const timeout = window.setTimeout(() => setCelebrating(false), CELEBRATION_MS);
+    return () => window.clearTimeout(timeout);
+  }, [celebrating]);
+
+  // Cada 5 s revisa tráfico (TomTom) y propone la mejor ruta (IA); el backend cachea la propuesta.
+  useEffect(() => {
+    const routeId = assignedRoute?.id;
+    if (routeId === undefined) {
+      setProposal(null);
+      setTrafficMarks([]);
+      setProposalStatus(null);
+      return;
+    }
+    let disposed = false;
+    const review = async () => {
+      if (document.visibilityState === "hidden" || proposalInFlight.current) return;
+      proposalInFlight.current = true;
+      try {
+        const encodedId = encodeURIComponent(routeId);
+        const [proposalResponse, trafficResponse] = await Promise.all([
