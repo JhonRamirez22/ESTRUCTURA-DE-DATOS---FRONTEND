@@ -258,3 +258,55 @@ export default function ClientePage() {
                         ? t("tracking.assigned")
                         : t("tracking.approx", { min: Math.max(1, Math.round(tracking.route.estimatedMinutesFromNow)) })
                       : formatStatus(tracking.status)}
+                  </p>
+                  <h2 className="mt-1 text-sm font-normal !text-[var(--board-soft)]">{tracking.address}</h2>
+                </div>
+              }
+              grabberLabel={t("tracking.sheet.grabber")}
+              head={
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-xl font-semibold">{t("tracking.progress")}</h2>
+                  <span className="rl-state">{formatStatus(tracking.status)}</span>
+                </div>
+              }
+              label={t("tracking.map")}
+              onLayout={handleSheetLayout}
+              peek={190}
+            >
+              <div className="grid gap-4">
+{trackingRefreshWarning ? (
+              <p className="rl-notice is-warn " role="status">
+                {trackingRefreshWarning}
+              </p>
+            ) : null}
+                <RouteLine label={t("tracking.progress")} selected stops={trackingStages(tracking, t)} />
+                {tracking.scheduledFor ? (
+                  <p className="text-sm">
+                    <span className="font-semibold">{t("tracking.scheduledFor")}: </span>
+                    {formatBogota(tracking.scheduledFor, lang)}
+                  </p>
+                ) : null}
+                {tracking.milestones && tracking.milestones.length > 0 ? (
+                  <div>
+                    <h3 className="text-sm font-semibold">{t("tracking.milestones")}</h3>
+                    <ol className="mt-2 grid gap-1.5 text-sm">
+                      {tracking.milestones.map((milestone) => (
+                        <li className="flex justify-between gap-3" key={`${milestone.type}-${milestone.at}`}>
+                          <span>{milestoneLabel(milestone.type, t)}</span>
+                          <span className="tabular-nums text-[var(--ink-soft)]">{formatBogota(milestone.at, lang)}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : null}
+{lastUpdatedAt ? (
+                  <p aria-live="polite" className=" text-xs leading-5">
+                    Última consulta {formatQueryTime(lastUpdatedAt)}
+                    {tracking.status !== "DELIVERED" && tracking.status !== "FAILED"
+                      ? " · se actualiza cada 30 s"
+                      : ""}
+                  </p>
+                ) : null}
+{tracking.route ? (
+                <>
+                  <dl className="mt-5 text-sm">
