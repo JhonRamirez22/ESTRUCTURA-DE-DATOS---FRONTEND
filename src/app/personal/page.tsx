@@ -218,3 +218,58 @@ export default function StaffPage() {
               </p>
             ) : loadError ? (
               <div className="rl-notice is-error mt-4" role="alert">
+                <span>{loadError}</span>
+                <button
+                  className="rp-button rp-button-quiet rp-button-small"
+                  onClick={() => {
+                    setLoading(true);
+                    void loadCouriers();
+                  }}
+                  type="button"
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : couriers.length === 0 ? (
+              <p className="rl-empty">
+                Todavía no hay repartidores. Registra el primero con el formulario.
+              </p>
+            ) : (
+              <ul className="rl-rows">
+                {couriers.map((courier) => {
+                  const editing = access?.courierId === courier.id;
+                  const confirming = confirmingDeleteId === courier.id;
+                  const rowError = deleteError?.courierId === courier.id ? deleteError.message : null;
+                  return (
+                    <li className="border-b border-[var(--line)] py-3" key={courier.id}>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-[var(--foreground)]">
+                            {courier.name}
+                          </p>
+                          <p className="text-xs text-[var(--ink-soft)]">
+                            <span className="tabular-nums">{courier.phone}</span> · {describeStatus(courier)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            aria-expanded={editing}
+                            className="rp-button rp-button-quiet rp-button-small"
+                            data-tip="tip.changeAccess"
+                            onClick={() => {
+                              setAccessError(null);
+                              setConfirmingDeleteId(null);
+                              setAccess(editing ? null : { courierId: courier.id, email: '', password: '' });
+                            }}
+                            type="button"
+                          >
+                            {editing ? t('staff.cancel') : t('staff.changeAccess')}
+                          </button>
+                          {/* La acción destructiva queda separada y pide una segunda confirmación. */}
+                          <button
+                            aria-expanded={confirming}
+                            aria-label={`Eliminar a ${courier.name}`}
+                            className="rp-button rp-button-danger rp-button-small ml-3"
+                            data-tip="tip.deleteCourier"
+                            disabled={deletingId !== null}
+                            onClick={() => {
