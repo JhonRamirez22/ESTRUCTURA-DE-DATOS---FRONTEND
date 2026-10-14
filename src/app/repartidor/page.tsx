@@ -411,3 +411,85 @@ export default function RepartidorPage() {
       try {
         const encodedId = encodeURIComponent(routeId);
         const [proposalResponse, trafficResponse] = await Promise.all([
+          apiFetch(`/api/rutas/${encodedId}/propuesta`, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+          }),
+          apiFetch(`/api/rutas/${encodedId}/trafico-vivo`, { cache: "no-store" }),
+        ]);
+        if (disposed) return;
+        if (proposalResponse.ok) {
+          const payload = (await proposalResponse.json()) as RouteProposal;
+          setProposal(payload);
+          setLastReviewAt(Date.now());
+          autoReview.current(payload);
+          setProposalStatus(
+            payload.changed
+              ? null
+              : `Ruta revisada a las ${new Date(payload.computedAt).toLocaleTimeString("es-CO")}: el orden actual es el mejor con el tráfico de ahora.`,
+          );
+        } else {
+          setProposalStatus(await readApiError(proposalResponse, "No se pudo revisar la ruta con tráfico."));
+        }
+        if (trafficResponse.ok) {
+          const overlay = (await trafficResponse.json()) as { observations?: TrafficObservation[] };
+          setTrafficMarks(overlay.observations ?? []);
+        } else {
+          setTrafficMarks([]);
+        }
+      } catch {
+        if (!disposed) setProposalStatus("Sin conexión para revisar la ruta; se conserva la última propuesta.");
+      } finally {
+        proposalInFlight.current = false;
+      }
+    };
+    void review();
+    const interval = window.setInterval(() => void review(), PROPOSAL_REFRESH_INTERVAL_MS);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, [assignedRoute?.id]);
+
+  // Reintenta la cola de entregas pendientes al recuperar la red y cada 10 s mientras haya.
+  useEffect(() => {
+    const retry = () => void flushOfflineUpdates();
+    window.addEventListener("online", retry);
+    const interval = window.setInterval(retry, OFFLINE_RETRY_INTERVAL_MS);
+    return () => {
+      window.removeEventListener("online", retry);
+      window.clearInterval(interval);
+    };
+  }, [flushOfflineUpdates]);
+
+  // ETA por parada cada 15 s; el min-heap elige las más cercanas.
+  useEffect(() => {
+    const routeId = assignedRoute?.id;
+    if (routeId === undefined) {
+      setStopEtas([]);
+      return;
+    }
+    let disposed = false;
+    const loadEtas = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const response = await apiFetch(`/api/rutas/${encodeURIComponent(routeId)}/eta`, { cache: "no-store" });
+        if (!response.ok || disposed) return;
+        const payload = (await response.json()) as {
+          etas?: StopEta[];
+          historical?: { simulatedShare?: number } | null;
+        };
+        if (!disposed) {
+          setStopEtas(payload.etas ?? []);
+          setHistorySimulated((payload.historical?.simulatedShare ?? 0) >= 0.5);
+        }
+      } catch {
+        // Se conserva el último cálculo válido.
+      }
+    };
+    void loadEtas();
+    const interval = window.setInterval(() => void loadEtas(), ETA_REFRESH_INTERVAL_MS);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, [assignedRoute?.id]);
