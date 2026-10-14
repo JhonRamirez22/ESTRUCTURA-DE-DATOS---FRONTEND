@@ -243,3 +243,51 @@ export default function RequestDeliveryPage() {
                     }
                     setError(null);
                     setPoint([lat, lng]);
+                  }}
+                  pendingPoints={[]}
+                  routes={[]}
+                  selectedCoordinate={point}
+                />
+            <Sheet
+              foot={
+                <button className="rp-button rp-button-go rp-button-block" data-tip="tip.sendRequest" disabled={sending} form="request-form" type="submit">
+                  {sending ? t('request.sending') : t('request.send')}
+                </button>
+              }
+              grabberLabel={t('request.sheet.grabber')}
+              head={
+                <div className="flex items-baseline justify-between gap-3">
+                  <h2 className="text-xl font-semibold">{t('request.form')}</h2>
+                  <span className="rl-state">{t('request.onlyPasto')}</span>
+                </div>
+              }
+              label={t('request.form')}
+              onLayout={handleSheetLayout}
+              peek={150}
+            >
+            <form className="space-y-5" id="request-form" noValidate onSubmit={(event) => void submit(event)}>
+              <label className="rp-field-label">
+                {t('request.address')}
+                <input
+                  aria-describedby="request-address-help"
+                  autoComplete="street-address"
+                  className="rp-input mt-1.5 px-3 text-[15px] font-normal"
+                  maxLength={200}
+                  onChange={(event) => {
+                    setPicked(false);
+                    setAddress(event.target.value);
+                  }}
+                  placeholder="Ej. Calle 18 # 22-14, Centro"
+                  value={address}
+                />
+                <span className="rp-field-help" id="request-address-help">
+                  {t('request.address.help')}
+                </span>
+              </label>
+              <div aria-busy={looking} aria-live="polite">
+                {looking ? <p className="text-sm text-[var(--ink-soft)]">{t('request.searching')}</p> : null}
+                {picked ? <p className="rl-notice is-ok">{t('request.picked')}</p> : null}
+                {lookup?.source === 'ai+tomtom' && lookup.candidates.length > 0 ? (
+                  <p className="rl-notice is-ok mb-2">{t('request.ai', { address: lookup.normalizedAddress })}</p>
+                ) : null}
+                {lookup?.warning ? <p className="text-sm text-[var(--ink-soft)]">{lookup.warning}</p> : null}
