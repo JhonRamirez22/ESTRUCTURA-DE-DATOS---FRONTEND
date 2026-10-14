@@ -194,3 +194,52 @@ export default function RequestDeliveryPage() {
                 <p className="rl-notice is-ok mt-4 !block text-sm" role="status">
                   {t('request.nearby')}
                 </p>
+              ) : null}
+              <p className="mt-5 text-xs font-semibold">{t('request.guide')}</p>
+              <p className="mt-1 break-all text-lg font-semibold tabular-nums !text-[var(--board-ink)]">
+                {created.trackingGuide}
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button className="rp-button rp-button-primary" data-tip="tip.copyGuide" onClick={() => void copyGuide()} type="button">
+                  {copied ? t('request.copied') : t('request.copy')}
+                </button>
+                <Link
+                  className="rp-button rp-button-quiet"
+                  href={`/cliente?guia=${encodeURIComponent(created.trackingGuide)}`}
+                >
+                  {t('request.follow')}
+                </Link>
+              </div>
+            </div>
+            <div>
+              <div className="rl-head">
+                <h2>{t('request.next')}</h2>
+              </div>
+              <div className="mt-4">
+                <RouteLine
+                  label="Estado de tu solicitud"
+                  selected
+                  stops={[
+                    { id: 'enviada', label: 'Solicitud enviada', state: 'done' },
+                    { id: 'revision', label: 'En revisión', meta: 'El despacho confirma la dirección', state: 'current' },
+                    { id: 'asignada', label: 'Asignada a un repartidor', state: 'pending' },
+                    { id: 'entregada', label: 'Entregada', state: 'pending' },
+                  ]}
+                />
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section aria-label={t('request.mapTitle')} className={`rp-stage ${stageWide ? 'is-wide' : ''}`}>
+                <RequestMap
+                  ariaLabel="Mapa para marcar el punto de entrega"
+                  className="absolute inset-0 h-full w-full"
+                  inset={inset}
+                  couriers={[]}
+                  onMapClick={({ lat, lng }) => {
+                    if (!isWithinPastoServiceArea(lat, lng)) {
+                      setError('Ese punto queda fuera de la zona de servicio de Pasto.');
+                      return;
+                    }
+                    setError(null);
+                    setPoint([lat, lng]);
