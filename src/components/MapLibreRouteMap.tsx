@@ -414,3 +414,86 @@ export default function MapLibreRouteMap({
       map.getCanvas().style.cursor = 'pointer';
       popup
         .setLngLat(event.lngLat)
+        .setText(t('opt.legMinutes', { min: leg.minutes.toLocaleString('es-CO') }))
+        .addTo(map);
+    };
+    const hide = () => {
+      map.getCanvas().style.cursor = '';
+      popup.remove();
+    };
+    map.on('mousemove', 'route-stops', show);
+    map.on('mouseleave', 'route-stops', hide);
+    return () => {
+      map.off('mousemove', 'route-stops', show);
+      map.off('mouseleave', 'route-stops', hide);
+      popup.remove();
+    };
+  }, [t]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map || !onMapClick) {
+      return;
+    }
+
+    const handleMapClick = (event: maplibregl.MapMouseEvent) => {
+      if (!isWithinPastoServiceArea(event.lngLat.lat, event.lngLat.lng)) {
+        return;
+      }
+      onMapClick({ lat: event.lngLat.lat, lng: event.lngLat.lng });
+    };
+
+    map.on('click', handleMapClick);
+    return () => {
+      map.off('click', handleMapClick);
+    };
+  }, [onMapClick]);
+
+  return (
+    <div
+      aria-label={ariaLabel}
+      className={`relative isolate overflow-hidden bg-[#17242b] ${className}`}
+      role="region"
+      style={
+        inset
+          ? ({ '--map-inset-left': `${inset.left}px`, '--map-inset-bottom': `${inset.bottom}px` } as CSSProperties)
+          : undefined
+      }
+    >
+      <div
+        ref={containerRef}
+        className="absolute inset-0 h-full w-full"
+        style={{ height: '100%', width: '100%' }}
+      />
+      {showTraffic && mapStatus === 'ready' && selectedRoute ? (
+        <TrafficOverlay key={selectedRoute.id} routeId={selectedRoute.id} />
+      ) : null}
+      {routes.length > 1 && selectedRoute ? (
+        <select
+          aria-label="Recorrido resaltado"
+          className="rp-button rp-button-map absolute right-3 top-3 z-10 max-w-[45%] text-xs"
+          value={selectedRouteId ?? ''}
+          onChange={(event) => setSelectedRouteId(event.target.value || null)}
+        >
+          <option value="">Todas las rutas</option>
+          {routes.map((route) => (
+            <option key={route.id} value={route.id}>
+              {route.courier.name} · {route.deliveryPoints.length} paradas
+            </option>
+          ))}
+        </select>
+      ) : null}
+      {selectedRoute?.optimization && mapStatus === 'ready' ? (
+        <OptimizationBadge optimization={selectedRoute.optimization} />
+      ) : null}
+      <button
+        className="rp-button rp-button-map rp-map-center absolute left-3 top-3 z-10"
+        data-tip="tip.centerMap"
+        onClick={() => {
+          const map = mapRef.current;
+          if (!map?.isStyleLoaded()) return;
+          cameraKeyRef.current = null;
+          updateMapData(map, dataRef.current, cameraKeyRef);
+        }}
+        type="button"
