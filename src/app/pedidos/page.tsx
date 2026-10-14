@@ -284,3 +284,60 @@ export default function OrdersPage() {
     try {
       const response = await apiFetch('/api/pedidos', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: normalizePastoAddress(draft.address),
+          lat,
+          lng,
+          orderId: draft.orderId.trim() || `PED-${Date.now()}`,
+          priority: Number(draft.priority),
+          ...(scheduleToPayload(draft.scheduledFor) ? { scheduledFor: scheduleToPayload(draft.scheduledFor) } : {}),
+          ...(draft.windowStart || draft.windowEnd
+            ? {
+                timeWindow: {
+                  ...(draft.windowStart ? { start: draft.windowStart } : {}),
+                  ...(draft.windowEnd ? { end: draft.windowEnd } : {}),
+                },
+              }
+            : {}),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'No se pudo registrar el pedido.'));
+      }
+
+      const payload = (await response.json()) as {
+        deliveryPoint: { orderId: string; address: string };
+        trackingGuide: string;
+        addressNormalization?: AddressNormalizationStatus;
+      };
+      setNormalization(payload.addressNormalization ?? null);
+      setSuccess(
+        `Pedido ${formatOrderReference(payload.deliveryPoint.orderId)} listo. Guía privada para el cliente: ${payload.trackingGuide}.`
+      );
+      setDraft({
+        address: '',
+        orderId: '',
+        lat: '',
+        lng: '',
+        priority: '1',
+        windowStart: '',
+        windowEnd: '',
+        scheduledFor: '',
+      });
+      setSelectedCoordinate(null);
+      await loadPendingOrders();
+    } catch (createError) {
+      setError(
+        createError instanceof Error ? createError.message : 'No se pudo registrar el pedido.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <AppShell active="orders">
+      <main className="rp-orders rl-page">
+        <header className="rl-page-head">
