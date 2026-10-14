@@ -273,3 +273,57 @@ export default function StaffPage() {
                             data-tip="tip.deleteCourier"
                             disabled={deletingId !== null}
                             onClick={() => {
+                              setDeleteError(null);
+                              setAccess(null);
+                              setConfirmingDeleteId(confirming ? null : courier.id);
+                            }}
+                            type="button"
+                          >
+                            {t('staff.delete')}
+                          </button>
+                        </div>
+                      </div>
+                      {confirming ? (
+                        <div
+                          className="route-proposal mt-3 flex flex-wrap items-center justify-between gap-3 bg-[var(--danger-band)] p-3"
+                          role="group"
+                          aria-label={`Confirmar eliminación de ${courier.name}`}
+                        >
+                          <p className="text-sm text-[var(--danger-ink)]">
+                            ¿Eliminar a <strong>{courier.name}</strong>? Se borra también su cuenta de acceso. No se
+                            puede deshacer.
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              className="rp-button rp-button-quiet rp-button-small"
+                              disabled={deletingId === courier.id}
+                              onClick={() => setConfirmingDeleteId(null)}
+                              type="button"
+                            >
+                              {t('staff.keep')}
+                            </button>
+                            <button
+                              className="rp-button rp-button-small !border-[var(--danger)] !bg-[var(--danger)] !text-white"
+                              disabled={deletingId === courier.id}
+                              onClick={() => void deleteCourier(courier)}
+                              type="button"
+                            >
+                              {deletingId === courier.id ? 'Eliminando…' : t('staff.confirmDelete')}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                      {rowError ? (
+                        <p className="rl-notice is-warn mt-3" role="alert">
+                          {rowError}
+                        </p>
+                      ) : null}
+                      {editing && access ? (
+                        <form
+                          aria-label={`Acceso de ${courier.name}`}
+                          className="route-proposal mt-3 grid gap-3 bg-[var(--band)] p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+                          noValidate
+                          onSubmit={(event) => void saveAccess(event)}
+                        >
+                          <label className="text-xs font-semibold text-[var(--foreground)]">
+                            Correo
