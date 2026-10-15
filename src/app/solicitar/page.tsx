@@ -291,3 +291,51 @@ export default function RequestDeliveryPage() {
                   <p className="rl-notice is-ok mb-2">{t('request.ai', { address: lookup.normalizedAddress })}</p>
                 ) : null}
                 {lookup?.warning ? <p className="text-sm text-[var(--ink-soft)]">{lookup.warning}</p> : null}
+                {lookup && lookup.candidates.length > 0 ? (
+                  <ul aria-label={t('request.suggestions')} className="rl-rows">
+                    {lookup.candidates.map((candidate, index) => (
+                      <li key={`${candidate.lat}:${candidate.lng}:${index}`}>
+                        <button
+                          className="rl-row w-full text-left hover:bg-[var(--band)]"
+                          data-tip="tip.pickAddress"
+                          onClick={() => pickCandidate(candidate)}
+                          type="button"
+                        >
+                          <span className="rl-row-main">
+                            <strong>{candidate.address}</strong>
+                            <span>
+                              {t(`request.precision.${candidate.precision}`)} · {t('request.pick')}
+                            </span>
+                          </span>
+                          <span aria-hidden="true" className="text-lg">→</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+              <div className="text-sm">
+                <span className="font-semibold">{t('request.point')}</span>
+                <p className={`mt-1 tabular-nums ${point ? 'text-[var(--route-ink)]' : 'text-[var(--ink-soft)]'}`}>
+                  {point ? `${point[0].toFixed(6)}, ${point[1].toFixed(6)}` : t('request.point.empty')}
+                </p>
+              </div>
+              {error ? (
+                <p className="rl-notice is-error" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              <p className="text-xs leading-5 text-[var(--ink-soft)]">
+                {t('request.haveGuide')}{' '}
+                <Link className="font-semibold underline underline-offset-4" href="/cliente">
+                  {t('request.track')}
+                </Link>
+              </p>
+            </form>
+            </Sheet>
+          </section>
+        )}
+      </main>
+    </AppShell>
+  );
+}
