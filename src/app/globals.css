@@ -1580,3 +1580,229 @@ input[type='checkbox'] {
   align-items: center;
   gap: 0;
   margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rl-strip.is-route {
+  --line-color: var(--route);
+}
+.rl-strip li {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+.rl-strip li::after {
+  content: '';
+  flex: 1;
+  height: 4px;
+  background: var(--line-color);
+}
+.rl-strip li:last-child {
+  flex: none;
+}
+.rl-strip li:last-child::after {
+  display: none;
+}
+.rl-strip i {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 3px solid var(--line-color);
+  background: var(--surface);
+}
+.rl-strip .is-done i {
+  background: var(--line-color);
+}
+.rl-strip .is-current i {
+  width: 18px;
+  height: 18px;
+  background: var(--board);
+}
+
+/* Estado como marca, no como píldora */
+.rl-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.rl-state::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.rl-state.is-route {
+  color: var(--route-ink);
+}
+.rl-state.is-warn {
+  color: var(--warn);
+}
+.rl-state.is-muted {
+  color: var(--ink-soft);
+}
+
+/* Mapa y paneles existentes sin aspecto de tarjeta */
+.rp-map-frame,
+.rp-route-list,
+.rp-panel,
+.rp-order-form {
+  border-radius: 4px;
+}
+.rp-map-frame {
+  border: 0;
+  background: var(--board);
+  color: var(--board-ink);
+}
+.rp-map-heading h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--board-ink);
+}
+.rp-map-heading p,
+.rp-map-legend {
+  color: var(--board-soft);
+}
+.rp-route-list {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+.rp-route-summary {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.rp-panel-primary,
+.rp-panel-quiet {
+  border-radius: 4px;
+}
+.ui-dock-panel {
+  border-radius: 8px;
+  border-color: var(--line-strong);
+}
+.ui-dock-item {
+  border-radius: 6px;
+}
+.ui-login-panel {
+  border-radius: 4px;
+}
+
+@media (max-width: 767px) {
+  .rl-page {
+    padding: 20px 16px 40px;
+  }
+  .rl-page-head h1 {
+    font-size: 24px;
+  }
+  .rp-shell-header-inner {
+    padding: 8px 16px;
+    gap: 12px;
+  }
+  .rp-nav-item.is-active::after {
+    left: 6px;
+    right: 6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rl-stop.is-done .rl-dot {
+    transform: none;
+    width: 14px;
+    height: 14px;
+    margin: 4px;
+  }
+}
+/* Controles sobre el mapa oscuro: superficie marfil opaca para que se lean. */
+.rp-button-map {
+  background: var(--surface);
+  border-color: var(--surface);
+  color: var(--foreground);
+}
+.rp-button-map:hover:not(:disabled) {
+  background: #fff;
+  border-color: #fff;
+}
+
+/* Acceso: panel de paradero con la línea de un pedido; formulario sobre el fondo. */
+.rp-access {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0;
+  max-width: none;
+  min-height: calc(100vh - 60px);
+  padding: 0;
+  align-items: stretch;
+}
+.rp-access-story {
+  background: var(--board);
+  color: var(--board-ink);
+  padding: 40px max(40px, calc((100vw - 1200px) / 2)) 48px 48px;
+  padding-left: max(40px, calc((100vw - 1200px) / 2));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.rp-access-story h2 {
+  font-size: clamp(36px, 3.6vw, 52px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin-top: 28px;
+  max-width: 14ch;
+}
+.rp-access-story p {
+  color: var(--board-soft);
+  font-size: 15px;
+  line-height: 1.7;
+}
+.rp-access-line {
+  margin-top: 36px;
+  max-width: 420px;
+}
+.rp-access-line .rl-dot {
+  background: var(--board);
+}
+.rp-access-line .rl-stop-label {
+  color: var(--board-ink);
+  font-size: 15px;
+}
+.rp-access-line .rl-stop.is-done .rl-stop-label {
+  color: var(--board-soft);
+  text-decoration: none;
+}
+.rp-access-line .rl-stop-meta {
+  color: var(--board-soft);
+}
+.rp-access-line .rl-stop.is-current .rl-dot {
+  box-shadow: 0 0 0 4px var(--board);
+  background: var(--board-ink);
+}
+.rp-access-meta,
+.ui-back-link {
+  color: var(--board-soft);
+}
+.ui-back-link:hover {
+  color: var(--board-ink);
+}
+.rp-access > .ui-login-panel {
+  align-self: center;
+  justify-self: center;
+  width: min(440px, 100% - 48px);
+  border: 0;
+  background: transparent;
+  padding: 48px 0;
+}
+.ui-login-panel h1 {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.ui-login-panel label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.ui-login-mark {
+  color: var(--route);
+}
