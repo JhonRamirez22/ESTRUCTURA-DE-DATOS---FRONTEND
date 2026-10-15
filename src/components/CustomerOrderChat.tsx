@@ -280,3 +280,50 @@ export default function CustomerOrderChat({ guide }: CustomerOrderChatProps) {
                 type="submit"
               >
                 {submitting ? 'Enviando…' : 'Preguntar'}
+              </button>
+            </form>
+            <p className="mt-2 text-right text-xs text-slate-500">
+              {draft.length}/{MAX_MESSAGE_LENGTH}
+            </p>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function isAssistantConfiguration(value: unknown): value is { configured: boolean } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'configured' in value &&
+    typeof value.configured === 'boolean'
+  );
+}
+
+function isChatResponse(value: unknown): value is { reply: string; providerNotice?: string } {
+  if (typeof value !== 'object' || value === null || !('reply' in value)) {
+    return false;
+  }
+  const response = value as { reply?: unknown; providerNotice?: unknown };
+  return (
+    typeof response.reply === 'string' &&
+    response.reply.trim().length > 0 &&
+    (response.providerNotice === undefined || typeof response.providerNotice === 'string')
+  );
+}
+
+async function readApiError(response: Response): Promise<string> {
+  try {
+    const payload: unknown = await response.json();
+    if (typeof payload === 'object' && payload !== null && 'error' in payload) {
+      const message = (payload as { error?: unknown }).error;
+      if (typeof message === 'string') {
+        return message;
+      }
+    }
+  } catch {
+    // El mensaje de recuperación no depende de que el backend devuelva JSON.
+  }
+  return 'El asistente no está disponible ahora. Puedes actualizar el seguimiento e intentarlo luego.';
+}
