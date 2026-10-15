@@ -327,3 +327,57 @@ export default function StaffPage() {
                         >
                           <label className="text-xs font-semibold text-[var(--foreground)]">
                             Correo
+                            <input
+                              autoComplete="off"
+                              className="rp-input mt-1"
+                              maxLength={254}
+                              onChange={(event) => setAccess({ ...access, email: event.target.value })}
+                              type="email"
+                              value={access.email}
+                            />
+                          </label>
+                          <label className="text-xs font-semibold text-[var(--foreground)]">
+                            Nueva contraseña
+                            <input
+                              autoComplete="new-password"
+                              className="rp-input mt-1"
+                              maxLength={128}
+                              onChange={(event) => setAccess({ ...access, password: event.target.value })}
+                              type="password"
+                              value={access.password}
+                            />
+                          </label>
+                          <button className="rp-button rp-button-primary" disabled={savingAccess} type="submit">
+                            {savingAccess ? 'Guardando…' : 'Guardar'}
+                          </button>
+                          {accessError ? (
+                            <p className="rl-notice is-error sm:col-span-3" role="alert">
+                              {accessError}
+                            </p>
+                          ) : null}
+                        </form>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          <section
+            aria-labelledby="new-courier-heading"
+            className="rl-section lg:sticky lg:top-20"
+          >
+            <div className="rl-head">
+              <h2 id="new-courier-heading">{t('staff.add')}</h2>
+            </div>
+            <p className="mt-3 text-sm text-[var(--ink-soft)]">
+              {t('staff.accountNote')}
+            </p>
+            <form className="mt-5 grid gap-5" noValidate onSubmit={(event) => void createCourier(event)}>
+              <label className="rp-field-label">
+                {t('staff.name')}
+                <input
+                  autoComplete="off"
+                  className="rp-input mt-1"
+                  maxLength={100}
