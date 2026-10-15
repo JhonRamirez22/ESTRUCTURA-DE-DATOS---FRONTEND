@@ -676,3 +676,116 @@ export default function DashboardPage() {
       courier.currentLat !== null &&
       courier.currentLng !== null &&
       isCourierLocationFresh(courier.lastLocationAt ? new Date(courier.lastLocationAt) : null)
+  );
+  const connectedCourierCount = data.couriers.filter(
+    (courier) =>
+      courier.status !== 'OFFLINE' &&
+      isCourierLocationFresh(courier.lastLocationAt ? new Date(courier.lastLocationAt) : null)
+  ).length;
+  const summaryMetrics: Array<{ label: string; value: number; warning: boolean }> = [
+    { label: t('dash.fig.connected'), value: connectedCourierCount, warning: false },
+    { label: t('dash.fig.routes'), value: activeRoutes.length, warning: false },
+    { label: t('dash.fig.stops'), value: pendingStops, warning: false },
+    {
+      label: data.metrics.timeSavedMinutes >= 0 ? t('dash.fig.savedMin') : t('dash.fig.extraMin'),
+      value: Math.round(Math.abs(data.metrics.timeSavedMinutes)),
+      warning: data.metrics.timeSavedMinutes < 0,
+    },
+    {
+      label: data.metrics.distanceSavedMeters >= 0 ? t('dash.fig.savedKm') : t('dash.fig.extraKm'),
+      value: Math.round(Math.abs(data.metrics.distanceSavedMeters) / 100) / 10,
+      warning: data.metrics.distanceSavedMeters < 0,
+    },
+  ];
+
+  const discardProposal = () => {
+    const previous = {
+      preview: assignmentPreview,
+      selectionKey: assignmentPreviewSelectionKey,
+      unassigned: unassignedDeliveryPointIds,
+      aiStatus: assignmentAiStatus,
+    };
+    setAssignmentPreview([]);
+    setAssignmentPreviewSelectionKey(null);
+    setUnassignedDeliveryPointIds([]);
+    setAssignmentAiStatus(null);
+    setAssignmentImprovement(null);
+    undoToast.show(t('dash.undo.discarded'), () => {
+      setAssignmentPreview(previous.preview);
+      setAssignmentPreviewSelectionKey(previous.selectionKey);
+      setUnassignedDeliveryPointIds(previous.unassigned);
+      setAssignmentAiStatus(previous.aiStatus);
+    });
+  };
+
+  const flow = dispatchFlow({
+    pendingCount: data.pendingPoints.length,
+    selectedOrders: selectedPendingIds.length,
+    availableCouriers: availableCouriers.length,
+    selectedCouriers: selectedCourierIds.length,
+    analyzing,
+    dispatching,
+    hasProposal: assignmentPreview.length > 0,
+    proposalIsCurrent: assignmentPreviewIsCurrent,
+  });
+  const flowCounts = {
+    orders: selectedPendingIds.length,
+    couriers: selectedCourierIds.length,
+    pending: data.pendingPoints.length,
+    availableCouriers: availableCouriers.length,
+  };
+  // Con propuesta, el botón cuenta lo que se va a despachar, no lo marcado en las listas.
+  const dispatchCounts =
+    assignmentPreview.length > 0 && flow.actionIsDispatch
+      ? {
+          ...flowCounts,
+          orders: assignmentPreview.reduce((sum, item) => sum + item.deliveryPointIds.length, 0),
+          couriers: assignmentPreview.length,
+        }
+      : flowCounts;
+
+  const sheetFoot =
+    sheetTab === 'pedidos' ? (
+      <DispatchAction
+        counts={dispatchCounts}
+        flow={flow}
+        onAct={() => void (flow.actionIsDispatch ? dispatchAssignments() : analyzeAssignments())}
+        onBack={discardProposal}
+      />
+    ) : undefined;
+
+  return (
+    <AppShell active="dispatch">
+      <main className="rp-dashboard">
+        <SessionChangeNotice role="dispatcher" />
+        <div className="rl-page">
+          <header className="rl-page-head">
+            <div>
+              <h1>{t('dash.title')}</h1>
+              <p className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className={`h-2 w-2 shrink-0 rounded-full ${loading ? 'bg-amber-500' : 'bg-[var(--route)]'}`}
+                />
+                {loading
+                  ? t('dash.syncing')
+                  : lastUpdatedAt
+                    ? t('dash.updated', { time: lastUpdatedAt.toLocaleTimeString(lang === 'en' ? 'en-US' : 'es-CO') })
+                    : t('dash.autoRefresh')}
+              </p>
+            </div>
+            <dl aria-label="Resumen operativo" className="rl-figures">
+              {summaryMetrics.map((metric) => (
+                <div key={metric.label}>
+                  <dt>{metric.label}</dt>
+                  <dd className={metric.warning ? 'is-warn' : undefined}>{metric.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <DemoGpsButton onRenewed={() => void loadDashboard()} />
+            <button
+              className="rp-button rp-button-quiet w-full sm:w-auto"
+              data-tip="tip.refresh"
+              disabled={loading}
+              onClick={() => void loadDashboard()}
+              type="button"
