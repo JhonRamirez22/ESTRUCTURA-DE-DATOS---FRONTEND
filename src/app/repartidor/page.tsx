@@ -493,3 +493,85 @@ export default function RepartidorPage() {
       window.clearInterval(interval);
     };
   }, [assignedRoute?.id]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      void loadCourierProfile();
+      void loadAssignedRoute();
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [loadAssignedRoute, loadCourierProfile]);
+
+  useEffect(() => {
+    if (!lastLocation) {
+      return;
+    }
+
+    const expireStalePosition = () => {
+      if (!isCourierLocationFresh(new Date(lastLocation.recordedAt))) {
+        setLastLocation(null);
+      }
+    };
+    const interval = window.setInterval(expireStalePosition, 15_000);
+    return () => window.clearInterval(interval);
+  }, [lastLocation]);
+
+  useEffect(() => {
+    const routeId = assignedRoute?.id;
+    const shouldRefresh =
+      routeId !== undefined &&
+      (assignedRoute?.status === "IN_PROGRESS" || isTracking);
+
+    if (!shouldRefresh || routeId === undefined || applying) {
+      return;
+    }
+
+    const refresh = () => {
+      void refreshNavigation(routeId).catch(() => {
+        // La última geometría válida permanece visible durante un fallo puntual.
+      });
+    };
+    const interval = window.setInterval(refresh, NAVIGATION_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
+  }, [assignedRoute?.id, assignedRoute?.status, isTracking, applying, refreshNavigation]);
+
+  const stopTracking = async () => {
+    if (watchId.current !== null) {
+      navigator.geolocation.clearWatch(watchId.current);
+      watchId.current = null;
+    }
+    pendingLocations.current.clear();
+    setIsTracking(false);
+    try {
+      const response = await apiFetch("/api/repartidores/me/ubicacion", { method: "DELETE" });
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "No se pudo actualizar el estado."));
+      }
+      const payload = (await response.json()) as { courier: { status: CourierProfile["status"] } };
+      setCourierStatus(payload.courier.status);
+    } catch (stopError) {
+      setError(stopError instanceof Error ? stopError.message : "El GPS se detuvo en el dispositivo, pero no se confirmó con el servidor.");
+    }
+  };
+
+  const updateRouteStatus = async (status: "IN_PROGRESS" | "COMPLETED") => {
+    if (!assignedRoute) {
+      return;
+    }
+
+    try {
+      const response = await apiFetch(`/api/rutas/${encodeURIComponent(assignedRoute.id)}`, {
+        body: JSON.stringify({ status }),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "No se pudo actualizar la ruta."));
+      }
+
+      setError(null);
+      await loadAssignedRoute();
