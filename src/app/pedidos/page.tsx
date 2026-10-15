@@ -341,3 +341,60 @@ export default function OrdersPage() {
     <AppShell active="orders">
       <main className="rp-orders rl-page">
         <header className="rl-page-head">
+          <div>
+            <h1>{t('orders.title')}</h1>
+            <p>{t('orders.lead')}</p>
+          </div>
+          <dl className="rl-figures">
+            <div>
+              <dt>{t('orders.pending')}</dt>
+              <dd>{pendingPoints.length}</dd>
+            </div>
+          </dl>
+        </header>
+
+        <div className="mb-6 empty:hidden">
+          {error ? <Alert tone="error">{error}</Alert> : null}
+          {success ? <Alert tone="success">{success}</Alert> : null}
+          {normalization ? (
+            <p className="rl-notice text-sm">
+              {normalization.source === 'external-ai'
+                ? `La IA normalizó la dirección con ${Math.round((normalization.confidence ?? 0) * 100)}% de confianza.`
+                : (normalization.warning ?? 'La dirección fue normalizada localmente.')}
+            </p>
+          ) : null}
+        </div>
+
+        <section className="grid items-start gap-8 lg:grid-cols-[400px_minmax(0,1fr)]">
+          <div className="min-w-0 lg:order-2">
+            <div className="rp-map-frame">
+              <div className="rp-map-heading">
+                <h2>{t('orders.map')}</h2>
+                <span className="rl-state text-[var(--board-soft)]">{t('orders.onlyPasto')}</span>
+              </div>
+              <div className="h-[560px]">
+                <OrderMap
+                  ariaLabel="Mapa para seleccionar la dirección del pedido"
+                  className="h-full w-full"
+                  couriers={[]}
+                  pendingPoints={pendingPoints}
+                  routes={[]}
+                  selectedCoordinate={selectedCoordinate}
+                  onMapClick={handleMapClick}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="min-w-0 space-y-10 lg:order-1">
+            {requests.length > 0 || requestError ? (
+              <section aria-label="Solicitudes de clientes" className="rl-section">
+                <div className="rl-head">
+                  <h2>
+                    {t('orders.requests')} <small>{t('orders.inReview', { n: requests.length })}</small>
+                  </h2>
+                </div>
+                {requestError ? (
+                  <p className="rl-notice is-warn mt-3" role="alert">
+                    {requestError}
+                  </p>
