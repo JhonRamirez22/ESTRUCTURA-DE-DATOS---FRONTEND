@@ -310,3 +310,55 @@ export default function ClientePage() {
 {tracking.route ? (
                 <>
                   <dl className="mt-5 text-sm">
+                    <InfoRow label={t("tracking.delivery")} value={t("tracking.onWay")} />
+                    <InfoRow label={t("tracking.distance")} value={formatDistance(tracking.route.distanceFromCourierMeters)} />
+                    <InfoRow label={t("tracking.lastGps")} value={formatLastLocation(tracking.route.courier.lastLocationAt)} />
+                    <InfoRow label={t("tracking.routeStatus")} value={formatRouteStatus(tracking.route.status)} />
+                  </dl>
+                  {tracking.route.liveTraffic ? (
+                    <div
+                      className={`rl-notice mt-4 !block ${
+                        tracking.route.liveTraffic.applied ? "is-ok" : tracking.route.liveTraffic.configured ? "is-warn" : ""
+                      }`}
+                      role="status"
+                    >
+                      <p className="font-semibold">
+                        {tracking.route.liveTraffic.applied
+                          ? "Tráfico TomTom aplicado parcialmente"
+                          : tracking.route.liveTraffic.configured
+                            ? "Sin ajuste de tráfico TomTom"
+                            : "ETA con tiempos viales base"}
+                      </p>
+                      <p className="mt-1 text-xs leading-5">
+                        {tracking.route.liveTraffic.warning ??
+                          "La señal disponible cubre solo el primer tramo; los demás usan tiempos viales base."}
+                      </p>
+                    </div>
+                  ) : null}
+                  {tracking.route.navigationWarning ? (
+                    <p className="rl-notice is-warn mt-3 text-xs leading-5">{tracking.route.navigationWarning}</p>
+                  ) : null}
+                  {tracking.route.estimateWarning ? (
+                    <p className="rl-notice is-warn mt-3 text-xs leading-5">{tracking.route.estimateWarning}</p>
+                  ) : null}
+                  <p className="mt-4 text-xs leading-5 text-[var(--ink-soft)]">{tracking.route.estimateNote}</p>
+                
+              </>
+                ) : (
+                <p className="mt-4 text-sm leading-6 text-[var(--ink-soft)]">
+                  {tracking.status === "REQUESTED"
+                    ? "Recibimos tu solicitud. El despacho la revisa antes de asignarla a un repartidor."
+                    : "El pedido fue recibido, pero todavía no ha sido asignado a una ruta."}
+                </p>
+              )}
+              <button
+                className="rp-button rp-button-quiet w-full"
+                data-tip="tip.refreshTracking"
+                disabled={loading}
+                onClick={() => void searchTracking(tracking.guide)}
+                type="button"
+              >
+                {loading ? t("tracking.refreshing") : t("tracking.refresh")}
+              </button>
+                <CustomerOrderChat guide={tracking.guide} key={tracking.guide} />
+              </div>
