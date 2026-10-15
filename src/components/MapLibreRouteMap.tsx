@@ -497,3 +497,86 @@ export default function MapLibreRouteMap({
           updateMapData(map, dataRef.current, cameraKeyRef);
         }}
         type="button"
+      >
+        {t('map.center')}
+      </button>
+      {mapStatus !== 'ready' ? (
+        <div
+          aria-label="Carga del mapa"
+          aria-live="polite"
+          className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-[#0b1518]/35 px-4 text-center backdrop-blur-[2px]"
+          role="status"
+        >
+          <div className="max-w-sm rounded-2xl border border-white/15 bg-[#142422]/95 px-5 py-4 text-white shadow-[0_14px_36px_rgba(0,0,0,0.32)]">
+            <div className="flex items-center justify-center gap-3">
+              {mapStatus !== 'unavailable' ? (
+                <span
+                  aria-hidden="true"
+                  className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-emerald-100/35 border-t-emerald-300 motion-reduce:animate-none"
+                />
+              ) : null}
+              <p className="text-sm font-semibold text-emerald-50">
+                {mapStatus === 'loading'
+                  ? 'Cargando calles de Pasto…'
+                  : mapStatus === 'slow'
+                    ? 'El mapa está tardando en responder…'
+                    : 'No se pudieron cargar las calles.'}
+              </p>
+            </div>
+            {mapStatus === 'unavailable' ? (
+              <>
+                <p className="mt-2 text-xs leading-5 text-white/75">
+                  Revisa tu conexión e inténtalo de nuevo.
+                </p>
+                <button
+                  className="rp-button rp-button-secondary rp-button-small pointer-events-auto mt-3"
+                  onClick={() => retryMapRef.current?.()}
+                  type="button"
+                >
+                  Reintentar mapa
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function addMapLayers(map: MapLibreMap): void {
+  if (!map.getSource('route-baseline')) {
+    // El orden sin optimizar, discontinuo y bajo la línea verde: muestra qué cambió.
+    map.addSource('route-baseline', { type: 'geojson', data: emptyFeatureCollection() });
+    map.addLayer({
+      id: 'route-baseline',
+      type: 'line',
+      source: 'route-baseline',
+      layout: { 'line-cap': 'butt', 'line-join': 'round' },
+      paint: {
+        'line-color': '#e7c9a9',
+        'line-opacity': 0.8,
+        'line-width': 3.5,
+        'line-dasharray': [1.4, 1.6],
+      },
+    });
+  }
+  if (!map.getSource('delivery-directions')) {
+    map.addSource('delivery-directions', {
+      type: 'geojson',
+      data: emptyFeatureCollection(),
+    });
+
+    // Un único recorrido verde; el borde oscuro solo mejora su lectura sobre las calles.
+    map.addLayer({
+      id: 'delivery-route-highlight-casing',
+      type: 'line',
+      source: 'delivery-directions',
+      filter: ['==', ['get', 'route'], 'SELECTED'],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': '#06130b',
+        'line-opacity': ['case', ['get', 'dim'], 0.35, 0.95],
+        'line-width': 9,
+      },
+    });
