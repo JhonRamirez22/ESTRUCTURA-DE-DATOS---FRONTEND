@@ -580,3 +580,86 @@ function addMapLayers(map: MapLibreMap): void {
         'line-width': 9,
       },
     });
+    map.addLayer({
+      id: 'delivery-route-highlight',
+      type: 'line',
+      source: 'delivery-directions',
+      filter: ['==', ['get', 'route'], 'SELECTED'],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': ['coalesce', ['get', 'color'], DEFAULT_ROUTE_COLOR],
+        'line-opacity': ['case', ['get', 'dim'], 0.35, 1],
+        'line-width': 5,
+        'line-blur': 0.15,
+      },
+    });
+    ensureArrowImage(map);
+    map.addLayer({
+      id: 'delivery-route-arrows',
+      type: 'symbol',
+      source: 'delivery-directions',
+      filter: ['==', ['get', 'route'], 'SELECTED'],
+      layout: {
+        'symbol-placement': 'line',
+        'symbol-spacing': 72,
+        'icon-image': 'route-arrow',
+        'icon-size': 0.5,
+        'icon-allow-overlap': true,
+        'icon-rotation-alignment': 'map',
+      },
+      paint: { 'icon-color': '#06130b', 'icon-opacity': ['case', ['get', 'dim'], 0.25, 0.85] },
+    });
+  }
+
+  if (!map.getSource('live-proposal')) {
+    // Recálculo en vivo: la ruta propuesta, punteada y animada, sobre la actual.
+    map.addSource('live-proposal', { type: 'geojson', data: emptyFeatureCollection() });
+    map.addLayer({
+      id: 'live-proposal-casing',
+      type: 'line',
+      source: 'live-proposal',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      // El desplazamiento la dibuja junto a la ruta actual, como una gemela punteada.
+      paint: { 'line-color': '#ffffff', 'line-opacity': 0.4, 'line-width': 8, 'line-offset': 6 },
+    });
+    map.addLayer({
+      id: 'live-proposal',
+      type: 'line',
+      source: 'live-proposal',
+      layout: { 'line-cap': 'butt', 'line-join': 'round' },
+      paint: {
+        'line-color': ['coalesce', ['get', 'color'], '#ffffff'],
+        'line-width': 4,
+        'line-offset': 6,
+        'line-dasharray': [2, 2],
+      },
+    });
+  }
+  if (!map.getSource('live-stops')) {
+    map.addSource('live-stops', { type: 'geojson', data: emptyFeatureCollection() });
+    map.addLayer({
+      id: 'live-stops-halo',
+      type: 'circle',
+      source: 'live-stops',
+      paint: {
+        'circle-color': ['coalesce', ['get', 'color'], '#ffffff'],
+        'circle-opacity': 0.4,
+        'circle-radius': 18,
+        'circle-blur': 0.6,
+      },
+    });
+    map.addLayer({
+      id: 'live-stops',
+      type: 'circle',
+      source: 'live-stops',
+      paint: {
+        'circle-color': '#ffffff',
+        'circle-opacity': 0.18,
+        'circle-radius': 14,
+        'circle-stroke-color': ['coalesce', ['get', 'color'], '#ffffff'],
+        'circle-stroke-width': ['case', ['==', ['get', 'kind'], 'moved'], 4, 2.5],
+      },
+    });
+  }
+
+  if (!map.getSource('delivery-labels')) {
