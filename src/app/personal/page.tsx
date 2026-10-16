@@ -435,3 +435,57 @@ export default function StaffPage() {
                 {creating ? 'Registrando…' : t('staff.register')}
               </button>
             </form>
+          </section>
+        </div>
+
+        <section className="rl-section mt-10">
+          <div className="rl-head">
+            <h2>{t('password.title')}</h2>
+          </div>
+          <p className="mb-4 text-sm">{t('password.lead')}</p>
+          <PasswordChangeForm onChanged={() => window.location.assign('/acceso?retorno=%2Fpersonal')} />
+        </section>
+
+        <section aria-label="Modo demo" className="mt-8 empty:hidden">
+          <DemoGpsButton />
+        </section>
+      </main>
+    </AppShell>
+  );
+}
+
+function validateCourier(name: string, phone: string, email: string, password: string): string | null {
+  if (!name) return 'Escribe el nombre del repartidor.';
+  if (!/^[+\d][\d\s-]{6,19}$/.test(phone)) return 'Escribe un teléfono válido (solo números, espacios o guiones).';
+  if (!EMAIL_PATTERN.test(email)) return 'Escribe un correo válido, por ejemplo nombre@empresa.com.';
+  if (password.length < MIN_PASSWORD) return `La contraseña necesita al menos ${MIN_PASSWORD} caracteres.`;
+  return null;
+}
+
+function isFresh(lastLocationAt: string | null): boolean {
+  return isCourierLocationFresh(lastLocationAt ? new Date(lastLocationAt) : null);
+}
+
+function describeStatus(courier: Courier): string {
+  if (isFresh(courier.lastLocationAt)) {
+    if (courier.status === 'AVAILABLE') return 'Disponible';
+    if (courier.status === 'ON_ROUTE') return 'En ruta';
+    return 'Fuera de línea';
+  }
+  if (courier.lastLocationAt) {
+    return `Sin GPS desde las ${new Date(courier.lastLocationAt).toLocaleTimeString('es-CO', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`;
+  }
+  return 'Aún no ha compartido GPS';
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    return typeof payload.error === 'string' ? payload.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
