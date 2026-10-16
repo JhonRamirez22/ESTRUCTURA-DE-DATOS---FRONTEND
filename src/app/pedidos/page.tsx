@@ -398,3 +398,60 @@ export default function OrdersPage() {
                   <p className="rl-notice is-warn mt-3" role="alert">
                     {requestError}
                   </p>
+                ) : null}
+                <ul className="rl-rows">
+                  {requests.map((request) => (
+                    <li className="rl-row flex-wrap !items-start !py-3" key={request.id}>
+                      <button
+                        className="rl-row-main min-w-0 text-left"
+                        onClick={() => setSelectedCoordinate([request.lat, request.lng])}
+                        title="Ver en el mapa"
+                        type="button"
+                      >
+                        <strong className="truncate">{request.address}</strong>
+                        <span className="rl-ref">{formatOrderReference(request.orderId)} · {t('orders.viewOnMap')}</span>
+                      </button>
+                      <span className="flex gap-2">
+                        <button
+                          aria-label={`Rechazar solicitud ${formatOrderReference(request.orderId)}`}
+                          className="rp-button rp-button-danger rp-button-small"
+                          data-tip="tip.rejectRequest"
+                          disabled={resolvingId !== null}
+                          onClick={() => void resolveRequest(request, 'rechazar')}
+                          type="button"
+                        >
+                          {t('orders.reject')}
+                        </button>
+                        <button
+                          aria-label={`Aceptar solicitud ${formatOrderReference(request.orderId)}`}
+                          className="rp-button rp-button-go rp-button-small"
+                          data-tip="tip.acceptRequest"
+                          disabled={resolvingId !== null}
+                          onClick={() => void resolveRequest(request, 'aceptar')}
+                          type="button"
+                        >
+                          {resolvingId === request.id ? 'Guardando…' : t('orders.accept')}
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            <section className="rl-section">
+              <div className="rl-head">
+                <h2>{t('orders.form')}</h2>
+              </div>
+              <div className="mt-5 space-y-5">
+                <label className="rp-field-label">
+                  {t('orders.address')}
+                  <input
+                    className="rp-input mt-1.5 px-3 text-[15px] font-normal"
+                    onChange={(event) => {
+                      ++lookupSequence.current;
+                      setSelectedCoordinate(null);
+                      setDraft((current) => ({
+                        ...current,
+                        address: event.target.value,
+                        lat: '',
