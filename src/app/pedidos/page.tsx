@@ -455,3 +455,60 @@ export default function OrdersPage() {
                         ...current,
                         address: event.target.value,
                         lat: '',
+                        lng: '',
+                      }));
+                    }}
+                    placeholder="Ej. Carrera 25 num 4 sur 65"
+                    value={draft.address}
+                  />
+                </label>
+                <div aria-live="polite" aria-busy={findingAddress}>
+                  {findingAddress ? (
+                    <p className="text-sm text-[var(--ink-soft)]">Buscando solo en Pasto…</p>
+                  ) : addressNotice ? (
+                    <p className="text-sm text-[var(--ink-soft)]">{addressNotice}</p>
+                  ) : null}
+                  {candidates.length > 0 ? (
+                    <ul aria-label="Ubicaciones sugeridas" className="rl-rows mt-2">
+                      {candidates.map((candidate, index) => (
+                        <li key={`${candidate.lat}:${candidate.lng}:${index}`}>
+                          <button
+                            type="button"
+                            className="rl-row w-full text-left hover:bg-[var(--band)]"
+                            onClick={() => confirmAddress(candidate)}
+                          >
+                            <span className="rl-row-main">
+                              <strong>{candidate.address}</strong>
+                              <span>
+                                {candidate.precision === 'address'
+                                  ? 'Dirección'
+                                  : candidate.precision === 'intersection'
+                                    ? 'Intersección'
+                                    : 'Aproximada'}
+                                {' · Confirmar ubicación'}
+                              </span>
+                            </span>
+                            <span aria-hidden="true" className="text-lg">→</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+                <label className="rp-field-label">
+                  {t('orders.reference')}
+                  <input
+                    className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
+                    onChange={(event) =>
+                      setDraft((current) => ({ ...current, orderId: event.target.value }))
+                    }
+                    placeholder="Ej. RP-10025 (opcional)"
+                    value={draft.orderId}
+                  />
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <label className="rp-field-label">
+                    {t('orders.priority')}
+                    <select
+                      className="rp-input mt-1.5 px-3 text-[15px] font-normal"
+                      onChange={(event) =>
