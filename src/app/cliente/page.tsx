@@ -414,3 +414,55 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 function formatStatus(status: TrackingData["status"]): string {
+  return {
+    REQUESTED: "En revisión",
+    PENDING: "Pendiente",
+    EN_ROUTE: "En camino",
+    DELIVERED: "Entregado",
+    FAILED: "Incidencia",
+  }[status];
+}
+
+function formatRouteStatus(status: NonNullable<TrackingData["route"]>["status"]): string {
+  return {
+    PLANNED: "Planificada",
+    IN_PROGRESS: "En curso",
+    COMPLETED: "Completada",
+    CANCELLED: "Cancelada",
+  }[status];
+}
+
+function formatDistance(distanceMeters: number | null): string {
+  if (distanceMeters === null) {
+    return "Pendiente";
+  }
+
+  return distanceMeters >= 1000
+    ? `${(distanceMeters / 1000).toFixed(1)} km`
+    : `${Math.round(distanceMeters)} m`;
+}
+
+function formatLastLocation(lastLocationAt: string | null): string {
+  return lastLocationAt === null
+    ? "Sin señal registrada"
+    : new Date(lastLocationAt).toLocaleTimeString("es-CO", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+}
+
+function formatQueryTime(updatedAt: Date): string {
+  return updatedAt.toLocaleTimeString("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    return typeof payload.error === "string" ? payload.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
