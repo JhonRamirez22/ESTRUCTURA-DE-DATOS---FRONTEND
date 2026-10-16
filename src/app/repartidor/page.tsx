@@ -575,3 +575,85 @@ export default function RepartidorPage() {
 
       setError(null);
       await loadAssignedRoute();
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "No se pudo actualizar la ruta.");
+    }
+  };
+
+  const updateDeliveryStatus = async (
+    deliveryPointId: string,
+    status: "DELIVERED" | "FAILED",
+  ) => {
+    try {
+      await sendDeliveryStatus({ deliveryPointId, status });
+      setError(null);
+      await loadAssignedRoute();
+    } catch (updateError) {
+      const message = updateError instanceof Error ? updateError.message : "";
+      if (!navigator.onLine || /conectar|tardó demasiado/.test(message)) {
+        offlineUpdates.enqueue({ deliveryPointId, status });
+        setPendingUpdates(offlineUpdates.size);
+        setError("Sin conexión: guardamos tu entrega y la enviaremos al recuperar la señal.");
+        return;
+      }
+      setError(message || "No se pudo actualizar la entrega.");
+    }
+  };
+
+  // Envía las posiciones en orden FIFO, de una en una, para que el backend no rechace
+  // lecturas antiguas que llegan después de las nuevas.
+  const sendQueuedLocations = async () => {
+    if (isSendingLocations.current) {
+      return;
+    }
+    isSendingLocations.current = true;
+    try {
+      for (
+        let next = pendingLocations.current.dequeue();
+        next !== undefined;
+        next = pendingLocations.current.dequeue()
+      ) {
+        const result = await sendLocation(next);
+        if (result.accepted) {
+          setLastLocation(next);
+          setCourierStatus(assignedRoute ? "ON_ROUTE" : "AVAILABLE");
+          setError(null);
+        } else if (result.error) {
+          setError(result.error);
+        }
+      }
+    } finally {
+      isSendingLocations.current = false;
+    }
+  };
+
+  const enqueueLocation = (location: LastLocation) => {
+    const queue = pendingLocations.current;
+    if (queue.size() >= MAX_PENDING_LOCATIONS) {
+      queue.dequeue();
+    }
+    queue.enqueue(location);
+    void sendQueuedLocations();
+  };
+
+  const startTracking = () => {
+    if (!navigator.geolocation) {
+      setError("Este dispositivo no permite obtener la ubicación.");
+      return;
+    }
+
+    setError(null);
+    void loadAssignedRoute();
+    lastSentAt.current = 0;
+
+    watchId.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const recordedAt = new Date(position.timestamp).toISOString();
+        const now = Date.now();
+
+        if (now - lastSentAt.current < MIN_UPDATE_INTERVAL_MS) {
+          return;
+        }
+
+        lastSentAt.current = now;
+        enqueueLocation({
