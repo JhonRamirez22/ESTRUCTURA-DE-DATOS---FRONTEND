@@ -657,3 +657,85 @@ export default function RepartidorPage() {
 
         lastSentAt.current = now;
         enqueueLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          recordedAt,
+        });
+      },
+      (positionError) => {
+        setError(formatGeolocationError(positionError));
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10_000,
+        timeout: 10_000,
+      },
+    );
+
+    setIsTracking(true);
+  };
+
+  const nextStop = navigation
+    ? activeDeliveryPoints.find((point) => point.id === navigation.nextDeliveryPointId)
+    : undefined;
+  const nearest = nearestStopsByEta(stopEtas, 3);
+
+  const [inset, setInset] = useState<MapInset | undefined>(undefined);
+  const [stageWide, setStageWide] = useState(false);
+  const handleSheetLayout = useCallback((layout: SheetLayout) => {
+    setStageWide(layout.wide);
+    setInset((current) =>
+      current &&
+      current.top === layout.inset.top &&
+      current.right === layout.inset.right &&
+      current.bottom === layout.inset.bottom &&
+      current.left === layout.inset.left
+        ? current
+        : layout.inset
+    );
+  }, []);
+
+  const gpsButton = isTracking ? (
+    <button className="rp-button rp-button-danger rp-button-small shrink-0" data-tip="tip.stopGps" onClick={stopTracking} type="button">
+      {t("courier.stopGps")}
+    </button>
+  ) : (
+    <button
+      className="rp-button rp-button-go rp-button-small shrink-0"
+      data-tip="tip.startGps"
+      disabled={loadingProfile}
+      onClick={startTracking}
+      type="button"
+    >
+      {t("courier.startGps")}
+    </button>
+  );
+  const currentStop = activeDeliveryPoints[0];
+  const canResolveCurrent =
+    assignedRoute?.status === "IN_PROGRESS" &&
+    currentStop !== undefined &&
+    (currentStop.status === "PENDING" || currentStop.status === "EN_ROUTE");
+  // Acción principal en la zona del pulgar: la parada que toca y cómo cerrarla.
+  const sheetFoot = assignedRoute ? (
+    <div className="grid gap-2">
+      {navigation ? (
+        <div className="rl-board !p-3">
+          <p className="text-xs font-semibold !text-[var(--board-soft)]">
+            {t("courier.nav")} · <span className="tabular-nums">{formatDistance(navigation.distanceMeters)} · {Math.max(1, Math.round(navigation.durationMinutes))} min</span>
+          </p>
+          <p className="mt-1 text-xl font-semibold leading-tight !text-[var(--board-ink)]">
+            <span className="sr-only">Próxima parada: </span>
+            {nextStop?.address ?? "pendiente"}
+          </p>
+        </div>
+      ) : null}
+      {assignedRoute.status === "PLANNED" ? (
+        <button
+          className="rp-button rp-button-go rp-button-block"
+          data-tip="tip.startRoute"
+          onClick={() => void updateRouteStatus("IN_PROGRESS")}
+          type="button"
+        >
+          {t("courier.start")}
+        </button>
+      ) : null}
