@@ -362,3 +362,55 @@ export default function ClientePage() {
               </button>
                 <CustomerOrderChat guide={tracking.guide} key={tracking.guide} />
               </div>
+            </Sheet>
+          </section>
+        ) : null}
+      </main>
+    </AppShell>
+  );
+}
+
+/** Cuatro paradas del pedido: dónde va, sin datos de otros envíos. */
+function milestoneLabel(type: string, t: ReturnType<typeof useT>): string {
+  const key = `tracking.milestone.${type}` as MessageKey;
+  const label = t(key);
+  return label === key ? type : label;
+}
+
+function trackingStages(tracking: TrackingData, t: ReturnType<typeof useT>): LineStop[] {
+  const delivered = tracking.status === "DELIVERED";
+  const failed = tracking.status === "FAILED";
+  const enRoute = tracking.status === "EN_ROUTE";
+  const assigned = tracking.route !== null;
+  const inReview = tracking.status === "REQUESTED";
+  return [
+    {
+      id: "recibido",
+      label: inReview ? t("tracking.stage.review") : t("tracking.stage.received"),
+      meta: inReview ? t("tracking.stage.review.meta") : undefined,
+      state: inReview ? "current" : "done",
+    },
+    {
+      id: "asignado",
+      label: t("tracking.stage.assigned"),
+      state: inReview ? "pending" : assigned || delivered || failed ? "done" : "current",
+    },
+    { id: "camino", label: t("tracking.stage.onWay"), state: enRoute ? "current" : delivered || failed ? "done" : "pending" },
+    {
+      id: "entregado",
+      label: failed ? t("tracking.stage.failed") : t("tracking.stage.delivered"),
+      state: delivered || failed ? "current" : "pending",
+    },
+  ];
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] py-2.5">
+      <dt className="text-[var(--ink-soft)]">{label}</dt>
+      <dd className="text-right font-semibold tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+function formatStatus(status: TrackingData["status"]): string {
