@@ -663,3 +663,86 @@ function addMapLayers(map: MapLibreMap): void {
   }
 
   if (!map.getSource('delivery-labels')) {
+    map.addSource('delivery-labels', {
+      type: 'geojson',
+      data: emptyFeatureCollection(),
+    });
+    map.addLayer({
+      id: 'delivery-labels',
+      type: 'symbol',
+      minzoom: 14,
+      source: 'delivery-labels',
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-size': 12,
+        'text-offset': [0, 1.5],
+        'text-anchor': 'top',
+        'text-allow-overlap': true,
+      },
+      paint: {
+        'text-color': '#f8fafc',
+        'text-halo-color': '#111827',
+        'text-halo-width': 2,
+      },
+    });
+  }
+
+  if (!map.getSource('courier-points')) {
+    map.addSource('courier-points', {
+      type: 'geojson',
+      data: emptyFeatureCollection(),
+      cluster: true,
+      clusterRadius: 36,
+      clusterMaxZoom: 13,
+    });
+    map.addLayer({
+      id: 'courier-points',
+      type: 'circle',
+      source: 'courier-points',
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': '#06b6d4',
+        'circle-radius': 10,
+        'circle-stroke-color': '#ecfeff',
+        'circle-stroke-width': 3,
+      },
+    });
+    map.addLayer({
+      id: 'courier-labels',
+      type: 'symbol',
+      minzoom: 14,
+      source: 'courier-points',
+      filter: ['!', ['has', 'point_count']],
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-size': 12,
+        'text-offset': [0, 1.6],
+        'text-anchor': 'top',
+        'text-allow-overlap': true,
+      },
+      paint: {
+        'text-color': '#ecfeff',
+        'text-halo-color': '#0f172a',
+        'text-halo-width': 2,
+      },
+    });
+    addClusters(map, 'courier-points');
+  }
+
+  if (!map.getSource('route-stops')) {
+    // Paradas de una ruta: nunca se agrupan, para que se lea el número y el color de cada una.
+    map.addSource('route-stops', { type: 'geojson', data: emptyFeatureCollection() });
+    map.addLayer({
+      id: 'route-stops',
+      type: 'circle',
+      source: 'route-stops',
+      paint: {
+        'circle-color': ['coalesce', ['get', 'color'], '#a855f7'],
+        'circle-radius': 10,
+        'circle-stroke-color': ['coalesce', ['get', 'ring'], '#06130b'],
+        'circle-stroke-width': 3,
+        'circle-opacity': ['case', ['get', 'dim'], 0.45, 1],
+        'circle-stroke-opacity': ['case', ['get', 'dim'], 0.45, 1],
+      },
+    });
+    map.addLayer({
