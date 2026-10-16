@@ -902,3 +902,116 @@ export default function DashboardPage() {
             <DispatchSteps counts={dispatchCounts} flow={flow} />
             <div className={`dispatch-new-head mb-4 flex flex-wrap items-center justify-between gap-3 ${assignmentPreview.length > 0 ? 'hidden' : ''}`}>
               <h2 className="text-xl font-semibold">{t('dash.new')}</h2>
+              <div className="flex flex-wrap items-center gap-4 text-sm">
+                <Link className="font-semibold underline-offset-4 hover:underline" href="/personal">
+                  {t('dash.missingCourier')}
+                </Link>
+                <Link className="rp-button rp-button-secondary rp-button-small shrink-0" data-tip="tip.registerOrder" href="/pedidos">
+                  {t('dash.registerOrder')}
+                </Link>
+              </div>
+            </div>
+                    <div className="grid gap-8">
+                      {analyzing ? (
+                        <div aria-busy="true" aria-label={t('dash.analyzing')} className="rl-board order-first grid gap-3" role="status">
+                          <p className="font-semibold !text-[var(--board-ink)]">{t('dash.analyzing')}</p>
+                          <div className="rp-skeleton h-4 !bg-white/15" />
+                          <div className="rp-skeleton h-16 !bg-white/15" />
+                        </div>
+                      ) : null}
+              <div className="min-w-0">
+                <div className="rl-head">
+                  <h3>
+                    {t('dash.step1')}{' '}
+                    <small>
+                      {t('dash.selected', { n: selectedPendingIds.length, total: data.pendingPoints.length })}
+                    </small>
+                  </h3>
+                  <button
+                    className="text-sm font-semibold underline-offset-4 hover:underline"
+                    data-tip="tip.selectAll"
+                    onClick={() => {
+                      const clearing =
+                        selectedPendingIds.length === data.pendingPoints.length && data.pendingPoints.length > 0;
+                      if (clearing) {
+                        const previous = selectedPendingIds;
+                        setSelectedPendingIds([]);
+                        undoToast.show(t('dash.undo.cleared'), () => setSelectedPendingIds(previous));
+                        return;
+                      }
+                      setSelectedPendingIds(data.pendingPoints.map((point) => point.id));
+                    }}
+                    type="button"
+                  >
+                    {selectedPendingIds.length === data.pendingPoints.length &&
+                    data.pendingPoints.length > 0
+                      ? t('dash.clearAll')
+                      : t('dash.selectAll')}
+                  </button>
+                </div>
+                {loading && !lastUpdatedAt && data.pendingPoints.length === 0 ? (
+                  <div aria-busy="true" aria-label={t('dash.syncing')} className="grid gap-2 py-2" role="status">
+                    <div className="rp-skeleton h-14" />
+                    <div className="rp-skeleton h-14" />
+                    <div className="rp-skeleton h-14" />
+                  </div>
+                ) : data.pendingPoints.length === 0 ? (
+                  <p className="rl-empty">{t('dash.noPending')}</p>
+                ) : (
+                  <ul className="rl-rows">
+                    {(showAllOrders ? data.pendingPoints : data.pendingPoints.slice(0, COLLAPSED_ORDERS)).map((point) => {
+                      const checked = selectedPendingIds.includes(point.id);
+                      const reference = formatOrderReference(point.orderId);
+                      return (
+                        <li className={`rl-row ${checked ? 'is-selected' : ''}`} key={point.id}>
+                          <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                            <input
+                              checked={checked}
+                              className="h-[18px] w-[18px] shrink-0"
+                              onChange={() =>
+                                setSelectedPendingIds((current) =>
+                                  checked
+                                    ? current.filter((id) => id !== point.id)
+                                    : [...current, point.id]
+                                )
+                              }
+                              type="checkbox"
+                            />
+                            <span className="rl-row-main">
+                              <strong className="truncate">{point.address}</strong>
+                              <span className="rl-ref">
+                                {reference} · {t('dash.pendingTag')}
+                                {point.orderId.startsWith('SIM-') ? ` · ${t('demo.simulated')}` : ''}
+                                {orderBadges(point, { high: t('orders.priority.high'), urgent: t('orders.priority.urgent') }).map((part) => ` · ${part}`).join('')}
+                                {point.scheduleState === 'overdue' ? ` · ${t('dash.schedule.overdue')} ${formatBogota(point.scheduledFor, lang)}` : ''}
+                                {point.scheduleState === 'due-soon' ? ` · ${t('dash.schedule.dueSoon')} ${formatBogota(point.scheduledFor, lang)}` : ''}
+                              </span>
+                            </span>
+                          </label>
+                          <button
+                            aria-label={`Eliminar pedido ${reference}`}
+                            data-tip="tip.deleteOrder"
+                            className="ui-button ui-button-ghost ui-button-icon ml-2 !h-10 !min-h-10 !w-10 !p-2 text-[var(--danger)] hover:bg-[var(--danger-band)]"
+                            disabled={deletingOrderId === point.id || dispatching}
+                            onClick={() => void deletePendingOrder(point)}
+                            type="button"
+                          >
+                            {deletingOrderId === point.id ? <span className="sr-only">Eliminando…</span> : null}
+                            <Trash2 aria-hidden="true" className="h-4 w-4" />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                {data.pendingPoints.length > COLLAPSED_ORDERS ? (
+                  <button
+                    aria-expanded={showAllOrders}
+                    className="rp-button rp-button-quiet rp-button-small mt-2"
+                    onClick={() => setShowAllOrders((open) => !open)}
+                    type="button"
+                  >
+                    {showAllOrders
+                      ? t('dash.showFewer')
+                      : t('dash.showAll', { n: data.pendingPoints.length })}
+                  </button>
