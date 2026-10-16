@@ -789,3 +789,116 @@ export default function DashboardPage() {
               disabled={loading}
               onClick={() => void loadDashboard()}
               type="button"
+            >
+              {loading ? t('dash.refreshing') : t('dash.refresh')}
+            </button>
+          </header>
+
+
+          <div className="mb-6 empty:hidden">
+            {error ? (
+              <div className="rl-notice is-error" role="alert">
+                <span>
+                  {error}
+                  {sessionExpired ? (
+                    <Link href="/acceso?retorno=%2Fdashboard" className="ml-2 font-semibold underline">
+                      Volver a ingresar
+                    </Link>
+                  ) : null}
+                </span>
+              </div>
+            ) : null}
+            {routeActionNotice ? (
+              <p className="rl-notice is-ok" role="status">
+                <span>{routeActionNotice}</span>
+                <button
+                  className="min-h-11 px-2 font-semibold underline underline-offset-4"
+                  onClick={() => setRouteActionNotice(null)}
+                  type="button"
+                >
+                  Cerrar
+                </button>
+              </p>
+            ) : null}
+            {data.notificationsWarning ? (
+              <p className="rl-notice is-warn" role="status">
+                {data.notificationsWarning}
+              </p>
+            ) : null}
+            {dashboardWarning ? (
+              <p className="rl-notice is-warn" role="status">
+                {dashboardWarning} Los datos secundarios pueden estar desactualizados.
+              </p>
+            ) : null}
+            {!operationalReady && lastUpdatedAt ? (
+              <p className="rl-notice is-warn" role="status">
+                Datos anteriores. Actualiza los servicios esenciales antes de modificar o despachar.
+              </p>
+            ) : null}
+            {liveTrafficNotice ? (
+              <div className="rl-notice is-ok" role="status">
+                <span>
+                  <strong>Estado de tráfico de la ruta.</strong> {liveTrafficNotice}
+                </span>
+              </div>
+            ) : null}
+          </div>
+
+          <fieldset disabled={!operationalReady} aria-label="Operación de despacho" className="min-w-0 border-0 p-0">
+          <section
+            aria-label="Mapa y rutas activas"
+            className={`rp-stage ${stageWide ? 'is-wide' : ''}`}
+            id="dispatch-orders"
+          >
+            <RouteMap
+              className="absolute inset-0 h-full w-full"
+              couriers={data.couriers}
+              inset={inset}
+              pendingPoints={[...data.pendingPoints, ...data.scheduledPoints]}
+              liveProposal={live.proposal}
+              routeColors={routeColors}
+              routes={activeRoutes}
+              showTraffic={activeRoutes.length > 0}
+            />
+            <div className="rp-stage-bar" aria-label={t('dash.map')}>
+              <span className="rp-chip"><span className="h-2 w-2 rounded-full bg-cyan-400" />{t('dash.legend.courier')}</span>
+              <span className="rp-chip"><span className="h-2 w-2 rounded-full bg-amber-500" />{t('dash.legend.pending')}</span>
+              <span className="rp-chip"><span className="h-2 w-2 rounded-full bg-sky-400" />{t('dash.legend.onway')}</span>
+              <span className="rp-chip"><span className="h-2 w-2 rounded-full bg-green-500" />{t('dash.legend.delivered')}</span>
+            </div>
+            <LiveOptimizationHud
+              applying={applyingLive}
+              onApplyAll={() => void applyAllLive()}
+              routes={activeRoutes.map((route) => ({
+                id: route.id,
+                courierName: route.courier.name,
+                color: routeColors[route.id] ?? '#55f26b',
+              }))}
+              state={live}
+            />
+            <Sheet
+              foot={sheetFoot}
+              grabberLabel={t('dash.sheet.grabber')}
+              head={
+                <SegmentedTabs
+                  idPrefix="dispatch-sheet"
+                  label={t('dash.sheet.tabs')}
+                  onChange={setSheetTab}
+                  tabs={[
+                    { id: 'pedidos', label: t('dash.tab.orders'), count: data.pendingPoints.length },
+                    { id: 'rutas', label: t('dash.tab.routes'), count: activeRoutes.length },
+                    { id: 'actividad', label: t('dash.tab.activity') },
+                  ]}
+                  value={sheetTab}
+                />
+              }
+              label={t('dash.title')}
+              onLayout={handleSheetLayout}
+              peek={176}
+            >
+              <div aria-labelledby={`dispatch-sheet-tab-${sheetTab}`} id="dispatch-sheet-panel" role="tabpanel">
+                {sheetTab === 'pedidos' ? (
+                  <section aria-label="Despachar pedidos">
+            <DispatchSteps counts={dispatchCounts} flow={flow} />
+            <div className={`dispatch-new-head mb-4 flex flex-wrap items-center justify-between gap-3 ${assignmentPreview.length > 0 ? 'hidden' : ''}`}>
+              <h2 className="text-xl font-semibold">{t('dash.new')}</h2>
