@@ -381,3 +381,57 @@ export default function StaffPage() {
                   autoComplete="off"
                   className="rp-input mt-1"
                   maxLength={100}
+                  onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                  placeholder="Ej. Camila Ramírez"
+                  value={draft.name}
+                />
+              </label>
+              <label className="rp-field-label">
+                {t('staff.phone')}
+                <input
+                  autoComplete="off"
+                  className="rp-input mt-1"
+                  inputMode="tel"
+                  maxLength={20}
+                  onChange={(event) => setDraft({ ...draft, phone: event.target.value })}
+                  placeholder="Ej. 300 123 4567"
+                  type="tel"
+                  value={draft.phone}
+                />
+              </label>
+              <label className="rp-field-label">
+                {t('staff.email')}
+                <input
+                  autoComplete="off"
+                  className="rp-input mt-1"
+                  maxLength={254}
+                  onChange={(event) => setDraft({ ...draft, email: event.target.value })}
+                  placeholder="nombre@empresa.com"
+                  type="email"
+                  value={draft.email}
+                />
+              </label>
+              <label className="rp-field-label">
+                {t('staff.password')}
+                <input
+                  aria-describedby="new-courier-password-help"
+                  autoComplete="new-password"
+                  className="rp-input mt-1"
+                  maxLength={128}
+                  onChange={(event) => setDraft({ ...draft, password: event.target.value })}
+                  type="password"
+                  value={draft.password}
+                />
+                <span className="rp-field-help" id="new-courier-password-help">
+                  {t('staff.passwordHelp', { n: MIN_PASSWORD })}
+                </span>
+              </label>
+              {formError ? (
+                <p className="rl-notice is-error" role="alert">
+                  {formError}
+                </p>
+              ) : null}
+              <button className="rp-button rp-button-primary rp-button-block mt-1" data-tip="tip.registerCourier" disabled={creating} type="submit">
+                {creating ? 'Registrando…' : t('staff.register')}
+              </button>
+            </form>
