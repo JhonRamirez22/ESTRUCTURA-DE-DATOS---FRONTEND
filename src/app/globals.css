@@ -2032,3 +2032,228 @@ input[type='checkbox'] {
   opacity: 0;
   transform: rotate(-70deg) scale(0.6);
   filter: blur(2px);
+}
+:root[data-theme='dark'] .rp-tool-sun {
+  opacity: 0;
+  transform: rotate(70deg) scale(0.6);
+  filter: blur(2px);
+}
+:root[data-theme='dark'] .rp-tool-moon {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+/* Aviso de idioma: baja desde la barra, del mismo lado por donde se pidió. */
+.rl-lang-notice {
+  position: sticky;
+  top: 60px;
+  z-index: 25;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 32px;
+  background: var(--band);
+  border-bottom: 2px solid var(--line-strong);
+  font-size: 14px;
+  transition:
+    transform 240ms var(--ease-out),
+    opacity 200ms ease;
+}
+@starting-style {
+  .rl-lang-notice {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+.rl-lang-notice p {
+  max-width: 90ch;
+}
+
+/* ============================================================
+   Descripción al pasar el puntero: crece desde su botón.
+   ============================================================ */
+.rl-tooltip {
+  position: fixed;
+  z-index: 200;
+  max-width: 240px;
+  padding: 7px 10px;
+  border-radius: 4px;
+  background: var(--action);
+  color: var(--action-ink);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  transform-origin: 50% 100%;
+  box-shadow: 0 6px 18px rgb(26 20 17 / 18%);
+  transition:
+    opacity 140ms ease,
+    transform 140ms var(--ease-out);
+}
+.rl-tooltip.is-below {
+  transform: translate(-50%, 0);
+  transform-origin: 50% 0;
+}
+@starting-style {
+  .rl-tooltip {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(0.96);
+  }
+  .rl-tooltip.is-below {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.96);
+  }
+}
+/* Después del primero, los siguientes aparecen sin espera ni animación. */
+.rl-tooltip.is-instant {
+  transition-duration: 0ms;
+}
+@starting-style {
+  .rl-tooltip.is-instant {
+    opacity: 1;
+    transform: translate(-50%, -100%);
+  }
+  .rl-tooltip.is-instant.is-below {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* ============================================================
+   Introducción: modal centrado; la línea se dibuja parada a parada.
+   ============================================================ */
+.rl-intro {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 24px 60px rgb(26 20 17 / 28%);
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 240ms ease,
+    transform 280ms var(--ease-out),
+    overlay 280ms allow-discrete,
+    display 280ms allow-discrete;
+}
+.rl-intro:not([open]) {
+  opacity: 0;
+  transform: translateY(8px) scale(0.97);
+}
+@starting-style {
+  .rl-intro[open] {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+.rl-intro::backdrop {
+  background: rgb(26 20 17 / 0%);
+  transition:
+    background-color 280ms ease,
+    overlay 280ms allow-discrete,
+    display 280ms allow-discrete;
+}
+.rl-intro[open]::backdrop {
+  background: rgb(26 20 17 / 55%);
+}
+@starting-style {
+  .rl-intro[open]::backdrop {
+    background: rgb(26 20 17 / 0%);
+  }
+}
+.rl-intro-panel {
+  padding: 28px 28px 24px;
+}
+.rl-intro-kicker {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--route-ink);
+}
+.rl-intro h2 {
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.rl-intro-lead {
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.rl-intro-line {
+  margin-top: 20px;
+}
+.rl-intro-roles {
+  margin-top: 8px;
+  padding: 14px 16px;
+  background: var(--band);
+  font-size: 14px;
+}
+.rl-intro-roles ul {
+  margin-top: 6px;
+  display: grid;
+  gap: 4px;
+  color: var(--ink-soft);
+}
+.rl-intro-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+.rl-intro .rl-stop {
+  animation: rl-stop-in 320ms var(--ease-out) both;
+}
+.rl-intro .rl-stop:nth-child(1) { animation-delay: 120ms; }
+.rl-intro .rl-stop:nth-child(2) { animation-delay: 190ms; }
+.rl-intro .rl-stop:nth-child(3) { animation-delay: 260ms; }
+.rl-intro .rl-stop:nth-child(4) { animation-delay: 330ms; }
+
+/* ============================================================
+   Movimiento con propósito en las pantallas.
+   ============================================================ */
+@keyframes rl-stop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes rl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+/* La línea de ruta aparece de arriba hacia abajo: se lee el orden de las paradas. */
+.rl-line .rl-stop {
+  animation: rl-stop-in 260ms var(--ease-out) both;
+}
+.rl-line .rl-stop:nth-child(2) { animation-delay: 40ms; }
+.rl-line .rl-stop:nth-child(3) { animation-delay: 80ms; }
+.rl-line .rl-stop:nth-child(4) { animation-delay: 120ms; }
+.rl-line .rl-stop:nth-child(5) { animation-delay: 160ms; }
+.rl-line .rl-stop:nth-child(n + 6) { animation-delay: 200ms; }
+/* Al entrar a una pantalla, encabezado y secciones se asientan en cascada corta. */
+.rl-page > * {
+  animation: rl-rise 240ms var(--ease-out) both;
+}
+.rl-page > *:nth-child(2) { animation-delay: 40ms; }
+.rl-page > *:nth-child(3) { animation-delay: 80ms; }
+.rl-page > *:nth-child(n + 4) { animation-delay: 120ms; }
+/* Avisos de estado: entran deslizando 4px, sin saltar el contenido de alrededor. */
+.rl-notice {
+  transition:
+    opacity 200ms ease,
+    transform 220ms var(--ease-out);
+}
+@starting-style {
+  .rl-notice {
