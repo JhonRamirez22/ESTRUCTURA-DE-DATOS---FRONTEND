@@ -746,3 +746,86 @@ function addMapLayers(map: MapLibreMap): void {
       },
     });
     map.addLayer({
+      id: 'route-stop-numbers',
+      type: 'symbol',
+      source: 'route-stops',
+      layout: { 'text-field': ['get', 'label'], 'text-size': 11, 'text-allow-overlap': true },
+      paint: { 'text-color': '#06130b' },
+    });
+  }
+
+  if (!map.getSource('delivery-points')) {
+    map.addSource('delivery-points', {
+      type: 'geojson',
+      data: emptyFeatureCollection(),
+      cluster: true,
+      clusterRadius: 36,
+      clusterMaxZoom: 13,
+    });
+    map.addLayer({
+      id: 'delivery-points',
+      type: 'circle',
+      source: 'delivery-points',
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': ['coalesce', ['get', 'color'], '#a855f7'],
+        'circle-radius': 8,
+        'circle-stroke-color': ['coalesce', ['get', 'ring'], '#f5d0fe'],
+        'circle-stroke-width': 3,
+        'circle-opacity': ['case', ['get', 'dim'], 0.45, 1],
+        'circle-stroke-opacity': ['case', ['get', 'dim'], 0.45, 1],
+      },
+    });
+    addClusters(map, 'delivery-points');
+  }
+}
+
+/** Triangle used as a direction arrow; SDF so each route can tint it. */
+function ensureArrowImage(map: MapLibreMap): void {
+  if (typeof map.hasImage !== 'function' || typeof map.addImage !== 'function') return;
+  if (map.hasImage('route-arrow')) return;
+  const size = 32;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d');
+  if (!context) return;
+  context.fillStyle = '#ffffff';
+  context.beginPath();
+  context.moveTo(size * 0.82, size / 2);
+  context.lineTo(size * 0.22, size * 0.2);
+  context.lineTo(size * 0.38, size / 2);
+  context.lineTo(size * 0.22, size * 0.8);
+  context.closePath();
+  context.fill();
+  map.addImage('route-arrow', context.getImageData(0, 0, size, size), { sdf: true });
+}
+
+function stopRingColor(status: MapDeliveryPoint['status']): string {
+  if (status === 'DELIVERED') return '#22c55e';
+  if (status === 'FAILED') return '#f43f5e';
+  return '#06130b';
+}
+
+/** Draws the live proposal: dashed new routes plus the stops that move or change order. */
+function updateLiveLayers(map: MapLibreMap, data: MapData): void {
+  const lines: MapFeature[] = [];
+  const stops: MapFeature[] = [];
+  const live = data.live;
+  if (live?.changed) {
+    const colorOf = (routeId: string) => data.routeColors?.[routeId] ?? DEFAULT_ROUTE_COLOR;
+    const where = new Map<string, [number, number]>();
+    for (const route of data.routes) {
+      for (const point of route.deliveryPoints) where.set(point.id, [point.lng, point.lat]);
+    }
+    for (const item of live.routes) {
+      const coordinates = item.geometry?.coordinates;
+      if (!item.changed || !coordinates || coordinates.length < 2) continue;
+      if (!coordinates.every(([lng, lat]) => isWithinPastoServiceArea(lat, lng))) continue;
+      lines.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates },
+        properties: { color: colorOf(item.routeId), routeId: item.routeId },
+      });
+    }
+    const moved = new Set<string>();
