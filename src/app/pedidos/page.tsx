@@ -416,3 +416,142 @@ export default function OrdersPage() {
                           customerEmail: event.target.checked ? current.customerEmail : '',
                         }))
                       }
+                      type="checkbox"
+                    />
+                    <span>El cliente acepta recibir avisos por correo sobre su entrega.</span>
+                  </label>
+                  {draft.emailNotificationsEnabled ? (
+                    <label className="mt-3 block text-xs font-semibold text-slate-600">
+                      Correo del cliente
+                      <input
+                        autoComplete="email"
+                        className="rp-input mt-1.5 px-3 py-3 text-sm font-normal"
+                        maxLength={320}
+                        onChange={(event) =>
+                          setDraft((current) => ({ ...current, customerEmail: event.target.value }))
+                        }
+                        placeholder="cliente@ejemplo.com"
+                        required
+                        type="email"
+                        value={draft.customerEmail}
+                      />
+                    </label>
+                  ) : null}
+                  <p className="mt-2 text-xs leading-5 text-slate-600">
+                    Solo se usarán los canales autorizados para avisar cuando el pedido tenga
+                    repartidor asignado y cuando el repartidor esté cerca.
+                  </p>
+                </div>
+                <div className="border-t border-slate-200 pt-4">
+                  <label className="flex min-h-11 cursor-pointer items-start gap-3 text-sm font-medium leading-5 text-slate-700">
+                    <input
+                      checked={draft.smsNotificationsEnabled}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700"
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          smsNotificationsEnabled: event.target.checked,
+                          customerPhone: event.target.checked ? current.customerPhone : '',
+                        }))
+                      }
+                      type="checkbox"
+                    />
+                    <span>El cliente acepta recibir avisos SMS en su celular.</span>
+                  </label>
+                  {draft.smsNotificationsEnabled ? (
+                    <label className="mt-3 block text-xs font-semibold text-slate-600">
+                      Celular del cliente
+                      <input
+                        autoComplete="tel"
+                        className="rp-input mt-1.5 px-3 py-3 text-sm font-normal"
+                        inputMode="tel"
+                        maxLength={30}
+                        onChange={(event) =>
+                          setDraft((current) => ({ ...current, customerPhone: event.target.value }))
+                        }
+                        placeholder="300 123 4567"
+                        required
+                        type="tel"
+                        value={draft.customerPhone}
+                      />
+                    </label>
+                  ) : null}
+                  <p className="mt-2 text-xs leading-5 text-slate-600">
+                    El número se guarda solo con consentimiento y se usa únicamente para los avisos
+                    de asignación y cercanía. La entrega requiere configurar SMS.
+                  </p>
+                </div>
+                <div className="border-t border-slate-200 py-3 text-xs text-slate-600">
+                  <span className="font-semibold text-slate-700">Coordenadas seleccionadas</span>
+                  <p className="mt-1 font-mono text-[11px]">
+                    {draft.lat && draft.lng ? `${draft.lat}, ${draft.lng}` : selectedCoordinate
+                      ? 'Sugerida · pendiente de confirmación' : 'Confirma una sugerencia o usa el mapa'}
+                  </p>
+                </div>
+                <button
+                  className="rp-button rp-button-primary w-full disabled:cursor-wait"
+                  disabled={saving}
+                  onClick={() => void createOrder()}
+                  type="button"
+                >
+                  {saving ? 'Registrando…' : 'Registrar pedido pendiente'}
+                </button>
+              </div>
+            </section>
+
+            <section className="border-t border-slate-300 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold text-slate-900">Últimos pendientes</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Aparecerán en el centro de despacho.
+                  </p>
+                </div>
+                {loading ? <span className="text-xs text-slate-400">Cargando…</span> : null}
+              </div>
+              <div className="mt-4 space-y-2">
+                {pendingPoints.slice(0, 6).map((point) => (
+                  <div className="border-b border-slate-200 py-3" key={point.id}>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-mono text-xs font-semibold text-slate-700">
+                        {formatOrderReference(point.orderId)}
+                      </span>
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                        Pendiente
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-xs text-slate-500">{point.address}</p>
+                  </div>
+                ))}
+                {pendingPoints.length === 0 ? (
+                  <p className="rounded-xl bg-slate-50 px-3 py-4 text-xs leading-5 text-slate-500">
+                    No hay pendientes. Registra el primero para enviarlo al despacho.
+                  </p>
+                ) : null}
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </AppShell>
+  );
+}
+
+function Alert({ children, tone }: { children: string; tone: 'error' | 'success' }) {
+  return (
+    <div
+      className={`rounded-2xl border px-4 py-3 text-sm ${tone === 'error' ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    return typeof payload.error === 'string' ? payload.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
