@@ -75,3 +75,80 @@ test("crea pedidos, optimiza una ruta y la muestra en el mapa", async ({
       routes: Array<{
         matrixSource: string;
         orderedDeliveryPointIds: string[];
+        route: {
+          id: string;
+          status: string;
+          geometryProvider: "OSRM" | "ORS" | null;
+          geometry: { coordinates: Array<[number, number]> };
+        };
+      }>;
+    };
+
+    expect(routePayload.routes).toHaveLength(1);
+    expect(routePayload.routes[0]?.matrixSource).toBe("osrm");
+    expect(routePayload.routes[0]?.orderedDeliveryPointIds).toHaveLength(5);
+    expect(routePayload.routes[0]?.route.status).toBe("PLANNED");
+    expect(routePayload.routes[0]?.route.geometryProvider).toBe("OSRM");
+    expect(routePayload.routes[0]?.route.geometry.coordinates.length).toBeGreaterThan(6);
+    const routeId = routePayload.routes[0]?.route.id;
+    expect(routeId).toBeTruthy();
+
+    await page.goto("/dashboard");
+    await expect(
+      page.getByRole("heading", { name: "Rutas en movimiento" }),
+    ).toBeVisible();
+    await expect(
+      page.locator("article").filter({ hasText: `E2E courier ${suffix}` }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Mapa de rutas")).toBeVisible();
+    await expect(page.locator(".maplibregl-canvas").first()).toBeVisible();
+
+    const routeSummary = page.locator("article").filter({
+      hasText: `E2E courier ${suffix}`,
+    });
+    await expect(routeSummary.getByText("5", { exact: true })).toBeVisible();
+
+    await loginAsCourier(page, courierAccessCode);
+    const courierOrdersResponse = await page.context().request.get("/api/v1/pedidos");
+    expect(courierOrdersResponse.status()).toBe(403);
+    const courierListResponse = await page.context().request.get("/api/v1/repartidores");
+    expect(courierListResponse.status()).toBe(403);
+    const selfResponse = await page.context().request.get("/api/v1/repartidores/me");
+    expect(selfResponse.status()).toBe(200);
+    const selfProfile = await selfResponse.json() as { courier: Record<string, unknown> };
+    expect(selfProfile.courier).not.toHaveProperty("name");
+    expect(selfProfile.courier).not.toHaveProperty("phone");
+    await page.getByRole("button", { name: "Cargar ruta asignada" }).click();
+    await expect(page.getByText("Ruta asignada", { exact: true })).toBeVisible();
+    await expect(page.getByText("E2E parada 1", { exact: true })).toBeVisible();
+    expect(
+      await page.evaluate(() =>
+        Object.keys(localStorage).filter((key) => key.startsWith("rutas-pasto:assigned-route:")),
+      ),
+    ).toEqual([]);
+    await page.getByRole("button", { name: "Iniciar ruta" }).click();
+    await expect(page.getByText("En curso")).toBeVisible();
+    const firstStop = page.locator("ol li").filter({ hasText: "E2E parada 1" });
+    await firstStop.getByRole("button", { name: "Entregada" }).click();
+    await expect(firstStop).toHaveCount(0);
+    await page.getByRole("button", { name: "Salir" }).click();
+    await page.waitForURL("**/");
+    await loginAsDispatcher(page);
+
+    const cancelResponse = await apiRequest(request, "PATCH", `/api/v1/rutas/${routeId}`, {
+      data: { status: "CANCELLED" },
+    });
+    expect(cancelResponse.status()).toBe(200);
+
+    await page.goto("/dashboard");
+    const routeHistory = page.getByLabel("Historial de rutas");
+    await expect(routeHistory).toBeVisible();
+    await expect(routeHistory).not.toHaveAttribute("open", "");
+    await routeHistory.locator("summary").click();
+    await expect(
+      routeHistory.locator("article").filter({ hasText: `E2E courier ${suffix}` }),
+    ).toBeVisible();
+  } finally {
+    await cleanupTestData({ courierId, deliveryPointIds, orderIds });
+  }
+});
