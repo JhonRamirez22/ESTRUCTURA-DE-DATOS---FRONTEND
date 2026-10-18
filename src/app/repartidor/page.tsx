@@ -526,3 +526,179 @@ export default function RepartidorPage() {
                 ) : (
                   <p className="mt-2 text-[11px] leading-4 text-sky-700">
                     El trazado sigue calles de OpenStreetMap mediante {navigation.geometryProvider}. El proveedor público no ofrece tráfico en tiempo real.
+                  </p>
+                )}
+              </div>
+            ) : null}
+            <ol className="mt-3 space-y-2 text-sm text-slate-600">
+              {activeDeliveryPoints.length === 0 ? (
+                <li className="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
+                  No tienes entregas pendientes en esta ruta.
+                </li>
+              ) : activeDeliveryPoints.map((point, index) => (
+                <li key={point.id} className="flex items-start justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                  <div className="flex min-w-0 gap-2">
+                    <span className="font-semibold text-teal-700">
+                      {(point.sequenceIndex ?? index) + 1}.
+                    </span>
+                    <span>
+                      <span className="block">{point.address}</span>
+                      <span className="text-[11px] text-slate-400">{formatDeliveryStatus(point.status)}</span>
+                    </span>
+                  </div>
+                  {assignedRoute.status === "IN_PROGRESS" &&
+                  (point.status === "PENDING" || point.status === "EN_ROUTE") ? (
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        className="rp-button rp-button-small border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700 hover:bg-emerald-100"
+                        onClick={() => void updateDeliveryStatus(point.id, "DELIVERED")}
+                        type="button"
+                      >
+                        Entregada
+                      </button>
+                      <button
+                        className="rp-button rp-button-danger rp-button-small px-2 py-1"
+                        onClick={() => void updateDeliveryStatus(point.id, "FAILED")}
+                        type="button"
+                      >
+                        Fallida
+                      </button>
+                    </div>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
+
+        {!assignedRoute && !loadingProfile && !error ? (
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-[var(--surface)] px-4 py-5 text-sm leading-6 text-slate-500 ">
+            {loadingProfile ? "Cargando tus entregas…" : "El despacho todavía no te ha asignado una ruta."}
+          </div>
+        ) : null}
+
+        {error ? (
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            {error}
+          </div>
+        ) : null}
+      </section>
+      </main>
+    </AppShell>
+  );
+}
+
+async function sendLocation(
+  location: LastLocation,
+): Promise<{ accepted: boolean; error?: string }> {
+  try {
+    const response = await apiFetch("/api/repartidores/me/ubicacion", {
+      body: JSON.stringify(location),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      return {
+        accepted: false,
+        error: await readApiError(response, "El servidor rechazó la ubicación."),
+      };
+    }
+
+    const payload = (await response.json()) as { accepted: boolean };
+    return payload.accepted
+      ? { accepted: true }
+      : { accepted: false, error: "Se ignoró una posición más antigua que la última recibida." };
+  } catch (error) {
+    // La siguiente lectura de geolocalización volverá a intentar sincronizar la posición.
+    return {
+      accepted: false,
+      error: error instanceof Error ? error.message : "No se pudo enviar la ubicación.",
+    };
+  }
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    return typeof payload.error === "string" ? payload.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function formatDeliveryStatus(status: AssignedRoute["deliveryPoints"][number]["status"]): string {
+  switch (status) {
+    case "DELIVERED":
+      return "Entregada";
+    case "FAILED":
+      return "Fallida";
+    case "EN_ROUTE":
+      return "En camino";
+    default:
+      return "Pendiente";
+  }
+}
+
+function formatDistance(distanceMeters: number): string {
+  if (distanceMeters >= 1000) {
+    return `${(distanceMeters / 1000).toFixed(1)} km`;
+  }
+
+  return `${Math.round(distanceMeters)} m`;
+}
+
+function formatCourierStatus(
+  status: CourierProfile["status"],
+  hasFreshPosition: boolean,
+): string {
+  if (status !== "OFFLINE" && !hasFreshPosition) {
+    return "GPS vencido · no disponible para asignación";
+  }
+
+  switch (status) {
+    case "AVAILABLE":
+      return "Disponible · GPS reciente";
+    case "ON_ROUTE":
+      return "En ruta";
+    default:
+      return "Fuera de turno";
+  }
+}
+
+function formatGeolocationError(error: GeolocationPositionError): string {
+  if (error.code === GeolocationPositionError.PERMISSION_DENIED) {
+    return "Permite el acceso a la ubicación para iniciar el seguimiento.";
+  }
+
+  if (error.code === GeolocationPositionError.TIMEOUT) {
+    return "El dispositivo tardó demasiado en obtener la ubicación.";
+  }
+
+  return "No se pudo obtener la ubicación actual. Intenta moverte a un lugar con mejor señal.";
+}
+
+function StatusCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "blue" | "slate" | "teal";
+}) {
+  const toneClasses = {
+    blue: "bg-blue-50 text-blue-700",
+    slate: "bg-slate-100 text-slate-700",
+    teal: "bg-teal-50 text-teal-700",
+  } as const;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-[var(--surface)] p-4 ">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+      <p className={`mt-2 inline-flex rounded-lg px-2.5 py-1 text-sm font-semibold ${toneClasses[tone]}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
