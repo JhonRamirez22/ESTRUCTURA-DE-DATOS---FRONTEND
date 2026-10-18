@@ -210,3 +210,109 @@ export default function ClientePage() {
                 <p className="mt-2 max-w-[42ch] text-sm leading-6 text-slate-600">
                   La guía privada abre el seguimiento de un solo pedido; no necesitas una cuenta.
                 </p>
+              </div>
+              <dl className="grid divide-y divide-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                <div className="py-3 sm:px-4 sm:py-0 sm:first:pl-0">
+                  <dt className="text-sm font-semibold text-slate-900">Estado del envío</dt>
+                  <dd className="mt-1 text-sm leading-5 text-slate-600">
+                    Recibido, en camino o con resultado de entrega.
+                  </dd>
+                </div>
+                <div className="py-3 sm:px-4 sm:py-0">
+                  <dt className="text-sm font-semibold text-slate-900">Mapa de ruta</dt>
+                  <dd className="mt-1 text-sm leading-5 text-slate-600">
+                    La ruta por calles y la ubicación aproximada cuando haya repartidor asignado.
+                  </dd>
+                </div>
+                <div className="py-3 sm:pl-4 sm:pt-0">
+                  <dt className="text-sm font-semibold text-slate-900">Llegada orientativa</dt>
+                  <dd className="mt-1 text-sm leading-5 text-slate-600">
+                    Un ETA aproximado cuando existan datos viales y de ubicación suficientes.
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+        ) : null}
+
+        {tracking ? (
+          <section className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+            {trackingRefreshWarning ? (
+              <p
+                className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-950 lg:col-span-2"
+                role="status"
+              >
+                {trackingRefreshWarning}
+              </p>
+            ) : null}
+            <div className="rp-map-frame">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+                <div>
+                  <p className="break-all text-xs font-semibold text-slate-600">Guía {tracking.guide}</p>
+                  <h2 className="mt-1 font-semibold text-slate-900">{tracking.address}</h2>
+                </div>
+                <span className="rounded-full bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700">
+                  {formatStatus(tracking.status)}
+                </span>
+              </div>
+              <TrackingMap
+                ariaLabel="Mapa de seguimiento del pedido"
+                className="h-[360px] w-full"
+                couriers={courierPosition ? [courierPosition] : []}
+                pendingPoints={targetPoint && !tracking.route ? [targetPoint] : []}
+                routes={
+                  tracking.route && courierPosition && targetPoint
+                    ? [{
+                        id: tracking.route.id,
+                        courier: courierPosition,
+                        deliveryPoints: [targetPoint],
+                        geometryProvider: tracking.route.geometryProvider,
+                        geometry: tracking.route.geometry,
+                      }]
+                    : []
+                }
+              />
+            </div>
+
+          <aside className="rp-panel p-5">
+              {lastUpdatedAt ? (
+                <p aria-live="polite" className="mt-1 text-xs leading-5 text-slate-500">
+                  Última consulta {formatQueryTime(lastUpdatedAt)}
+                  {tracking.status !== "DELIVERED" && tracking.status !== "FAILED"
+                    ? " · se actualiza cada 30 s"
+                    : ""}
+                </p>
+              ) : null}
+              {tracking.route ? (
+                <>
+                  <h2 className="mt-3 text-xl font-semibold text-slate-900">
+                    {tracking.route.estimatedMinutesFromNow === null
+                      ? "Ruta asignada"
+                      : `Aproximadamente ${Math.max(1, Math.round(tracking.route.estimatedMinutesFromNow))} min`}
+                  </h2>
+                  <dl className="mt-5 space-y-3 text-sm">
+                    <InfoRow label="Entrega" value="En camino" />
+                    <InfoRow
+                      label="Distancia aproximada"
+                      value={formatDistance(tracking.route.distanceFromCourierMeters)}
+                    />
+                    <InfoRow
+                      label="Última señal GPS"
+                      value={formatLastLocation(tracking.route.courier.lastLocationAt)}
+                    />
+                    <InfoRow label="Estado de ruta" value={formatRouteStatus(tracking.route.status)} />
+                  </dl>
+                  {tracking.route.liveTraffic ? (
+                    <div
+                      className={`mt-4 rounded-xl border px-3 py-3 ${
+                        tracking.route.liveTraffic.applied
+                          ? "border-emerald-200 bg-emerald-50"
+                          : tracking.route.liveTraffic.configured
+                            ? "border-amber-200 bg-amber-50"
+                            : "border-slate-200 bg-slate-50"
+                      }`}
+                      role="status"
+                    >
+                      <p className="text-sm font-semibold text-slate-900">
+                        {tracking.route.liveTraffic.applied
+                          ? "Tráfico TomTom aplicado parcialmente"
