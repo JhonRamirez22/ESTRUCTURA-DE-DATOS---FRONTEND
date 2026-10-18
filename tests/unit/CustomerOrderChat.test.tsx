@@ -70,3 +70,74 @@ describe('CustomerOrderChat', () => {
       })
     );
     render(<CustomerOrderChat guide="private-tracking-guide" />);
+
+    await screen.findByRole('textbox', { name: 'Escribe tu pregunta sobre el pedido' });
+    const summary = screen.getByText(
+      /a la IA solo se envían la intención normalizada y el estado del pedido/i
+    );
+    const details = summary.closest('details');
+    expect(details?.open).toBe(false);
+    fireEvent.click(summary);
+    expect(details?.open).toBe(true);
+    expect(
+      screen.getByText(/si preguntas por la llegada, el ETA es aproximado/i)
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/TomTom, si está disponible, solo cubre parte del primer tramo/i)
+    ).toBeTruthy();
+    expect(screen.getByText(/el texto original no se comparte/i)).toBeTruthy();
+    expect(
+      screen.getByText(/no se envían guía, dirección, coordenadas, nombre, teléfono ni IDs/i)
+    ).toBeTruthy();
+  });
+
+  it('shows the backend recovery message when the assistant is not configured', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ configured: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    mockFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error:
+            'El asistente no está configurado. Puedes seguir consultando el pedido con tu guía.',
+        }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    render(<CustomerOrderChat guide="private-tracking-guide" />);
+
+    const input = await screen.findByRole('textbox', {
+      name: 'Escribe tu pregunta sobre el pedido',
+    });
+    fireEvent.change(input, {
+      target: { value: '¿Ya viene?' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preguntar' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('El asistente no está configurado');
+    expect(alert.textContent).toContain('Puedes seguir consultando el pedido con tu guía.');
+    expect((input as HTMLInputElement).value).toBe('¿Ya viene?');
+  });
+
+  it('restores the failed question and retries it without duplicating conversation history', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ configured: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    mockFetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'El asistente tardó demasiado.' }), {
+          status: 504,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ reply: 'Tu pedido sigue pendiente de asignación.' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
