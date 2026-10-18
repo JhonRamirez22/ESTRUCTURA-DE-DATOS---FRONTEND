@@ -316,3 +316,109 @@ export default function ClientePage() {
                       <p className="text-sm font-semibold text-slate-900">
                         {tracking.route.liveTraffic.applied
                           ? "Tráfico TomTom aplicado parcialmente"
+                          : tracking.route.liveTraffic.configured
+                            ? "Sin ajuste de tráfico TomTom"
+                            : "ETA con tiempos viales base"}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-700">
+                        {tracking.route.liveTraffic.warning ??
+                          "La señal disponible cubre solo el primer tramo; los demás usan tiempos viales base."}
+                      </p>
+                    </div>
+                  ) : null}
+                  {tracking.route.navigationWarning ? (
+                    <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                      {tracking.route.navigationWarning}
+                    </p>
+                  ) : null}
+                  {tracking.route.estimateWarning ? (
+                    <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                      {tracking.route.estimateWarning}
+                    </p>
+                  ) : null}
+                  <p className="mt-5 text-xs leading-5 text-slate-600">{tracking.route.estimateNote}</p>
+                </>
+              ) : (
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  El pedido fue recibido, pero todavía no ha sido asignado a una ruta.
+                </p>
+              )}
+              <button
+                className="rp-button rp-button-quiet mt-6 w-full disabled:cursor-wait"
+                disabled={loading}
+                onClick={() => void searchTracking(tracking.guide)}
+                type="button"
+              >
+                {loading ? "Actualizando…" : "Actualizar ubicación"}
+            </button>
+          </aside>
+          <CustomerOrderChat guide={tracking.guide} key={tracking.guide} />
+        </section>
+        ) : null}
+      </section>
+      </main>
+    </AppShell>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
+      <dt className="text-slate-600">{label}</dt>
+      <dd className="text-right font-semibold text-slate-700">{value}</dd>
+    </div>
+  );
+}
+
+function formatStatus(status: TrackingData["status"]): string {
+  return {
+    PENDING: "Pendiente",
+    EN_ROUTE: "En camino",
+    DELIVERED: "Entregado",
+    FAILED: "Incidencia",
+  }[status];
+}
+
+function formatRouteStatus(status: NonNullable<TrackingData["route"]>["status"]): string {
+  return {
+    PLANNED: "Planificada",
+    IN_PROGRESS: "En curso",
+    COMPLETED: "Completada",
+    CANCELLED: "Cancelada",
+  }[status];
+}
+
+function formatDistance(distanceMeters: number | null): string {
+  if (distanceMeters === null) {
+    return "Pendiente";
+  }
+
+  return distanceMeters >= 1000
+    ? `${(distanceMeters / 1000).toFixed(1)} km`
+    : `${Math.round(distanceMeters)} m`;
+}
+
+function formatLastLocation(lastLocationAt: string | null): string {
+  return lastLocationAt === null
+    ? "Sin señal registrada"
+    : new Date(lastLocationAt).toLocaleTimeString("es-CO", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+}
+
+function formatQueryTime(updatedAt: Date): string {
+  return updatedAt.toLocaleTimeString("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    return typeof payload.error === "string" ? payload.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
