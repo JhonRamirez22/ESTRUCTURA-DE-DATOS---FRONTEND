@@ -271,3 +271,94 @@ test('conserva el último seguimiento cuando falla una actualización', async ({
     path: testInfo.outputPath('customer-tracking-stale-desktop.png'),
     fullPage: true,
   });
+  await expect(page.getByText('Carrera 25 # 4 sur 65')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Mapa de seguimiento del pedido' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: '¿Tienes dudas sobre este pedido?' })
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Actualizar ubicación' })).toBeEnabled();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByText('Carrera 25 # 4 sur 65')).toBeVisible();
+  await expect(
+    page.getByText(/No pudimos actualizar ahora\. Conservamos la última información/)
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('customer-tracking-stale-mobile.png'),
+    fullPage: true,
+  });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390);
+
+  await page.getByRole('button', { name: 'Actualizar ubicación' }).click();
+  await expect(page.getByText('La guía ya no está disponible.')).toBeVisible();
+  await expect(page.getByText('Carrera 25 # 4 sur 65')).toHaveCount(0);
+});
+
+test('el consentimiento por correo y SMS es claro y adaptable en el formulario de pedidos', async ({
+  page,
+}, testInfo) => {
+  await page.route('https://tiles.openfreemap.org/styles/fiord', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        version: 8,
+        name: 'estilo de mapa para prueba',
+        sources: {},
+        layers: [
+          {
+            id: 'background',
+            type: 'background',
+            paint: { 'background-color': '#17242b' },
+          },
+        ],
+      }),
+    })
+  );
+  await page.route('**/api/v1/pedidos?status=PENDING', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ deliveryPoints: [] }),
+    })
+  );
+  await loginAsDispatcher(page);
+  await page.goto('/pedidos');
+
+  await expect(page.getByRole('heading', { name: 'Registrar un pedido' })).toBeVisible();
+  const orderMap = page.getByLabel('Mapa para seleccionar la dirección del pedido');
+  await expect(orderMap.locator('.maplibregl-canvas')).toBeVisible();
+  await expect(orderMap.getByRole('status')).toHaveCount(0);
+  await expect(
+    page.getByText(
+      'Solo se usarán los canales autorizados para avisar cuando el pedido tenga repartidor asignado y cuando el repartidor esté cerca.'
+    )
+  ).toBeVisible();
+  const consent = page.getByRole('checkbox', {
+    name: 'El cliente acepta recibir avisos por correo sobre su entrega.',
+  });
+  await expect(page.getByRole('textbox', { name: 'Correo del cliente' })).toHaveCount(0);
+  await consent.check();
+  const email = page.getByRole('textbox', { name: 'Correo del cliente' });
+  await expect(email).toBeVisible();
+
+  const smsConsent = page.getByRole('checkbox', {
+    name: 'El cliente acepta recibir avisos SMS en su celular.',
+  });
+  await expect(page.getByRole('textbox', { name: 'Celular del cliente' })).toHaveCount(0);
+  await smsConsent.check();
+  const phone = page.getByRole('textbox', { name: 'Celular del cliente' });
+  await expect(phone).toBeVisible();
+
+  await email.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('order-email-consent-desktop.png') });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390);
+  await phone.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('order-email-consent-mobile.png') });
+});
