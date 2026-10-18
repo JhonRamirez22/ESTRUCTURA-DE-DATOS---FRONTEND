@@ -1,0 +1,67 @@
+'use client';
+
+import type { Map as MapLibreMap, MapSourceDataEvent, RasterTileSource } from 'maplibre-gl';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/apiClient';
+import { PASTO_SERVICE_BOUNDS } from '@/lib/pastoArea';
+
+const SOURCE = 'rutas-pasto-traffic';
+const LAYER = 'rutas-pasto-traffic-flow';
+const REFRESH_MS = 90_000;
+type TrafficState = 'loading' | 'consulted' | 'stale' | 'unavailable' | 'no-coverage';
+
+export default function TrafficOverlay({ map }: { map: MapLibreMap }) {
+  const [enabled, setEnabled] = useState(true);
+  const [status, setStatus] = useState<TrafficState>('loading');
+  const [observedAt, setObservedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    let configured = false;
+    let lastRefresh = 0;
+    let lastBucket = Math.floor(Date.now() / REFRESH_MS);
+    let readbackBucket = -1;
+    let failedBucket = -1;
+    let pending: AbortController | null = null;
+    const remove = () => {
+      if (!map.getStyle()) return;
+      if (map.getLayer(LAYER)) map.removeLayer(LAYER);
+      if (map.getSource(SOURCE)) map.removeSource(SOURCE);
+    };
+    const install = () => {
+      if (!enabled || !configured || document.visibilityState === 'hidden' || !map.isStyleLoaded())
+        return;
+      const tiles = [
+        `${window.location.origin}/api/v1/trafico/tiles/{z}/{x}/{y}.png?t=${lastBucket}`,
+      ];
+      const existing = map.getSource(SOURCE) as RasterTileSource | undefined;
+      if (existing) {
+        existing.setTiles(tiles);
+        return;
+      }
+      map.addSource(SOURCE, {
+        type: 'raster',
+        tiles,
+        tileSize: 256,
+        minzoom: 11,
+        maxzoom: 18,
+        bounds: [
+          PASTO_SERVICE_BOUNDS.minLongitude,
+          PASTO_SERVICE_BOUNDS.minLatitude,
+          PASTO_SERVICE_BOUNDS.maxLongitude,
+          PASTO_SERVICE_BOUNDS.maxLatitude,
+        ],
+        attribution: 'Traffic © TomTom',
+      });
+      map.addLayer(
+        {
+          id: LAYER,
+          type: 'raster',
+          source: SOURCE,
+          paint: { 'raster-opacity': 0.8, 'raster-fade-duration': 0 },
+        },
+        map.getLayer('delivery-route-highlight-casing')
+          ? 'delivery-route-highlight-casing'
+          : undefined
+      );
+    };
+    const metadata = async (refresh: boolean) => {
