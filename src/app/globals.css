@@ -703,3 +703,238 @@ a {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.ui-login-privacy svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.ui-loading-icon {
+  animation: ui-spin 1s linear infinite;
+}
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.ui-dock {
+  position: relative;
+  padding-top: 26px;
+}
+.ui-dock-panel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: end;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  margin: auto;
+  padding: 8px 12px;
+  border: 1px solid #393b46;
+  border-radius: 18px;
+  background: #202127;
+  box-shadow: 0 12px 32px #0006;
+}
+.ui-dock-item {
+  position: relative;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  background: #2b2d35;
+  flex-shrink: 0;
+}
+.ui-dock-item.is-active {
+  background: #444158;
+}
+.ui-dock-action {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  color: #d7dae2;
+}
+.ui-dock-action:hover {
+  color: white;
+  background: #ffffff0a;
+}
+.ui-dock-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ui-dock-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.ui-dock-label {
+  position: absolute;
+  left: 50%;
+  bottom: 56px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 5px 9px;
+  background: #282a32;
+  color: #f0f1f3;
+  border: 1px solid #41444e;
+  border-radius: 6px;
+  pointer-events: none;
+}
+.rp-application-dock {
+  position: fixed;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  max-width: calc(100vw - 32px);
+}
+/* La base compartida remapea utilidades de las pantallas existentes sin alterar contratos HTTP. */
+.rp-courier > section {
+  max-width: 900px;
+}
+.rp-courier h1 {
+  max-width: 28ch;
+}
+@media (max-width: 767px) {
+  .rp-shell-header-inner {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    padding: 12px 18px;
+    gap: 8px;
+    min-height: 64px;
+  }
+  .rp-navigation {
+    grid-column: 1 / -1;
+    margin: 0;
+    justify-content: stretch;
+  }
+  .rp-nav-item {
+    flex: 1;
+    justify-content: center;
+  }
+  .rp-shell-account {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .rp-service-area {
+    display: none;
+  }
+  .rp-workspace-bar {
+    padding: 18px 18px 0;
+  }
+  .rp-workspace-bar > span:last-child {
+    display: none;
+  }
+  .rp-dashboard > div {
+    padding: 24px 18px;
+  }
+  .rp-page-heading h1,
+  .rp-orders h1,
+  .rp-tracking h1,
+  .rp-courier h1 {
+    font-size: 26px;
+  }
+  .rp-page-heading > div:first-child > p {
+    display: none;
+  }
+  .rp-mobile-shortcuts {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .rp-mobile-shortcuts a {
+    min-height: 44px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 12px;
+    color: #d2d5db;
+  }
+  .rp-map-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .rp-home {
+    padding: 48px 20px 24px;
+  }
+  .rp-home-intro {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding-bottom: 48px;
+  }
+  .rp-home h1 {
+    font-size: 38px;
+  }
+  .rp-home-actions {
+    padding: 0;
+    border-left: 0;
+  }
+  .rp-home-method {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .rp-home-footer {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .rp-access {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 32px;
+    padding: 24px 20px 32px;
+    min-height: 0;
+  }
+  .rp-access-story h2 {
+    font-size: 32px;
+    margin-top: 16px;
+  }
+  .rp-access-story p {
+    margin-top: 16px;
+  }
+  .rp-access-meta {
+    display: none;
+  }
+  .ui-login-panel {
+    padding: 24px;
+  }
+  /* En móvil el dock ocupa espacio real y no cubre campos ni acciones al desplazar. */
+  .rp-application-dock {
+    position: static;
+    transform: none;
+    max-width: none;
+    margin: 0 auto;
+    padding: 24px 16px 0;
+  }
+  .rp-shell {
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .rp-button,
+  .ui-button,
+  .rp-nav-item,
+  .rp-entry-arrow,
+  .rp-input,
+  .rp-entry-link {
+    transition: none;
+  }
+  .ui-loading-icon {
+    animation: none;
+  }
+  .rp-entry-link {
+    transition: color 200ms ease;
+  }
+}
