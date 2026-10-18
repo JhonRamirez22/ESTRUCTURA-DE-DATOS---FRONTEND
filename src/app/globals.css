@@ -1,0 +1,235 @@
+@import 'tailwindcss';
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
+@font-face {
+  font-family: 'Public Sans';
+  src: url('/fonts/public-sans-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --background: #08090b;
+  --foreground: #f0f1f3;
+  --surface: #121316;
+  --surface-muted: #191b20;
+  --line: #2a2c34;
+  --accent: #c6c4f8;
+  --accent-strong: #e2e0ff;
+  --ink-soft: #a4a7b1;
+  --primary: #c6c4f8;
+  --primary-foreground: #161421;
+  --secondary: #24262d;
+  --secondary-foreground: #f0f1f3;
+  --muted: #191b20;
+  --muted-foreground: #a4a7b1;
+  --destructive: #efa4b1;
+  --destructive-foreground: #1d1014;
+  --input: #343640;
+  --ring: #b9b6f5;
+  --radius: 0.75rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: 'Public Sans', ui-sans-serif, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-slate-50: #191b20;
+  --color-slate-100: #24262d;
+  --color-slate-200: #343640;
+  --color-slate-300: #60636f;
+  --color-slate-400: #999da8;
+  --color-slate-500: #b0b3bc;
+  --color-slate-600: #c1c4cb;
+  --color-slate-700: #d2d5db;
+  --color-slate-800: #e2e4e9;
+  --color-slate-900: #edeff2;
+  --color-slate-950: #f5f6f8;
+  --color-emerald-50: #10291f;
+  --color-emerald-100: #183729;
+  --color-emerald-200: #2c5840;
+  --color-emerald-300: #58a679;
+  --color-emerald-400: #72c894;
+  --color-emerald-500: #65bd88;
+  --color-emerald-600: #76d69c;
+  --color-emerald-700: #95e0b2;
+  --color-emerald-800: #b9ebca;
+  --color-emerald-900: #cbf1d8;
+  --color-emerald-950: #d9f4e3;
+  --color-teal-50: #112727;
+  --color-teal-100: #193838;
+  --color-teal-200: #2d5454;
+  --color-teal-600: #85c8c3;
+  --color-teal-700: #9bdfd8;
+  --color-teal-900: #c6ece7;
+  --color-sky-50: #15252f;
+  --color-sky-100: #213746;
+  --color-sky-200: #33556a;
+  --color-sky-600: #87bfdd;
+  --color-sky-700: #a3d4ee;
+  --color-amber-50: #2b2418;
+  --color-amber-100: #3a2e1c;
+  --color-amber-200: #67522e;
+  --color-amber-300: #977647;
+  --color-amber-700: #e5c492;
+  --color-amber-800: #eed3aa;
+  --color-amber-900: #f3ddb8;
+  --color-amber-950: #f8e9cd;
+  --color-rose-50: #2d1920;
+  --color-rose-100: #3b242d;
+  --color-rose-200: #673a48;
+  --color-rose-700: #efa4b1;
+  --color-rose-800: #f4bac3;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
+  scrollbar-color: #444751 #101114;
+}
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Public Sans', ui-sans-serif, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+button,
+a[href],
+label[for] {
+  cursor: pointer;
+}
+button,
+input,
+a,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+::selection {
+  background: #43415c;
+  color: white;
+}
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+input,
+select,
+textarea {
+  caret-color: var(--accent);
+}
+a {
+  text-underline-offset: 4px;
+}
+.rp-shell {
+  min-height: 100vh;
+  padding-bottom: 112px;
+}
+.rp-skip-link {
+  position: fixed;
+  z-index: 100;
+  left: 20px;
+  top: -80px;
+  padding: 12px 18px;
+  background: var(--surface-muted);
+  color: white;
+  border-radius: 8px;
+}
+.rp-skip-link:focus {
+  top: 12px;
+}
+.rp-shell-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid var(--line);
+  background: #0c0d10;
+}
+.rp-shell-header-inner {
+  min-height: 72px;
+  max-width: 1600px;
+  margin: auto;
+  padding: 12px 32px;
+  display: flex;
+  align-items: center;
+  gap: 36px;
+}
+.rp-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.rp-brand-mark {
+  color: var(--accent);
+  width: 28px;
+  height: 28px;
+}
+.rp-brand-mark svg {
+  width: 100%;
+  height: 100%;
+}
+.rp-brand-name {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+.rp-brand-name span {
+  display: inline;
+  margin-left: 5px;
+  color: #afb2bd;
+  font-weight: 400;
+}
+.rp-navigation {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.rp-nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 9px 14px;
+  border-radius: 7px;
+  color: #afb2bd;
+  font-size: 13px;
+  transition:
+    color 160ms,
+    background 160ms;
+}
+.rp-nav-item > svg {
+  width: 16px;
+  height: 16px;
+}
+.rp-nav-item .rp-nav-arrow {
+  display: none;
+}
+.rp-nav-item:hover,
+.rp-nav-item.is-active {
+  color: #f0f1f3;
+  background: #23252c;
+}
+.rp-shell-account {
+  display: flex;
+  align-items: center;
+  gap: 20px;
