@@ -81,3 +81,85 @@ export default function CustomerOrderChat({ guide }: CustomerOrderChatProps) {
       viewport.scrollTop = viewport.scrollHeight;
     }
   }, [conversation, submitting]);
+
+  const sendQuestion = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    const question = draft.trim();
+    if (!question || submitting) {
+      return;
+    }
+
+    const nextConversation = [...conversation, { role: 'user' as const, content: question }];
+    setConversation(nextConversation);
+    setDraft('');
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      const messages = nextConversation
+        .filter((message) => message.role === 'user')
+        .slice(-MAX_HISTORY_TURNS)
+        .map((message) => ({ role: 'user' as const, content: message.content }));
+      const response = await apiFetch('/api/cliente/chat', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guide, messages }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+
+      const payload: unknown = await response.json();
+      if (!isChatResponse(payload)) {
+        throw new Error('El asistente devolvió una respuesta inválida. Inténtalo de nuevo.');
+      }
+
+      setConversation((current) => [...current, { role: 'assistant', content: payload.reply }]);
+      if (payload.providerNotice) {
+        setProviderNotice(payload.providerNotice);
+      }
+    } catch (sendError) {
+      setConversation(conversation);
+      setDraft((currentDraft) => currentDraft || question);
+      setError(
+        sendError instanceof Error
+          ? sendError.message
+          : 'No se pudo enviar la pregunta. Comprueba tu conexión e inténtalo de nuevo.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const selectSuggestedQuestion = (question: string): void => {
+    setDraft(question);
+    questionRef.current?.focus();
+  };
+
+  return (
+    <section
+      aria-labelledby="customer-order-chat-title"
+      className="lg:col-span-2 overflow-hidden rounded-2xl border border-slate-200 bg-[var(--surface)] "
+    >
+      <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900" id="customer-order-chat-title">
+            ¿Tienes dudas sobre este pedido?
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Resuelve dudas sobre esta guía. La conexión con el proveedor se confirma al enviar.
+          </p>
+        </div>
+        <span
+          className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
+            assistantConfiguration === 'configured'
+              ? 'bg-emerald-50 text-emerald-800'
+              : assistantConfiguration === 'checking'
+                ? 'bg-slate-100 text-slate-700'
+                : 'bg-amber-50 text-amber-900'
+          }`}
+        >
+          <span
+            aria-hidden="true"
