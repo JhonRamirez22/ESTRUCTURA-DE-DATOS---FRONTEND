@@ -1,0 +1,16 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript", "prettier"],
+  "settings": {
+    "next": {
+      "rootDir": "frontend"
+    }
+  },
+  "ignorePatterns": [
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "tests/e2e/**",
+    "*.config.{ts,js,mjs}"
+  ]
+}
