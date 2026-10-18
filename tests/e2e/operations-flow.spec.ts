@@ -149,3 +149,78 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
     await expect(notificationStatus).toContainText('2 avisos de asignación quedaron en cola');
     await expect(notificationStatus).toContainText(
       'Abre «Avisos al cliente» para configurar SMTP o Twilio en el backend'
+    );
+
+    const channelReadiness = page.getByRole('region', {
+      name: 'Estado de avisos a clientes',
+    });
+    const emailSetup = channelReadiness.getByText('Cómo configurar Correo electrónico');
+    const smsSetup = channelReadiness.getByText('Cómo configurar SMS');
+    await expect(emailSetup).toBeVisible();
+    await expect(smsSetup).toBeVisible();
+    await emailSetup.click();
+    await smsSetup.click();
+    await expect(channelReadiness.getByText('NOTIFICATION_SMTP_HOST')).toHaveCount(1);
+    await expect(channelReadiness.getByText('NOTIFICATION_SMS_TWILIO_ACCOUNT_SID')).toBeVisible();
+    await expect(channelReadiness.getByText(/No ingreses sus valores/)).toHaveCount(2);
+    await notificationStatus.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath('dispatch-notification-desktop.png'),
+    });
+    await channelReadiness.evaluate((element) =>
+      element.scrollIntoView({ block: 'start' })
+    );
+    await page.screenshot({
+      path: testInfo.outputPath('notification-setup-desktop.png'),
+    });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(390);
+    await notificationStatus.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath('dispatch-notification-mobile.png'),
+    });
+    await expect(channelReadiness).toBeVisible();
+    await channelReadiness.screenshot({
+      path: testInfo.outputPath('notification-setup-mobile.png'),
+    });
+
+    const routeCard = page.locator('article').filter({ hasText: `UI courier ${suffix}` });
+    const normalizedAddress = routePayload.routes[0]?.route.deliveryPoints[0]?.address;
+    expect(normalizedAddress).toBeTruthy();
+    await expect(routeCard).toContainText(normalizedAddress!);
+    await expect(routeCard.getByText('Sin paradas')).toHaveCount(0);
+
+    const routeId = routePayload.routes[0]?.route.id;
+    expect(routeId).toBeTruthy();
+    const recalculation = await apiRequest(request, "POST", `/api/v1/rutas/${routeId}/recalcular`, { data: {} });
+    expect(recalculation.status()).toBe(200);
+    await page.reload();
+    await expect(
+      routeCard.getByRole('button', {
+        name: `Deshacer último recálculo de la ruta de UI courier ${suffix}`,
+      })
+    ).toBeVisible();
+    await routeCard
+      .getByRole('button', {
+        name: `Deshacer último recálculo de la ruta de UI courier ${suffix}`,
+      })
+      .click();
+    await expect(page.getByText('Se restauró el recálculo anterior de la ruta.', { exact: true }))
+      .toBeVisible();
+    await expect(
+      routeCard.getByRole('button', {
+        name: `Deshacer último recálculo de la ruta de UI courier ${suffix}`,
+      })
+    ).toHaveCount(0);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await routeCard.scrollIntoViewIfNeeded();
+    await routeCard.screenshot({ path: testInfo.outputPath('route-undo-desktop.png') });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await routeCard.screenshot({ path: testInfo.outputPath('route-undo-mobile.png') });
+  } finally {
+    await cleanupTestData({ courierId, orderIds: [guide] });
+  }
+});
