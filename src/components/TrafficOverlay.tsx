@@ -65,3 +65,70 @@ export default function TrafficOverlay({ map }: { map: MapLibreMap }) {
       );
     };
     const metadata = async (refresh: boolean) => {
+      if (!enabled || document.visibilityState === 'hidden') return;
+      if (refresh && Date.now() - lastRefresh < REFRESH_MS) {
+        install();
+        return;
+      }
+      pending?.abort();
+      const controller = new AbortController();
+      pending = controller;
+      try {
+        const response = await apiFetch('/api/v1/trafico/estado', { signal: controller.signal });
+        if (!response.ok) throw new Error('Tráfico no disponible');
+        const data = (await response.json()) as {
+          configured: boolean;
+          observedAt: string | null;
+          state: string;
+        };
+        if (controller.signal.aborted) return;
+        configured = data.configured;
+        setObservedAt(data.observedAt);
+        if (!configured || failedBucket !== lastBucket || data.state === 'stale') {
+          setStatus(
+            !configured
+              ? 'unavailable'
+              : data.state === 'stale'
+                ? 'stale'
+                : data.state === 'consulted'
+                  ? 'consulted'
+                  : 'loading'
+          );
+        }
+        if (!configured) {
+          remove();
+          return;
+        }
+        if (refresh) {
+          lastRefresh = Date.now();
+          lastBucket = Math.floor(lastRefresh / REFRESH_MS);
+          install();
+        }
+      } catch {
+        if (!controller.signal.aborted) setStatus('unavailable');
+      }
+    };
+    const sourceLoaded = (event: MapSourceDataEvent) => {
+      if (event.sourceId === SOURCE && event.isSourceLoaded && readbackBucket !== lastBucket) {
+        readbackBucket = lastBucket;
+        void metadata(false);
+      }
+    };
+    const error = (event: { sourceId?: string; error?: Error & { status?: number } }) => {
+      if (event.sourceId !== SOURCE) return;
+      failedBucket = lastBucket;
+      setStatus(event.error?.status === 404 ? 'no-coverage' : 'unavailable');
+    };
+    const visibility = () => {
+      if (document.visibilityState === 'hidden') {
+        pending?.abort();
+        remove();
+      } else void metadata(true);
+    };
+    map.on('style.load', install);
+    map.on('sourcedata', sourceLoaded);
+    map.on('error', error);
+    document.addEventListener('visibilitychange', visibility);
+    if (enabled) void metadata(true);
+    else remove();
+    const timer = window.setInterval(() => {
