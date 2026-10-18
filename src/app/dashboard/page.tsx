@@ -1217,3 +1217,409 @@ export default function DashboardPage() {
                             </span>
                             <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-800">
                               {assignment.deliveryPointIds.length} paradas
+                            </span>
+                          </div>
+                          <ol className="mt-2 space-y-1 text-xs text-slate-600">
+                            {assignment.deliveryPointIds.map((id, index) => (
+                              <li className="truncate" key={id}>
+                                <span className="mr-1 font-bold text-emerald-700">
+                                  {index + 1}.
+                                </span>
+                                {data.pendingPoints.find((point) => point.id === id)?.address ?? id}
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                {unassignedDeliveryPointIds.length > 0 ? (
+                  <div
+                    className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-950"
+                    aria-live="polite"
+                    role="status"
+                  >
+                    <p className="font-bold">
+                      {unassignedDeliveryPointIds.length === 1
+                        ? 'Un pedido sigue sin asignar.'
+                        : `${unassignedDeliveryPointIds.length} pedidos siguen sin asignar.`}
+                    </p>
+                    <p className="mt-1 leading-5 text-amber-900">
+                      Puede faltar capacidad de ruta, GPS reciente o el pedido pudo cambiar de
+                      estado. Estos pedidos siguen pendientes; no se despacharán.
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {unassignedDeliveryPointIds.slice(0, 5).map((id) => {
+                        const point = data.pendingPoints.find((item) => item.id === id);
+                        return (
+                          <li className="break-words" key={id}>
+                            {point
+                              ? `${formatOrderReference(point.orderId)} · ${point.address}`
+                              : 'Un pedido seleccionado ya no está disponible.'}
+                          </li>
+                        );
+                      })}
+                      {unassignedDeliveryPointIds.length > 5 ? (
+                        <li>Y {unassignedDeliveryPointIds.length - 5} más.</li>
+                      ) : null}
+                    </ul>
+                    <button
+                      className="rp-button rp-button-quiet rp-button-small mt-3"
+                      disabled={loading}
+                      onClick={() => {
+                        setAssignmentPreview([]);
+                        setUnassignedDeliveryPointIds([]);
+                        void loadDashboard();
+                      }}
+                      type="button"
+                    >
+                      Actualizar pedidos pendientes
+                    </button>
+                  </div>
+                ) : null}
+                {assignmentAiStatus ? (
+                  <div
+                    className="mt-3 rounded-xl border border-slate-200 bg-[var(--surface)] px-3 py-2 text-xs text-slate-700"
+                    role="status"
+                  >
+                    <span className="font-bold">
+                      {assignmentAiStatus.source === 'tomtom-live'
+                        ? 'TomTom Traffic Flow priorizado'
+                        : assignmentAiStatus.source === 'external-ai' && assignmentAiStatus.applied
+                          ? 'Factor de congestión sugerido por IA aplicado'
+                          : 'Asignación determinista'}
+                      .
+                    </span>{' '}
+                    {assignmentAiStatus.warning ??
+                      'La propuesta se calculó con cercanía y balanceo.'}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">
+                    ¿No aparece un repartidor?
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Se crea fuera de turno; su primera ubicación válida llega desde el GPS privado
+                    de la PWA.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 grid items-end gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Nombre completo
+                  <input
+                    className="rp-input mt-1 px-3 py-2.5 text-sm"
+                    onChange={(event) =>
+                      setCourierDraft((draft) => ({ ...draft, name: event.target.value }))
+                    }
+                    placeholder="Ej. Camila Ramírez"
+                    value={courierDraft.name}
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-slate-700">
+                  Teléfono
+                  <input
+                    className="rp-input mt-1 px-3 py-2.5 text-sm"
+                    onChange={(event) =>
+                      setCourierDraft((draft) => ({ ...draft, phone: event.target.value }))
+                    }
+                    placeholder="Ej. 300 123 4567"
+                    value={courierDraft.phone}
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-slate-700">
+                  Correo electrónico
+                  <input
+                    className="rp-input mt-1 px-3 py-2.5 text-sm"
+                    type="email"
+                    autoComplete="off"
+                    maxLength={254}
+                    value={courierDraft.email}
+                    onChange={(event) =>
+                      setCourierDraft({ ...courierDraft, email: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-slate-700">
+                  Contraseña (mínimo 15 caracteres)
+                  <input
+                    className="rp-input mt-1 px-3 py-2.5 text-sm"
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={15}
+                    maxLength={128}
+                    value={courierDraft.password}
+                    onChange={(event) =>
+                      setCourierDraft({ ...courierDraft, password: event.target.value })
+                    }
+                  />
+                </label>
+                <button
+                  className="rp-button rp-button-secondary disabled:cursor-not-allowed"
+                  disabled={creatingCourier}
+                  onClick={() => void createCourier()}
+                  type="button"
+                >
+                  {creatingCourier ? 'Guardando…' : 'Registrar'}
+                </button>
+              </div>
+            </div>
+
+            {data.couriers.length > 0 ? (
+              <div className="mt-4 rounded-2xl border border-slate-100 bg-[var(--surface)] p-4">
+                <h3 className="text-sm font-semibold text-slate-800">Accesos del equipo</h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Las cuentas usan correo y contraseña. Puedes registrar o actualizar el acceso de
+                  cada repartidor.
+                </p>
+                <ul className="mt-3 divide-y divide-slate-100">
+                  {data.couriers.map((courier) => (
+                    <li className="flex items-center justify-between gap-3 py-2.5" key={courier.id}>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-slate-800">
+                          {courier.name}
+                        </span>
+                        <span className="block text-[11px] text-slate-500">
+                          {isCourierLocationFresh(
+                            courier.lastLocationAt ? new Date(courier.lastLocationAt) : null
+                          )
+                            ? courier.status === 'AVAILABLE'
+                              ? 'Disponible · GPS reciente'
+                              : courier.status === 'ON_ROUTE'
+                                ? 'En ruta · GPS reciente'
+                                : 'Fuera de línea'
+                            : courier.lastLocationAt
+                              ? `GPS vencido · última lectura ${new Date(courier.lastLocationAt).toLocaleTimeString('es-CO')}`
+                              : 'Sin ubicación GPS'}
+                        </span>
+                      </span>
+                      <button
+                        className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-2 text-[11px] font-semibold text-slate-600 hover:border-amber-300 hover:text-amber-800"
+                        onClick={() =>
+                          setAccountDraft({
+                            courierId: courier.id,
+                            courierName: courier.name,
+                            email: '',
+                            password: '',
+                          })
+                        }
+                        type="button"
+                      >
+                        Configurar acceso
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+        </div>
+      </main>
+    </AppShell>
+  );
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    return typeof payload.error === 'string' ? payload.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function summarizeLiveTraffic(statuses: LiveTrafficStatus[]): string {
+  const configured = statuses.some((status) => status.configured);
+  const routeSegments = statuses.reduce((total, status) => total + status.routeSegments, 0);
+  const sampledSegments = statuses.reduce((total, status) => total + status.sampledSegments, 0);
+  const adjustedSegments = statuses.reduce((total, status) => total + status.adjustedSegments, 0);
+  const closedSegments = statuses.reduce((total, status) => total + status.closedSegments, 0);
+  const warnings = [...new Set(statuses.map((status) => status.warning).filter(Boolean))];
+  const sourceSummary = configured
+    ? `TomTom midió ${sampledSegments} de ${routeSegments} tramos y ajustó ${adjustedSegments}${closedSegments > 0 ? `; marcó ${closedSegments} como cerrados` : ''}.`
+    : 'TomTom aún no está configurado; se conservaron los tiempos de calles de OSRM.';
+  return [sourceSummary, ...warnings].join(' ');
+}
+
+function isCustomerNotificationSummary(value: unknown): value is CustomerNotificationSummary {
+  if (typeof value !== 'object' || value === null || !('channels' in value)) {
+    return false;
+  }
+  const summary = value as Partial<CustomerNotificationSummary>;
+  const validChannel = (channel: unknown): boolean =>
+    typeof channel === 'object' &&
+    channel !== null &&
+    'queued' in channel &&
+    typeof channel.queued === 'number' &&
+    Number.isSafeInteger(channel.queued) &&
+    channel.queued >= 0 &&
+    'configured' in channel &&
+    typeof channel.configured === 'boolean';
+  const channels = summary.channels;
+  return (
+    Number.isSafeInteger(summary.queued) &&
+    (summary.queued ?? -1) >= 0 &&
+    typeof channels === 'object' &&
+    channels !== null &&
+    validChannel(channels.email) &&
+    validChannel(channels.sms) &&
+    (summary.warning === undefined ||
+      summary.warning === null ||
+      typeof summary.warning === 'string')
+  );
+}
+
+function RouteSummary({
+  isUndoing,
+  isRecalculating,
+  onRecalculate,
+  onUndo,
+  onStatusChange,
+  route,
+}: {
+  isRecalculating: boolean;
+  isUndoing: boolean;
+  onRecalculate: (routeId: string) => Promise<void>;
+  onUndo: (routeId: string) => Promise<void>;
+  onStatusChange: (
+    routeId: string,
+    status: 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  ) => Promise<void>;
+  route: Route;
+}) {
+  const statusLabels = {
+    PLANNED: 'Planificada',
+    IN_PROGRESS: 'En progreso',
+    COMPLETED: 'Completada',
+    CANCELLED: 'Cancelada',
+  } as const;
+  const statusTone = {
+    PLANNED: 'bg-sky-50 text-sky-800',
+    IN_PROGRESS: 'bg-emerald-50 text-emerald-800',
+    COMPLETED: 'bg-slate-100 text-slate-600',
+    CANCELLED: 'bg-slate-100 text-slate-500',
+  } as const;
+  const hasFreshCourierLocation =
+    route.courier.currentLat !== null &&
+    route.courier.currentLng !== null &&
+    isCourierLocationFresh(
+      route.courier.lastLocationAt ? new Date(route.courier.lastLocationAt) : null
+    );
+  const canRecalculate = route.status === 'PLANNED' || route.status === 'IN_PROGRESS';
+
+  return (
+    <article className="rp-route-summary">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-slate-800">{route.courier.name}</p>
+          <p className="mt-1 font-mono text-xs text-slate-600">{route.id.slice(0, 8)}</p>
+        </div>
+        <span
+          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusTone[route.status]}`}
+        >
+          {statusLabels[route.status]}
+        </span>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+        <div className="py-2">
+          <p className="text-slate-600">Duración</p>
+          <p className="mt-1 font-semibold text-slate-700">
+            {Math.round(route.estimatedDurationMinutes)} min
+          </p>
+        </div>
+        <div className="py-2">
+          <p className="text-slate-600">Paradas</p>
+          <p className="mt-1 font-semibold text-slate-700">{route.deliveryPoints.length}</p>
+        </div>
+      </div>
+      <div className="mt-3 border-t border-slate-300 pt-3 text-xs">
+        <p className="font-semibold text-slate-700">Orden optimizado</p>
+        {route.deliveryPoints.length > 0 ? (
+          <ol className="mt-2 space-y-2 text-slate-700">
+            {route.deliveryPoints.map((point, index) => (
+              <li className="flex gap-2 leading-5" key={point.id}>
+                <span className="shrink-0 font-semibold tabular-nums">{index + 1}.</span>
+                <span className="break-words">{point.address}</span>
+              </li>
+            ))}
+          </ol>
+        ) : <p className="mt-2 text-slate-600">Sin paradas</p>}
+        <p className="mt-3 text-xs leading-5 text-slate-600">
+          OSRM calcula calles y tiempos base; TomTom ajusta tramos medidos cuando está activo.
+        </p>
+      </div>
+      {canRecalculate && !isRoadGeometryProvider(route.geometryProvider) ? (
+        <div
+          className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950"
+          role="status"
+        >
+          <p className="font-semibold">Trazado antiguo sin verificar</p>
+          <p className="mt-1 leading-5">
+            No se mostrará como si siguiera calles. Recalcula la ruta para confirmar su geometría
+            con OSRM.
+          </p>
+          {canRecalculate && hasFreshCourierLocation ? (
+            <button
+              className="rp-button rp-button-primary rp-button-small mt-2"
+              disabled={isRecalculating}
+              onClick={() => void onRecalculate(route.id)}
+              type="button"
+            >
+              {isRecalculating ? 'Consultando OSRM…' : 'Recalcular por calles'}
+            </button>
+          ) : null}
+          {canRecalculate && !hasFreshCourierLocation ? (
+            <p className="mt-2 leading-5 text-amber-800">
+              El repartidor debe compartir una ubicación GPS reciente antes de recalcular.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {route.status === 'PLANNED' || route.status === 'IN_PROGRESS' ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {route.canUndo ? (
+            <button
+              aria-label={`Deshacer último recálculo de la ruta de ${route.courier.name}`}
+              className="rp-button rp-button-secondary rp-button-small"
+              disabled={isUndoing || isRecalculating}
+              onClick={() => void onUndo(route.id)}
+              type="button"
+            >
+              {isUndoing ? 'Restaurando…' : 'Deshacer último recálculo'}
+            </button>
+          ) : null}
+          {route.status === 'PLANNED' ? (
+            <button
+              className="rp-button rp-button-primary rp-button-small"
+              onClick={() => void onStatusChange(route.id, 'IN_PROGRESS')}
+              type="button"
+            >
+              Iniciar ruta
+            </button>
+          ) : (
+            <button
+              className="rp-button rp-button-primary rp-button-small"
+              onClick={() => void onStatusChange(route.id, 'COMPLETED')}
+              type="button"
+            >
+              Completar ruta
+            </button>
+          )}
+          <button
+            className="rp-button rp-button-danger rp-button-small"
+            onClick={() => void onStatusChange(route.id, 'CANCELLED')}
+            type="button"
+          >
+            Cancelar
+          </button>
+        </div>
+      ) : null}
+    </article>
+  );
+}
