@@ -43,3 +43,48 @@ export default function RoutingMethodology() {
           </p>
         </article>
 
+        <article className="rounded-xl bg-slate-50 p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">
+            Calles y tráfico
+          </p>
+          <h3 className="mt-2 text-sm font-semibold text-slate-900">OSRM + señal TomTom</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            OSRM aporta geometría vial y tiempos base. TomTom solo ajusta los segmentos muestreados
+            con datos confiables; no representa tráfico en todas las calles de Pasto.
+          </p>
+        </article>
+
+        <article className="rounded-xl bg-slate-50 p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">
+            Núcleo de grafos
+          </p>
+          <h3 className="mt-2 text-sm font-semibold text-slate-900">Grafo dirigido + min-heap</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            El backend implementa Dijkstra sobre el grafo dirigido y su heap binario. Esas
+            estructuras no sustituyen al motor OSRM que calcula las calles mostradas en producción.
+          </p>
+        </article>
+      </div>
+
+      <div className="grid gap-3 border-t border-slate-100 px-4 py-4 sm:grid-cols-2">
+        <section>
+          <h3 className="text-xs font-semibold text-slate-800">Estructuras en servicios activos</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            Una cola FIFO respaldada por lista enlazada serializa escrituras GPS con control de
+            presión. Listas doblemente enlazadas sostienen cachés LRU de matrices y tráfico. La pila
+            restaura en orden LIFO hasta 20 recálculos persistidos por ruta; el despachador puede
+            deshacer el último mientras la ruta siga activa.
+          </p>
+        </section>
+        <section>
+          <h3 className="text-xs font-semibold text-slate-800">Seguimiento y avisos al cliente</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            El chat requiere la guía y solo responde sobre ese pedido; la API key vive en FastAPI.
+            Los avisos de asignación y cercanía requieren consentimiento y un canal configurado, y
+            pasan por una outbox con reintentos.
+          </p>
+        </section>
+      </div>
+    </details>
+  );
+}
