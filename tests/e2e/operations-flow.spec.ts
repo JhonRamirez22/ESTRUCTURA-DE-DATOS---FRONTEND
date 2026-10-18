@@ -74,3 +74,78 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
 
     const dispatchSection = page.getByRole('region', { name: 'Despachar pedidos' });
     const pendingSection = dispatchSection
+      .getByRole('heading', { name: '1. Pedidos pendientes' })
+      .locator('xpath=../../..');
+    await pendingSection.getByRole('button', { name: 'Quitar todos' }).click();
+    await pendingSection
+      .locator('label')
+      .filter({ hasText: guide })
+      .locator('input[type="checkbox"]')
+      .check();
+
+    const courierSection = dispatchSection
+      .getByRole('heading', { name: '2. Repartidores disponibles' })
+      .locator('xpath=../..');
+    const selectedCouriers = courierSection.locator('label input[type="checkbox"]:checked');
+    while ((await selectedCouriers.count()) > 0) {
+      await selectedCouriers.first().uncheck();
+    }
+    await courierSection
+      .locator('label')
+      .filter({ hasText: `UI courier ${suffix}` })
+      .locator('input[type="checkbox"]')
+      .check();
+
+    await page.getByRole('button', { name: 'Analizar asignación' }).click();
+    await expect(
+      page.getByRole('heading', { name: '3. Propuesta lista para despachar' })
+    ).toBeVisible();
+    await expect(dispatchSection.getByText('1 paradas', { exact: true })).toBeVisible();
+
+    const routeResponsePromise = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/v1/asignaciones/aplicar' &&
+        response.request().method() === 'POST'
+    );
+    await page.getByRole('button', { name: 'Despachar rutas optimizadas' }).click();
+    const routeResponse = await routeResponsePromise;
+    expect(routeResponse.status()).toBe(201);
+    const routePayload = (await routeResponse.json()) as {
+      routes: Array<{
+        orderedDeliveryPointIds: string[];
+        route: {
+          id: string;
+          courierId: string;
+          deliveryPoints: Array<{ address: string }>;
+        };
+      }>;
+      customerNotifications: {
+        queued: number;
+        channels: {
+          email: { queued: number; configured: boolean };
+          sms: { queued: number; configured: boolean };
+        };
+        warning: string | null;
+      };
+    };
+    expect(routePayload.routes).toHaveLength(1);
+    expect(routePayload.routes[0]?.route.courierId).toBe(courierId);
+    expect(routePayload.routes[0]?.orderedDeliveryPointIds).toHaveLength(1);
+    expect(routePayload.routes[0]?.route.deliveryPoints).toHaveLength(1);
+    expect(routePayload.customerNotifications).toEqual({
+      queued: 2,
+      channels: {
+        email: { queued: 1, configured: false },
+        sms: { queued: 1, configured: false },
+      },
+      warning: 'Configura SMTP y Twilio SMS para entregar los avisos.',
+    });
+    const notificationStatus = dispatchSection.getByRole('status', {
+      name: 'Resumen de avisos a clientes',
+    });
+    await expect(notificationStatus).toContainText(
+      'Ruta creada; canal de aviso pendiente de configuración'
+    );
+    await expect(notificationStatus).toContainText('2 avisos de asignación quedaron en cola');
+    await expect(notificationStatus).toContainText(
+      'Abre «Avisos al cliente» para configurar SMTP o Twilio en el backend'
