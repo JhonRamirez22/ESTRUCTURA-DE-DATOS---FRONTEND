@@ -476,3 +476,162 @@ function addClusters(map: MapLibreMap, source: string): void {
   });
 }
 
+function updateMapData(
+  map: MapLibreMap,
+  data: {
+    couriers: MapCourier[];
+    pendingPoints: MapDeliveryPoint[];
+    routes: MapRoute[];
+    selectedCoordinate: [number, number] | null;
+  },
+  cameraKey: { current: string | null }
+): void {
+  const directionFeatures: MapFeature[] = [];
+  const labelFeatures: MapFeature[] = [];
+  const courierFeatures: MapFeature[] = [];
+  const deliveryFeatures: MapFeature[] = [];
+  const focusCoordinates: Array<[number, number]> = [];
+
+  for (const courier of data.couriers) {
+    if (
+      courier.currentLat === null ||
+      courier.currentLng === null ||
+      !isWithinPastoServiceArea(courier.currentLat, courier.currentLng)
+    ) {
+      continue;
+    }
+
+    const coordinate: [number, number] = [courier.currentLng, courier.currentLat];
+    focusCoordinates.push(coordinate);
+    courierFeatures.push(pointFeature(coordinate, '#06b6d4', courier.name));
+    labelFeatures.push(pointFeature(coordinate, '#06b6d4', courier.name));
+  }
+
+  for (const [routeIndex, route] of data.routes.entries()) {
+    const currentCourier =
+      data.couriers.find((courier) => courier.id === route.courier.id) ?? route.courier;
+
+    if (
+      currentCourier.currentLat !== null &&
+      currentCourier.currentLng !== null &&
+      isWithinPastoServiceArea(currentCourier.currentLat, currentCourier.currentLng)
+    ) {
+      focusCoordinates.push([currentCourier.currentLng, currentCourier.currentLat]);
+    }
+    // No dibujamos datos históricos fuera de Pasto: evita que un registro
+    // antiguo con coordenadas 0,0 cambie el encuadre hacia otro país.
+    const validRoutePoints = route.deliveryPoints.filter((point) =>
+      isWithinPastoServiceArea(point.lat, point.lng)
+    );
+    const geometryCoordinates = route.geometry?.coordinates;
+    const hasValidGeometry =
+      isRoadGeometryProvider(route.geometryProvider) &&
+      geometryCoordinates !== undefined &&
+      geometryCoordinates.length > 1 &&
+      geometryCoordinates.every(([lng, lat]) => isWithinPastoServiceArea(lat, lng));
+    // Sin geometría vial de OSRM no dibujamos conexiones rectas que aparenten
+    // ser calles: los marcadores siguen visibles y la navegación puede reintentarse.
+    if (hasValidGeometry && geometryCoordinates) {
+      directionFeatures.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: geometryCoordinates },
+        properties: {
+          route: routeIndex === 0 ? 'SELECTED' : 'ALT',
+          // OSRM público no entrega tráfico en tiempo real; 1 representa una
+          // ruta libre y deja la capa lista para un factor histórico futuro.
+          congestion: 1,
+          profile: 'driving',
+        },
+      });
+    }
+
+    for (const [index, point] of validRoutePoints.entries()) {
+      const coordinate: [number, number] = [point.lng, point.lat];
+      focusCoordinates.push(coordinate);
+      const label = `${(point.sequenceIndex ?? index) + 1}`;
+      const color = deliveryPointColor(point.status);
+      deliveryFeatures.push(pointFeature(coordinate, color, label));
+      labelFeatures.push(pointFeature(coordinate, color, label));
+    }
+  }
+
+  for (const point of data.pendingPoints) {
+    if (!isWithinPastoServiceArea(point.lat, point.lng)) {
+      continue;
+    }
+    const coordinate: [number, number] = [point.lng, point.lat];
+    focusCoordinates.push(coordinate);
+    deliveryFeatures.push(pointFeature(coordinate, '#f59e0b', 'Pendiente'));
+    labelFeatures.push(pointFeature(coordinate, '#f59e0b', 'Pendiente'));
+  }
+
+  if (
+    data.selectedCoordinate &&
+    isWithinPastoServiceArea(data.selectedCoordinate[0], data.selectedCoordinate[1])
+  ) {
+    const coordinate: [number, number] = [data.selectedCoordinate[1], data.selectedCoordinate[0]];
+    focusCoordinates.push(coordinate);
+    deliveryFeatures.push(pointFeature(coordinate, '#facc15', 'Nueva ubicación'));
+    labelFeatures.push(pointFeature(coordinate, '#facc15', 'Nueva ubicación'));
+  }
+
+  const directionsSource = map.getSource('delivery-directions') as GeoJSONSource | undefined;
+  const labelsSource = map.getSource('delivery-labels') as GeoJSONSource | undefined;
+  const couriersSource = map.getSource('courier-points') as GeoJSONSource | undefined;
+  const deliveriesSource = map.getSource('delivery-points') as GeoJSONSource | undefined;
+  directionsSource?.setData(featureCollection(directionFeatures));
+  labelsSource?.setData(featureCollection(labelFeatures));
+  couriersSource?.setData(featureCollection(courierFeatures));
+  deliveriesSource?.setData(featureCollection(deliveryFeatures));
+
+  // El polling y el GPS actualizan marcadores sin interrumpir el zoom manual.
+  const nextCameraKey = JSON.stringify({
+    routes: data.routes.map((route) => route.id).sort(),
+    selection: data.selectedCoordinate,
+  });
+  if (focusCoordinates.length === 0) return;
+  if (cameraKey.current === nextCameraKey) return;
+  cameraKey.current = nextCameraKey;
+
+  if (focusCoordinates.length === 1) {
+    map.setCenter(focusCoordinates[0]!);
+    map.setZoom(16);
+  } else if (focusCoordinates.length > 1) {
+    const bounds = new maplibregl.LngLatBounds(focusCoordinates[0], focusCoordinates[0]);
+
+    for (const coordinate of focusCoordinates.slice(1)) {
+      bounds.extend(coordinate);
+    }
+
+    map.fitBounds(bounds, { maxZoom: 16, padding: 36, duration: 500 });
+  }
+}
+
+function pointFeature(coordinate: [number, number], color: string, label: string): MapFeature {
+  return {
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: coordinate },
+    properties: { color, label },
+  };
+}
+
+function deliveryPointColor(status: MapDeliveryPoint['status']): string {
+  switch (status) {
+    case 'DELIVERED':
+      return '#22c55e';
+    case 'FAILED':
+      return '#f43f5e';
+    case 'EN_ROUTE':
+      return '#38bdf8';
+    default:
+      return '#f59e0b';
+  }
+}
+
+function emptyFeatureCollection(): MapFeatureCollection {
+  return { type: 'FeatureCollection', features: [] };
+}
+
+function featureCollection(features: MapFeature[]): MapFeatureCollection {
+  return { type: 'FeatureCollection', features };
+}
