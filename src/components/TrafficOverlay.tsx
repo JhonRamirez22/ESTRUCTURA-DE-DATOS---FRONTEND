@@ -132,3 +132,69 @@ export default function TrafficOverlay({ map }: { map: MapLibreMap }) {
     if (enabled) void metadata(true);
     else remove();
     const timer = window.setInterval(() => {
+      if (enabled) void metadata(true);
+    }, REFRESH_MS);
+    return () => {
+      pending?.abort();
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', visibility);
+      map.off('style.load', install);
+      map.off('sourcedata', sourceLoaded);
+      map.off('error', error);
+      remove();
+    };
+  }, [map, enabled]);
+
+  const labels: Record<TrafficState, string> = {
+    loading: 'Consultando tráfico…',
+    consulted: 'Tráfico consultado',
+    stale: 'Datos anteriores',
+    unavailable: 'Tráfico no disponible',
+    'no-coverage': 'Sin cobertura en esta área',
+  };
+  const time =
+    observedAt && Number.isFinite(Date.parse(observedAt))
+      ? new Date(observedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+      : null;
+  return (
+    <div className="rp-traffic-panel absolute bottom-3 left-3 z-10 max-w-[calc(100%-84px)] rounded-lg border border-[var(--line)] bg-[var(--surface)] p-3 text-xs text-[var(--text)] shadow-sm">
+      <label className="flex min-h-11 cursor-pointer items-center gap-2 font-semibold">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(event) => setEnabled(event.target.checked)}
+        />
+        Tráfico TomTom
+      </label>
+      {enabled ? (
+        <>
+          <p role="status">
+            {labels[status]}
+            {time ? ` · ${time}` : ''}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2" aria-label="Congestión relativa">
+            <span>
+              <i
+                aria-hidden="true"
+                className="mr-1 inline-block h-2 w-2 rounded-full bg-green-600"
+              />
+              Fluido
+            </span>
+            <span>
+              <i
+                aria-hidden="true"
+                className="mr-1 inline-block h-2 w-2 rounded-full bg-orange-500"
+              />
+              Lento
+            </span>
+            <span>
+              <i aria-hidden="true" className="mr-1 inline-block h-2 w-2 rounded-full bg-red-600" />
+              Congestión
+            </span>
+          </div>
+          <p className="mt-1 opacity-75">Sin color no confirma vía libre.</p>
+        </>
+      ) : null}
+    </div>
+  );
+}
