@@ -82,3 +82,87 @@ export function Dock({
             spring,
             distance: safeDistance,
             magnification: safeMagnification,
+            staticMotion,
+          }}
+        >
+          {children}
+        </DockContext.Provider>
+      </motion.div>
+    </nav>
+  );
+}
+
+export function DockItem({ children, className }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { mouseX, spring, distance, magnification, staticMotion } = useDock();
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const targetWidth = useTransform(mouseX, (value) => {
+    if (staticMotion) return BASE_SIZE;
+    if (focused) return magnification;
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return BASE_SIZE;
+    // clientX y getBoundingClientRect comparten coordenadas incluso al hacer scroll.
+    const proximity = Math.max(0, 1 - Math.abs(value - rect.x - rect.width / 2) / distance);
+    return BASE_SIZE + (magnification - BASE_SIZE) * proximity * proximity;
+  });
+  const width = useSpring(targetWidth, spring);
+  return (
+    <motion.div
+      ref={ref}
+      className={cn('ui-dock-item', className)}
+      style={{ width: staticMotion ? BASE_SIZE : width }}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+      onFocusCapture={() => {
+        setFocused(true);
+        targetWidth.set(staticMotion ? BASE_SIZE : magnification);
+      }}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setFocused(false);
+          targetWidth.set(BASE_SIZE);
+        }
+      }}
+    >
+      <ItemContext.Provider value={{ width, hovered: hovered || focused }}>
+        {children}
+      </ItemContext.Provider>
+    </motion.div>
+  );
+}
+
+export function DockLabel({ children, className }: { children: ReactNode; className?: string }) {
+  const { hovered } = useDockItem();
+  const { staticMotion } = useDock();
+  return (
+    <AnimatePresence>
+      {hovered ? (
+        <motion.span
+          className={cn('ui-dock-label', className)}
+          aria-hidden="true"
+          initial={{ opacity: staticMotion ? 1 : 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: staticMotion ? 0 : 0.15 }}
+        >
+          {children}
+        </motion.span>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+export function DockIcon({ children, className }: { children: ReactNode; className?: string }) {
+  const { width } = useDockItem();
+  const { staticMotion } = useDock();
+  const iconWidth = useTransform(width, (value) => value / 2);
+  return (
+    <motion.span
+      className={cn('ui-dock-icon', className)}
+      style={{ width: staticMotion ? BASE_SIZE / 2 : iconWidth }}
+      aria-hidden="true"
+    >
+      {children}
+    </motion.span>
+  );
+}
