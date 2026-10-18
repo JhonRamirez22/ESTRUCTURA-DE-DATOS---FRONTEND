@@ -75,3 +75,80 @@ export default function AppShell({ children, active }: AppShellProps) {
                   className={`rp-nav-item ${isActive ? 'is-active' : ''}`}
                   href={item.href}
                   key={item.href}
+                >
+                  <InterfaceIcon
+                    name={
+                      item.key === 'orders'
+                        ? 'package'
+                        : item.key === 'tracking'
+                          ? 'search'
+                          : 'route'
+                    }
+                  />
+                  <span>{item.label}</span>
+                  <InterfaceIcon name="arrow" className="rp-nav-arrow" />
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="rp-shell-account">
+            {active === 'orders' || active === 'dispatch' || active === 'courier' ? (
+              <LogoutButton />
+            ) : null}
+            <span className="rp-service-area">
+              <InterfaceIcon name="locate" />
+              Pasto, Nariño
+            </span>
+          </div>
+        </div>
+      </header>
+      <div className="rp-shell-content" id="main-content" tabIndex={-1}>
+        {operational && active !== 'dispatch' ? (
+          <div className="rp-workspace-bar">
+            <span>
+              {active === 'orders' ? 'Gestión de pedidos' : 'Espacio de reparto'}
+            </span>
+            <span>Operación local · Pasto</span>
+          </div>
+        ) : null}
+        {children}
+      </div>
+      <Dock className="rp-application-dock" ariaLabel="Accesos rápidos">
+        <DockItem>
+          <Link href="/" className="ui-dock-action" aria-label="Inicio">
+            <DockIcon>
+              <Home />
+            </DockIcon>
+          </Link>
+          <DockLabel>Inicio</DockLabel>
+        </DockItem>
+        {navigation.map((item) => {
+          const Icon =
+            item.key === 'orders'
+              ? Package
+              : item.key === 'tracking'
+                ? Search
+                : item.key === 'staff'
+                  ? LogIn
+                  : Route;
+          const isActive = active === item.key || (!active && pathname === item.href);
+          return (
+            <DockItem key={item.href} className={isActive ? 'is-active' : undefined}>
+              <Link
+                href={item.href}
+                className="ui-dock-action"
+                aria-label={item.label}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <DockIcon>
+                  <Icon />
+                </DockIcon>
+              </Link>
+              <DockLabel>{item.label}</DockLabel>
+            </DockItem>
+          );
+        })}
+      </Dock>
+    </div>
+  );
+}
