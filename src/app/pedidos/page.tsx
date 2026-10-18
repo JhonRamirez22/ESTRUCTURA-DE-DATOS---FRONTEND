@@ -277,3 +277,142 @@ export default function OrdersPage() {
       setSaving(false);
     }
   };
+
+  return (
+    <AppShell active="orders">
+      <main className="rp-orders mx-auto max-w-[1600px] px-5 py-6 sm:px-8 lg:px-10">
+        <section className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+              Registrar un pedido
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+              Cada pedido queda pendiente hasta que el despacho lo asigne a un repartidor.
+              Normalizamos abreviaturas locales y validamos el punto exacto en el mapa.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-right ">
+            <p className="text-2xl font-bold tabular-nums text-emerald-800">
+              {pendingPoints.length}
+            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+              pendientes
+            </p>
+          </div>
+        </section>
+
+        {error ? <Alert tone="error">{error}</Alert> : null}
+        {success ? <Alert tone="success">{success}</Alert> : null}
+        {normalization ? (
+          <div className="mt-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-xs text-teal-800">
+            {normalization.source === 'external-ai'
+              ? `La IA normalizó la dirección con ${Math.round((normalization.confidence ?? 0) * 100)}% de confianza.`
+              : (normalization.warning ?? 'La dirección fue normalizada localmente.')}
+          </div>
+        ) : null}
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
+          <div className="rp-map-frame bg-slate-950">
+            <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
+              <div>
+                <h2 className="font-semibold text-white">Pasto · selecciona una ubicación</h2>
+              </div>
+              <span className="rounded-full bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-300">
+                Solo Pasto
+              </span>
+            </div>
+            <div className="h-[560px]">
+              <OrderMap
+                ariaLabel="Mapa para seleccionar la dirección del pedido"
+                className="h-full w-full"
+                couriers={[]}
+                pendingPoints={pendingPoints}
+                routes={[]}
+                selectedCoordinate={selectedCoordinate}
+                onMapClick={handleMapClick}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            <section className="rp-order-form bg-[var(--surface)] p-5">
+              <div>
+                <h2 className="font-semibold text-slate-900">Datos del pedido</h2>
+                <p className="mt-1 text-xs text-slate-600">
+                  Normalizamos “num.”, “cra.” y otras abreviaturas locales de Pasto.
+                </p>
+              </div>
+              <div className="mt-5 space-y-4">
+                <label className="block text-xs font-semibold text-slate-600">
+                  Dirección
+                  <input
+                    className="rp-input mt-1.5 px-3 py-3 text-sm font-normal"
+                    onChange={(event) => {
+                      ++lookupSequence.current;
+                      setSelectedCoordinate(null);
+                      setDraft((current) => ({
+                        ...current,
+                        address: event.target.value,
+                        lat: '',
+                        lng: '',
+                      }));
+                    }}
+                    placeholder="Ej. Carrera 25 num 4 sur 65"
+                    value={draft.address}
+                  />
+                </label>
+                <div aria-live="polite" aria-busy={findingAddress}>
+                  {findingAddress ? (
+                    <p className="text-sm text-[var(--muted)]">Buscando solo en Pasto…</p>
+                  ) : addressNotice ? (
+                    <p className="text-sm text-[var(--muted)]">{addressNotice}</p>
+                  ) : null}
+                  {candidates.length > 0 ? (
+                    <ul aria-label="Ubicaciones sugeridas" className="mt-3 space-y-2">
+                      {candidates.map((candidate, index) => (
+                        <li key={`${candidate.lat}:${candidate.lng}:${index}`}>
+                          <button
+                            type="button"
+                            className="rp-button rp-button-secondary w-full text-left"
+                            onClick={() => confirmAddress(candidate)}
+                          >
+                            <span>
+                              {candidate.address}
+                              <small className="block">
+                                {candidate.precision === 'address'
+                                  ? 'Dirección'
+                                  : candidate.precision === 'intersection'
+                                    ? 'Intersección'
+                                    : 'Aproximada'}
+                                {' · Confirmar ubicación'}
+                              </small>
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+                <label className="block text-xs font-semibold text-slate-600">
+                  Referencia interna del pedido (opcional)
+                  <input
+                    className="rp-input mt-1.5 px-3 py-3 font-mono text-sm font-normal"
+                    onChange={(event) =>
+                      setDraft((current) => ({ ...current, orderId: event.target.value }))
+                    }
+                    placeholder="Ej. RP-10025 (opcional)"
+                    value={draft.orderId}
+                  />
+                </label>
+                <div className="border-t border-slate-200 pt-4">
+                  <label className="flex min-h-11 cursor-pointer items-start gap-3 text-sm font-medium leading-5 text-slate-700">
+                    <input
+                      checked={draft.emailNotificationsEnabled}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700"
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          emailNotificationsEnabled: event.target.checked,
+                          customerEmail: event.target.checked ? current.customerEmail : '',
+                        }))
+                      }
