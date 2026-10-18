@@ -317,3 +317,162 @@ export default function MapLibreRouteMap({
   );
 }
 
+function addMapLayers(map: MapLibreMap): void {
+  if (!map.getSource('delivery-directions')) {
+    map.addSource('delivery-directions', {
+      type: 'geojson',
+      data: emptyFeatureCollection(),
+    });
+
+    // Capas oficiales del plugin: casing, rutas alternativas, ruta seleccionada
+    // y colores de congestión de verde a rojo.
+    for (const layer of layersFactory(1.2, 1.25, 'delivery-directions')) {
+      map.addLayer(layer);
+    }
+
+    // Línea operativa superior: garantiza que el trayecto seleccionado siga
+    // siendo visible aunque todavía no exista un factor de tráfico histórico.
+    map.addLayer({
+      id: 'delivery-route-highlight-casing',
+      type: 'line',
+      source: 'delivery-directions',
+      filter: ['==', ['get', 'route'], 'SELECTED'],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': '#06130b',
+        'line-opacity': 0.95,
+        'line-width': 10,
+      },
+    });
+    map.addLayer({
+      id: 'delivery-route-highlight',
+      type: 'line',
+      source: 'delivery-directions',
+      filter: ['==', ['get', 'route'], 'SELECTED'],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': '#55f26b',
+        'line-opacity': 1,
+        'line-width': 5.5,
+        'line-blur': 0.15,
+      },
+    });
+  }
+
+  if (!map.getSource('delivery-labels')) {
+    map.addSource('delivery-labels', {
+      type: 'geojson',
+      data: emptyFeatureCollection(),
+    });
+    map.addLayer({
+      id: 'delivery-labels',
+      type: 'symbol',
+      minzoom: 14,
+      source: 'delivery-labels',
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-size': 12,
+        'text-offset': [0, 1.5],
+        'text-anchor': 'top',
+        'text-allow-overlap': true,
+      },
+      paint: {
+        'text-color': '#f8fafc',
+        'text-halo-color': '#111827',
+        'text-halo-width': 2,
+      },
+    });
+  }
+
+  if (!map.getSource('courier-points')) {
+    map.addSource('courier-points', {
+      type: 'geojson',
+      data: emptyFeatureCollection(),
+      cluster: true,
+      clusterRadius: 36,
+      clusterMaxZoom: 13,
+    });
+    map.addLayer({
+      id: 'courier-points',
+      type: 'circle',
+      source: 'courier-points',
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': '#06b6d4',
+        'circle-radius': 10,
+        'circle-stroke-color': '#ecfeff',
+        'circle-stroke-width': 3,
+      },
+    });
+    map.addLayer({
+      id: 'courier-labels',
+      type: 'symbol',
+      minzoom: 14,
+      source: 'courier-points',
+      filter: ['!', ['has', 'point_count']],
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-size': 12,
+        'text-offset': [0, 1.6],
+        'text-anchor': 'top',
+        'text-allow-overlap': true,
+      },
+      paint: {
+        'text-color': '#ecfeff',
+        'text-halo-color': '#0f172a',
+        'text-halo-width': 2,
+      },
+    });
+    addClusters(map, 'courier-points');
+  }
+
+  if (!map.getSource('delivery-points')) {
+    map.addSource('delivery-points', {
+      type: 'geojson',
+      data: emptyFeatureCollection(),
+      cluster: true,
+      clusterRadius: 36,
+      clusterMaxZoom: 13,
+    });
+    map.addLayer({
+      id: 'delivery-points',
+      type: 'circle',
+      source: 'delivery-points',
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': ['coalesce', ['get', 'color'], '#a855f7'],
+        'circle-radius': 8,
+        'circle-stroke-color': '#f5d0fe',
+        'circle-stroke-width': 3,
+      },
+    });
+    addClusters(map, 'delivery-points');
+  }
+}
+
+function addClusters(map: MapLibreMap, source: string): void {
+  map.addLayer({
+    id: `${source}-clusters`,
+    type: 'circle',
+    source,
+    filter: ['has', 'point_count'],
+    paint: {
+      'circle-color': '#6B4F3F',
+      'circle-radius': 17,
+      'circle-stroke-color': '#FFFCF7',
+      'circle-stroke-width': 2,
+    },
+  });
+  map.addLayer({
+    id: `${source}-cluster-count`,
+    type: 'symbol',
+    source,
+    filter: ['has', 'point_count'],
+    layout: {
+      'text-field': ['get', 'point_count_abbreviated'],
+      'text-size': 12,
+    },
+    paint: { 'text-color': '#FFFCF7' },
+  });
+}
+
