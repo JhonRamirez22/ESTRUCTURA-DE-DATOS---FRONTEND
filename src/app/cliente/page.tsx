@@ -104,3 +104,109 @@ export default function ClientePage() {
         setError(searchError instanceof Error ? searchError.message : "No se pudo consultar el pedido.");
       }
     } finally {
+      setLoading(false);
+    }
+  }, [guide, tracking?.guide]);
+
+  useEffect(() => {
+    if (!tracking || tracking.status === "DELIVERED" || tracking.status === "FAILED") {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void searchTracking(tracking.guide);
+    }, 30_000);
+
+    return () => window.clearInterval(interval);
+  }, [searchTracking, tracking]);
+
+  const courierPosition = tracking?.route &&
+    tracking.route.courier.currentLat !== null &&
+    tracking.route.courier.currentLng !== null
+      ? {
+        id: "courier",
+        name: "En camino",
+        currentLat: tracking.route.courier.currentLat,
+        currentLng: tracking.route.courier.currentLng,
+      }
+    : null;
+  const targetPoint = tracking
+    ? {
+        id: "customer-order",
+        address: tracking.address,
+        lat: tracking.coordinates.lat,
+        lng: tracking.coordinates.lng,
+        sequenceIndex: null,
+        status: tracking.status,
+      }
+    : null;
+
+  return (
+    <AppShell active="tracking">
+      <main className="rp-tracking px-5 py-8 text-slate-950 sm:px-8">
+      <section className="mx-auto max-w-5xl">
+        <Link className="text-sm font-semibold text-teal-700 hover:text-teal-900" href="/">
+          ← Inicio
+        </Link>
+        <div className="mt-8 max-w-2xl">
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Sigue tu pedido con la guía
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Consulta el estado, la ubicación aproximada del repartidor y un
+            tiempo estimado actualizado mientras la ruta está activa.
+          </p>
+        </div>
+
+        <form
+          className="rp-panel mt-8 flex flex-col gap-3 bg-[var(--surface)] p-5 sm:flex-row sm:items-end"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void searchTracking();
+          }}
+        >
+          <label className="flex-1 text-sm font-semibold text-slate-700" htmlFor="tracking-guide">
+            Número de guía
+            <input
+              aria-describedby="tracking-guide-help"
+              autoCapitalize="none"
+              autoComplete="off"
+              className="rp-input mt-2 px-3 py-3 font-mono text-sm"
+              id="tracking-guide"
+              onChange={(event) => setGuide(event.target.value)}
+              placeholder="Pega aquí tu guía privada"
+              spellCheck={false}
+              value={guide}
+            />
+            <span className="mt-2 block text-xs font-normal leading-5 text-slate-600" id="tracking-guide-help">
+              Es distinta al número de pedido. Si no la tienes, solicítala al comercio donde compraste.
+            </span>
+          </label>
+          <button
+            className="rp-button rp-button-primary px-5 disabled:opacity-60"
+            disabled={loading}
+            type="submit"
+          >
+            {loading ? "Buscando…" : "Buscar pedido"}
+          </button>
+        </form>
+
+        {error ? (
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            {error}
+          </div>
+        ) : null}
+
+        {!tracking ? (
+          <section
+            aria-labelledby="tracking-first-value-title"
+            className="mt-8 border-y border-slate-200 py-6 sm:py-7"
+          >
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] sm:gap-8">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-slate-950" id="tracking-first-value-title">
+                  Qué verás al consultar
+                </h2>
+                <p className="mt-2 max-w-[42ch] text-sm leading-6 text-slate-600">
+                  La guía privada abre el seguimiento de un solo pedido; no necesitas una cuenta.
+                </p>
