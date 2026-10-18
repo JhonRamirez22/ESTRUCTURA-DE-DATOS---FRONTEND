@@ -153,3 +153,80 @@ export default function CustomerNotificationReadiness({
             «Configurado» confirma que las variables requeridas están presentes; el proveedor confirma cada envío por separado.
           </p>
         </>
+      ) : null}
+    </section>
+  );
+}
+
+function NotificationChannelRow({
+  channel,
+  label,
+  status,
+}: {
+  channel: keyof typeof CHANNEL_SETUP;
+  label: string;
+  status: CustomerNotificationChannelStatus;
+}) {
+  return (
+    <div className="border-t border-slate-200 py-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-sm font-medium text-slate-800">{label}</h3>
+        <span className={`text-xs font-semibold ${status.configured ? 'text-emerald-800' : 'text-slate-600'}`}>
+          {status.configured ? 'Configurado' : 'Sin configurar'}
+        </span>
+      </div>
+      <dl className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+        <div>
+          <dt className="text-slate-600">En cola</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-slate-900">{status.pending}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-600">Reintentos</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-slate-900">{status.retrying}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-600">En proceso</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-slate-900">{status.processing}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-600">Agotados</dt>
+          <dd className={`mt-0.5 font-semibold tabular-nums ${status.failed > 0 ? 'text-rose-700' : 'text-slate-900'}`}>
+            {status.failed}
+          </dd>
+        </div>
+      </dl>
+      {!status.configured ? (
+        <details className="mt-3 text-xs text-slate-700">
+          <summary className="min-h-11 cursor-pointer py-3 font-semibold text-emerald-900 underline decoration-emerald-700/40 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+            Cómo configurar {label}
+          </summary>
+          <div className="pb-2 leading-5">
+            <p>
+              Configura estas variables en el entorno privado del backend y vuelve a desplegar.
+              No ingreses sus valores en esta aplicación ni en el chat.
+            </p>
+            <ul className="mt-2 space-y-2">
+              {CHANNEL_SETUP[channel].variables.map(({ name, note }) => (
+                <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" key={name}>
+                  <code className="rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-800">
+                    {name}
+                  </code>
+                  <span className="text-slate-600">{note}</span>
+                </li>
+              ))}
+            </ul>
+            {channel === 'email' ? (
+              <p className="mt-2 text-slate-600">
+                Si tu SMTP usa autenticación, configura usuario y contraseña juntos.
+              </p>
+            ) : (
+              <p className="mt-2 text-slate-600">
+                El número remitente debe incluir el prefijo del país, por ejemplo +57.
+              </p>
+            )}
+          </div>
+        </details>
+      ) : null}
+    </div>
+  );
+}
