@@ -180,3 +180,94 @@ test('el seguimiento sigue disponible cuando el asistente está apagado', async 
   await page.route('**/api/v1/cliente/chat/estado', (route) =>
     route.fulfill({
       status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ configured: false }),
+    })
+  );
+
+  await page.goto('/cliente');
+  await page.getByRole('textbox', { name: 'Número de guía' }).fill(guide);
+  await page.getByRole('button', { name: 'Buscar pedido' }).click();
+
+  await expect(
+    page.getByRole('heading', { name: '¿Tienes dudas sobre este pedido?' })
+  ).toBeVisible();
+  await expect(page.getByText('Carrera 25 # 4 sur 65')).toBeVisible();
+  await expect(page.getByText(/El asistente no está configurado por ahora/)).toBeVisible();
+  await expect(
+    page.getByRole('textbox', { name: 'Escribe tu pregunta sobre el pedido' })
+  ).toHaveCount(0);
+});
+
+test('conserva el último seguimiento cuando falla una actualización', async ({ page }, testInfo) => {
+  const guide = 'E2E-TRACKING-STALE';
+  let requestCount = 0;
+
+  await page.route('https://tiles.openfreemap.org/styles/fiord', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        version: 8,
+        name: 'estilo de mapa para prueba',
+        sources: {},
+        layers: [
+          { id: 'background', type: 'background', paint: { 'background-color': '#17242b' } },
+        ],
+      }),
+    })
+  );
+  await page.route('**/api/v1/seguimiento**', async (route) => {
+    requestCount += 1;
+    if (requestCount === 2) {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Servicio temporalmente no disponible.' }),
+      });
+      return;
+    }
+    if (requestCount > 2) {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'La guía ya no está disponible.' }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        tracking: {
+          guide,
+          status: 'PENDING',
+          address: 'Carrera 25 # 4 sur 65',
+          coordinates: { lat: 1.2136, lng: -77.2811 },
+          route: null,
+        },
+      }),
+    });
+  });
+  await page.route('**/api/v1/cliente/chat/estado', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ configured: false }),
+    })
+  );
+
+  await page.goto('/cliente');
+  await page.getByRole('textbox', { name: 'Número de guía' }).fill(guide);
+  await page.getByRole('button', { name: 'Buscar pedido' }).click();
+
+  await expect(page.getByText('Carrera 25 # 4 sur 65')).toBeVisible();
+  await expect(page.getByText(/Última consulta/)).toBeVisible();
+  await page.getByRole('button', { name: 'Actualizar ubicación' }).click();
+
+  await expect(page.getByText(/No pudimos actualizar ahora\. Conservamos la última información/)).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('customer-tracking-stale-desktop.png'),
+    fullPage: true,
+  });
