@@ -350,3 +350,179 @@ export default function RepartidorPage() {
       (positionError) => {
         setError(formatGeolocationError(positionError));
       },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10_000,
+        timeout: 10_000,
+      },
+    );
+
+    setIsTracking(true);
+  };
+
+  return (
+    <AppShell active="courier">
+      <main className="rp-courier px-5 py-8 text-slate-950 sm:px-8">
+      <section className="mx-auto max-w-xl">
+        <h1 className="text-3xl font-semibold tracking-tight">Tu próxima entrega, clara y cerca</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          Tu cuenta privada carga únicamente tus entregas. Activa el GPS al comenzar
+          el turno para que el despacho pueda asignarte rutas dentro de Pasto.
+        </p>
+
+        <div className="mt-8 rounded-xl border border-slate-200/90 bg-[var(--surface)] p-5 ">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Sesión del repartidor</p>
+            <p className="mt-1 text-xs text-slate-500">
+                {loadingProfile
+                  ? "Verificando acceso…"
+                  : formatCourierStatus(courierStatus, lastLocation !== null)}
+              </p>
+            </div>
+            <span className={`h-2.5 w-2.5 rounded-full ${isTracking ? "bg-emerald-500" : "bg-slate-300"}`} aria-hidden="true" />
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              className="rp-button rp-button-primary disabled:cursor-not-allowed"
+              disabled={isTracking || loadingProfile}
+              onClick={startTracking}
+              type="button"
+            >
+              Iniciar ubicación
+            </button>
+            <button
+              className="rp-button rp-button-danger disabled:cursor-not-allowed"
+              disabled={!isTracking}
+              onClick={stopTracking}
+              type="button"
+            >
+              Detener
+            </button>
+            <button
+              className="rp-button rp-button-secondary disabled:cursor-not-allowed"
+              disabled={loadingProfile}
+              onClick={() => void loadAssignedRoute()}
+              type="button"
+            >
+              Cargar ruta asignada
+            </button>
+            <button
+              className="rp-button rp-button-quiet disabled:cursor-not-allowed"
+              disabled={isTracking || loadingProfile}
+              onClick={() => {
+                void loadCourierProfile();
+                void loadAssignedRoute();
+              }}
+              type="button"
+            >
+              Actualizar estado
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <StatusCard
+            label="Estado"
+            value={
+              isTracking
+                ? lastLocation
+                  ? "GPS activo"
+                  : "Buscando GPS"
+                : formatCourierStatus(courierStatus, lastLocation !== null)
+            }
+            tone={isTracking ? "teal" : "slate"}
+          />
+          <StatusCard label="Eventos enviados" value={sentEvents.toString()} tone="blue" />
+        </div>
+
+        {lastLocation ? (
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-[var(--surface)] p-4 text-sm ">
+            <p className="font-semibold text-slate-800">Última posición enviada</p>
+            <p className="mt-2 font-mono text-xs text-slate-500">
+              {lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)}
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              {new Date(lastLocation.recordedAt).toLocaleString("es-CO")}
+            </p>
+          </div>
+        ) : null}
+
+        {assignedRoute ? (
+          <section className="mt-4 rounded-2xl border border-teal-200 bg-[var(--surface)] p-4 ">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-slate-800">Ruta asignada</p>
+                <p className="mt-1 font-mono text-[11px] text-slate-400">
+                  {assignedRoute.id.slice(0, 8)} · {activeDeliveryPoints.length} pendientes
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <span className="rounded-full bg-teal-50 px-2.5 py-1 text-[11px] font-semibold text-teal-700">
+                  {assignedRoute.status === "IN_PROGRESS" ? "En curso" : "Planeada"}
+                </span>
+                {assignedRoute.status === "PLANNED" ? (
+                  <button
+                    className="rp-button rp-button-primary rp-button-small"
+                    onClick={() => void updateRouteStatus("IN_PROGRESS")}
+                    type="button"
+                  >
+                    Iniciar ruta
+                  </button>
+                ) : null}
+                {assignedRoute.status === "IN_PROGRESS" ? (
+                  <button
+                    className="rp-button rp-button-quiet rp-button-small"
+                    onClick={() => void updateRouteStatus("COMPLETED")}
+                    type="button"
+                  >
+                    Cerrar ruta
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            <CourierRouteMap currentLocation={lastLocation} route={assignedRoute} />
+            {navigationError ? (
+              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900" role="status">
+                {navigationError}
+              </p>
+            ) : null}
+            {navigation ? (
+              <div className="mt-3 rounded-2xl border border-sky-100 bg-sky-50 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+                      Navegación activa
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">
+                      Próxima parada: {activeDeliveryPoints.find(
+                        (point) => point.id === navigation.nextDeliveryPointId,
+                      )?.address ?? "pendiente"}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[var(--surface)] px-2 py-1 text-[10px] font-semibold text-sky-700">
+                    Calles {navigation.geometryProvider}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-xl bg-[var(--surface)] px-3 py-2">
+                    <span className="text-slate-400">Distancia restante</span>
+                    <strong className="mt-1 block text-slate-700">
+                      {formatDistance(navigation.distanceMeters)}
+                    </strong>
+                  </div>
+                  <div className="rounded-xl bg-[var(--surface)] px-3 py-2">
+                    <span className="text-slate-400">Tiempo estimado</span>
+                    <strong className="mt-1 block text-slate-700">
+                      {Math.max(1, Math.round(navigation.durationMinutes))} min
+                    </strong>
+                  </div>
+                </div>
+                {navigation.warning ? (
+                  <p className="mt-2 text-[11px] leading-4 text-amber-700">
+                    {navigation.warning}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-[11px] leading-4 text-sky-700">
+                    El trazado sigue calles de OpenStreetMap mediante {navigation.geometryProvider}. El proveedor público no ofrece tráfico en tiempo real.
