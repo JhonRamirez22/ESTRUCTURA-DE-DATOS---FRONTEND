@@ -138,3 +138,142 @@ export default function OrdersPage() {
         : 'Confirmaste una ubicación aproximada; revisa la referencia de entrega.'
     );
     setCandidates([]);
+  };
+
+  const loadPendingOrders = useCallback(async (): Promise<void> => {
+    try {
+      const response = await apiFetch('/api/pedidos?status=PENDING', { cache: 'no-store' });
+
+      if (!response.ok) {
+        throw new Error('No se pudieron cargar los pedidos pendientes.');
+      }
+
+      const payload = (await response.json()) as {
+        deliveryPoints: Array<{
+          id: string;
+          orderId: string;
+          address: string;
+          lat: number;
+          lng: number;
+          status: 'PENDING';
+        }>;
+      };
+
+      setPendingPoints(
+        payload.deliveryPoints.map((point) => ({
+          ...point,
+          sequenceIndex: null,
+        }))
+      );
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error ? loadError.message : 'No se pudieron cargar los pedidos.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPendingOrders();
+  }, [loadPendingOrders]);
+
+  const handleMapClick = ({ lat, lng }: { lat: number; lng: number }) => {
+    ++lookupSequence.current;
+    setFindingAddress(false);
+    setCandidates([]);
+    setAddressNotice('Ubicación seleccionada manualmente.');
+    setSelectedCoordinate([lat, lng]);
+    setDraft((current) => ({
+      ...current,
+      lat: lat.toFixed(6),
+      lng: lng.toFixed(6),
+    }));
+    setError(null);
+    setSuccess(null);
+  };
+
+  const createOrder = async (): Promise<void> => {
+    const lat = Number(draft.lat);
+    const lng = Number(draft.lng);
+    const emailConsent = buildCustomerEmailConsent(
+      draft.customerEmail,
+      draft.emailNotificationsEnabled
+    );
+    const smsConsent = buildCustomerSmsConsent(draft.customerPhone, draft.smsNotificationsEnabled);
+
+    if (
+      draft.address.trim() === '' ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      !isWithinPastoServiceArea(lat, lng)
+    ) {
+      setError(
+        'Escribe la dirección y confirma una sugerencia o selecciona un punto dentro de Pasto.'
+      );
+      return;
+    }
+    if (emailConsent === null) {
+      setError('Para activar los avisos, escribe un correo electrónico válido.');
+      return;
+    }
+    if (smsConsent === null) {
+      setError('Para activar los avisos por SMS, escribe un celular colombiano válido.');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await apiFetch('/api/pedidos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: normalizePastoAddress(draft.address),
+          lat,
+          lng,
+          orderId: draft.orderId.trim() || `PED-${Date.now()}`,
+          ...emailConsent,
+          ...smsConsent,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'No se pudo registrar el pedido.'));
+      }
+
+      const payload = (await response.json()) as {
+        deliveryPoint: { orderId: string; address: string };
+        trackingGuide: string;
+        addressNormalization?: AddressNormalizationStatus;
+      };
+      setNormalization(payload.addressNormalization ?? null);
+      setSuccess(
+        `Pedido ${formatOrderReference(payload.deliveryPoint.orderId)} listo. Guía privada para el cliente: ${payload.trackingGuide}.${
+          emailConsent.emailNotificationsEnabled || smsConsent.smsNotificationsEnabled
+            ? ' La solicitud de avisos quedó guardada; su entrega depende de que el canal elegido esté configurado.'
+            : ''
+        }`
+      );
+      setDraft({
+        address: '',
+        orderId: '',
+        lat: '',
+        lng: '',
+        customerEmail: '',
+        emailNotificationsEnabled: false,
+        customerPhone: '',
+        smsNotificationsEnabled: false,
+      });
+      setSelectedCoordinate(null);
+      await loadPendingOrders();
+    } catch (createError) {
+      setError(
+        createError instanceof Error ? createError.message : 'No se pudo registrar el pedido.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
