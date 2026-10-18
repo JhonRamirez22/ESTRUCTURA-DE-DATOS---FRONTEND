@@ -468,3 +468,238 @@ a {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
   border-color: var(--ring);
+}
+.rp-input:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.rp-home {
+  max-width: 1280px;
+  margin: auto;
+  padding: 80px 40px 32px;
+}
+.rp-home-intro {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  align-items: center;
+  gap: 96px;
+  padding-bottom: 80px;
+}
+.rp-home h1 {
+  font-size: clamp(38px, 4.8vw, 64px);
+  max-width: 17ch;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  font-weight: 500;
+}
+.rp-home-lead {
+  margin-top: 24px;
+  font-size: 16px;
+  line-height: 1.8;
+  max-width: 54ch;
+  color: var(--ink-soft);
+}
+.rp-home-actions {
+  padding: 8px 0 8px 28px;
+  border-left: 1px solid var(--line);
+  background: transparent;
+  border-radius: 0;
+}
+.rp-home-actions h2 {
+  font-size: 15px;
+  margin-bottom: 24px;
+  font-weight: 500;
+}
+.rp-entry-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 24px 0;
+  border-top: 1px solid var(--line);
+  transition: color 200ms;
+}
+.rp-entry-link:hover {
+  color: var(--accent);
+}
+.rp-entry-link > svg {
+  width: 20px;
+  height: 20px;
+  color: #afb2bd;
+  flex-shrink: 0;
+}
+.rp-entry-link strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.rp-entry-link p {
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  margin-top: 8px;
+}
+.rp-entry-arrow {
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  transition: transform 200ms;
+}
+.rp-entry-link:hover .rp-entry-arrow {
+  transform: translateX(3px);
+}
+.rp-home-section {
+  padding: 44px 0;
+  border-top: 1px solid var(--line);
+}
+.rp-home-section h2 {
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+.rp-home-section p {
+  max-width: 65ch;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.85;
+}
+.rp-home-method {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+}
+.rp-home-method ol {
+  display: grid;
+  gap: 24px;
+}
+.rp-home-method h3 {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.rp-home-footer {
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+  display: flex;
+  gap: 32px;
+  justify-content: space-between;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--ink-soft);
+}
+.rp-home-footer p {
+  max-width: 70ch;
+}
+.rp-access {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 96px;
+  align-items: center;
+  max-width: 1100px;
+  margin: auto;
+  min-height: calc(100vh - 184px);
+  padding: 56px 40px;
+}
+.rp-access-story h2 {
+  font-size: 52px;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  font-weight: 500;
+  margin-top: 40px;
+}
+.rp-access-story p {
+  max-width: 38ch;
+  font-size: 14px;
+  line-height: 1.9;
+  margin-top: 24px;
+  color: var(--ink-soft);
+}
+.rp-access-meta {
+  margin-top: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.rp-access-meta svg {
+  width: 16px;
+  height: 16px;
+}
+.ui-back-link {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.ui-back-link:hover {
+  color: white;
+}
+.ui-login-panel {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 36px;
+}
+.ui-login-mark {
+  color: var(--accent);
+  margin-bottom: 24px;
+}
+.ui-login-panel h1 {
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+.ui-login-intro {
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.8;
+  margin-top: 10px;
+}
+.ui-login-panel form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 28px;
+}
+.ui-login-panel label {
+  font-size: 12px;
+  color: #c1c4cb;
+}
+.ui-login-panel label:not(:first-child) {
+  margin-top: 8px;
+}
+.ui-password-field {
+  position: relative;
+}
+.ui-password-field input {
+  padding-right: 52px;
+}
+.ui-password-toggle {
+  position: absolute;
+  right: 2px;
+  top: 1px;
+}
+.ui-login-submit {
+  width: 100%;
+  margin-top: 10px;
+}
+.ui-login-submit > svg:last-child {
+  margin-left: auto;
+}
+.ui-login-error {
+  color: #f4bac3;
+  background: #2d1920;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.ui-login-privacy {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--ink-soft);
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
