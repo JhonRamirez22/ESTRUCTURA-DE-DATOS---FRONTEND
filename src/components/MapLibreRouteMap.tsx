@@ -829,3 +829,86 @@ function updateLiveLayers(map: MapLibreMap, data: MapData): void {
       });
     }
     const moved = new Set<string>();
+    for (const move of live.moves) {
+      const at = where.get(move.stopId);
+      if (!at) continue;
+      moved.add(move.stopId);
+      const feature = pointFeature(at, colorOf(move.toRouteId), 'moved');
+      feature.properties.kind = 'moved';
+      stops.push(feature);
+    }
+    for (const stopId of changedStopIds(live)) {
+      const at = where.get(stopId);
+      if (!at || moved.has(stopId)) continue;
+      const owner = live.routes.find((item) => item.proposedOrder.includes(stopId));
+      const feature = pointFeature(at, colorOf(owner?.routeId ?? ''), 'reordered');
+      feature.properties.kind = 'reordered';
+      stops.push(feature);
+    }
+  }
+  (map.getSource('live-proposal') as GeoJSONSource | undefined)?.setData(featureCollection(lines));
+  (map.getSource('live-stops') as GeoJSONSource | undefined)?.setData(featureCollection(stops));
+}
+
+function addClusters(map: MapLibreMap, source: string): void {
+  map.addLayer({
+    id: `${source}-clusters`,
+    type: 'circle',
+    source,
+    filter: ['has', 'point_count'],
+    paint: {
+      'circle-color': '#6B4F3F',
+      'circle-radius': 17,
+      'circle-stroke-color': '#FFFCF7',
+      'circle-stroke-width': 2,
+    },
+  });
+  map.addLayer({
+    id: `${source}-cluster-count`,
+    type: 'symbol',
+    source,
+    filter: ['has', 'point_count'],
+    layout: {
+      'text-field': ['get', 'point_count_abbreviated'],
+      'text-size': 12,
+    },
+    paint: { 'text-color': '#FFFCF7' },
+  });
+}
+
+// Rojo apagado: solo el tráfico grave aparece; la ruta verde sigue siendo lo principal.
+function trafficColor(level: string, roadClosure: boolean): string {
+  if (roadClosure || level === 'CERRADO') return '#7f1d1d';
+  return level === 'MUY_ALTO' ? '#b91c1c' : '#c2410c';
+}
+
+function updateMapData(
+  map: MapLibreMap,
+  data: MapData,
+  cameraKey: { current: string | null }
+): void {
+  const directionFeatures: MapFeature[] = [];
+  const labelFeatures: MapFeature[] = [];
+  const courierFeatures: MapFeature[] = [];
+  const deliveryFeatures: MapFeature[] = [];
+  const routeStopFeatures: MapFeature[] = [];
+  const focusCoordinates: Array<[number, number]> = [];
+
+  for (const courier of data.couriers) {
+    if (
+      courier.currentLat === null ||
+      courier.currentLng === null ||
+      !isWithinPastoServiceArea(courier.currentLat, courier.currentLng)
+    ) {
+      continue;
+    }
+
+    const coordinate: [number, number] = [courier.currentLng, courier.currentLat];
+    if (data.routes.length === 0 || data.routes.some((item) => item.courier.id === courier.id))
+      focusCoordinates.push(coordinate);
+    const ownRoute = data.routes.find((item) => item.courier.id === courier.id);
+    const courierColor = ownRoute ? (data.routeColors?.[ownRoute.id] ?? DEFAULT_ROUTE_COLOR) : '#06b6d4';
+    courierFeatures.push(pointFeature(coordinate, courierColor, courier.name));
+    labelFeatures.push(pointFeature(coordinate, courierColor, courier.name));
+  }
+
