@@ -569,3 +569,60 @@ export default function OrdersPage() {
                   type="button"
                 >
                   {saving ? 'Registrando…' : t('orders.save')}
+                </button>
+              </div>
+            </section>
+
+            <section className="rl-section">
+              <div className="rl-head">
+                <h2>
+                  {t('orders.latest')} <small>{t('orders.latest.meta')}</small>
+                </h2>
+                {loading ? <span className="text-xs text-[var(--ink-soft)]">Cargando…</span> : null}
+              </div>
+              <ul className="rl-rows">
+                {pendingPoints.slice(0, 6).map((point) => (
+                  <li className="rl-row" key={point.id}>
+                    <span className="rl-row-main">
+                      <strong className="truncate">{point.address}</strong>
+                      <span className="rl-ref">
+                        {formatOrderReference(point.orderId)}
+                        {point.priority && point.priority > 1
+                          ? ` · ${point.priority === 3 ? t('orders.priority.urgent') : t('orders.priority.high')}`
+                          : ''}
+                        {point.timeWindow && (point.timeWindow.start || point.timeWindow.end)
+                          ? ` · ${point.timeWindow.start ?? '…'}–${point.timeWindow.end ?? '…'}`
+                          : ''}
+                      </span>
+                    </span>
+                    <span className="rl-state is-warn">Pendiente</span>
+                  </li>
+                ))}
+                {pendingPoints.length === 0 ? (
+                  <li className="rl-empty">No hay pendientes. Registra el primero para enviarlo al despacho.</li>
+                ) : null}
+              </ul>
+            </section>
+          </div>
+        </section>
+      </main>
+    </AppShell>
+  );
+}
+
+function Alert({ children, tone }: { children: string; tone: 'error' | 'success' }) {
+  return (
+    <div className={`rl-notice ${tone === 'error' ? 'is-error' : 'is-ok'}`} role={tone === 'error' ? 'alert' : 'status'}>
+      {children}
+    </div>
+  );
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    return typeof payload.error === 'string' ? payload.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
