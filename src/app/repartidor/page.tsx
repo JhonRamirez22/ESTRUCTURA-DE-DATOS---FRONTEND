@@ -821,3 +821,85 @@ export default function RepartidorPage() {
             </button>
             <button
               className="rp-button rp-button-quiet"
+              disabled={isTracking || loadingProfile}
+              onClick={() => {
+                void loadCourierProfile();
+                void loadAssignedRoute();
+              }}
+              type="button"
+              data-tip="tip.refreshStatus"
+            >
+              {t("courier.refresh")}
+            </button>
+          </div>
+          {lastLocation ? (
+            <p className="text-xs tabular-nums text-[var(--ink-soft)]">
+              {t("courier.lastPosition")}: {lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)} ·{" "}
+              {new Date(lastLocation.recordedAt).toLocaleString("es-CO")}
+            </p>
+          ) : null}
+            </div>
+        {error ? (
+          <div className="rl-notice is-error mt-5" role="alert">
+            {error}
+          </div>
+        ) : null}
+            {assignedRoute ? (
+              <section aria-label="Ruta asignada" className="mt-4">
+                {navigation?.warning ? <p className="rl-notice is-warn" role="status">{navigation.warning}</p> : null}
+            {navigationError ? (
+              <p className="rl-notice is-warn mt-3" role="status">
+                {navigationError}
+              </p>
+            ) : null}
+            <div className="rl-head mt-8">
+              <h2>
+                <span>{t("courier.assigned")}</span>{" "}
+                <small className="tabular-nums">
+                  {assignedRoute.id.slice(0, 8)} · {t("courier.pendingCount", { n: activeDeliveryPoints.length })}
+                </small>
+              </h2>
+              <span className={`rl-state ${assignedRoute.status === "IN_PROGRESS" ? "is-route" : ""}`}>
+                {assignedRoute.status === "IN_PROGRESS" ? t("courier.inProgress") : t("courier.planned")}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-[var(--ink-soft)]">
+                {assignedRoute.optimizedAt
+                  ? `Última optimización: ${new Date(assignedRoute.optimizedAt).toLocaleString('es-CO')}`
+                  : 'Ruta asignada por despacho; puedes recalcularla si cambia el tráfico.'}
+                {assignedRoute.estimatedDurationMinutes !== undefined
+                  ? ` · ${Math.ceil(assignedRoute.estimatedDurationMinutes)} min estimados` : ''}
+              </p>
+              {assignedRoute.status === "IN_PROGRESS" ? (
+                <button
+                  className="rp-button rp-button-quiet rp-button-small"
+                  data-tip="tip.closeRoute"
+                  onClick={() => void updateRouteStatus("COMPLETED")}
+                  type="button"
+                >
+                  {t("courier.close")}
+                </button>
+              ) : null}
+            </div>
+
+            <section aria-label="Optimización de la ruta" className="rl-board mt-4 !p-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold !text-[var(--board-ink)]">Optimización automática</h3>
+                <label className="flex cursor-pointer items-center gap-2 text-xs !text-[var(--board-soft)]">
+                  <input
+                    checked={autoOptimize}
+                    className="h-4 w-4"
+                    onChange={(event) => setAutoOptimize(event.target.checked)}
+                    type="checkbox"
+                  />
+                  {autoOptimize ? "Activada" : "Apagada"}
+                </label>
+              </div>
+              <p className="mt-1 text-xs leading-5 !text-[var(--board-soft)]" aria-live="polite">
+                {lastReviewAt
+                  ? `Revisada a las ${new Date(lastReviewAt).toLocaleTimeString("es-CO")} con el tráfico de ahora, cada ${PROPOSAL_REFRESH_INTERVAL_MS / 1000} s.`
+                  : "Revisando la ruta con el tráfico de ahora…"}
+              </p>
+              <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
+                <div>
