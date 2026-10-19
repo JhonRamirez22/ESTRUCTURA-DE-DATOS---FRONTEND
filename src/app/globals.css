@@ -2257,3 +2257,228 @@ input[type='checkbox'] {
 }
 @starting-style {
   .rl-notice {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+/* Filas seleccionables: el cambio de selección se funde en lugar de saltar. */
+.rl-row {
+  transition: background-color 160ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  label.rl-row:hover,
+  .rl-row:has(> label):hover {
+    background: var(--band);
+  }
+}
+/* El contador de pasos (círculo del encabezado) se rellena cuando la sección tiene foco. */
+.rl-head h2::before,
+.rl-head h3::before {
+  transition: background-color 200ms ease;
+}
+.rl-section:focus-within > .rl-head h2::before,
+.rl-section:focus-within > .rl-head h3::before {
+  background: var(--board);
+}
+/* Botones: el texto de carga cambia con un desenfoque breve en vez de saltar. */
+.rp-button[disabled] {
+  transition:
+    opacity 180ms ease,
+    filter 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rl-page > *,
+  .rl-line .rl-stop,
+  .rl-intro .rl-stop {
+    animation: none;
+  }
+  .rl-intro,
+  .rl-intro::backdrop,
+  .rl-tooltip,
+  .rl-lang-notice,
+  .rl-notice {
+    transition: opacity 120ms ease;
+  }
+  .rl-intro:not([open]) {
+    transform: none;
+  }
+  .rp-tool-theme svg {
+    transition: opacity 120ms ease;
+  }
+  .rp-tool-moon,
+  :root[data-theme='dark'] .rp-tool-sun {
+    transform: none;
+    filter: none;
+  }
+}
+@media (max-width: 900px) {
+  .rl-lang-notice {
+    top: 104px;
+    padding: 10px 16px;
+  }
+  .rp-tool {
+    min-width: 36px;
+    padding: 0 6px;
+  }
+}
+
+/* En la introducción las paradas explican el proceso: nada se tacha. */
+.rl-intro .rl-stop.is-done .rl-stop-text {
+  text-decoration: none;
+}
+.rl-intro .rl-stop.is-done .rl-stop-label {
+  color: var(--foreground);
+}
+.rl-intro .rl-stop-meta {
+  font-size: 13px;
+}
+:root[data-theme='dark'] .rl-head h2::before,
+:root[data-theme='dark'] .rl-head h3::before {
+  border-color: var(--accent);
+}
+:root[data-theme='dark'] .rl-section:focus-within > .rl-head h2::before,
+:root[data-theme='dark'] .rl-section:focus-within > .rl-head h3::before {
+  background: var(--accent);
+}
+.rl-board .rl-stop.is-done .rl-stop-text,
+.rp-access-line .rl-stop.is-done .rl-stop-text {
+  text-decoration: none;
+}
+@media (max-width: 900px) {
+  .rp-navigation {
+    margin: 0;
+  }
+}
+/* Pantallas muy estrechas: «Salir» conserva su nombre accesible pero muestra solo el icono. */
+@media (max-width: 420px) {
+  .rp-logout-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .rp-logout {
+    padding: 8px;
+  }
+  .rp-shell-header-inner {
+    gap: 8px;
+  }
+  .rp-brand-name {
+    font-size: 16px;
+  }
+}
+
+/* ============================================================
+   Optimización visible: sello sobre el mapa y escalera de mejoras.
+   ============================================================ */
+.rl-map-badge {
+  position: absolute;
+  right: 12px;
+  top: 60px;
+  z-index: 10;
+  max-width: min(320px, calc(100% - 24px));
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgb(15 11 9 / 88%);
+  color: #f6efe6;
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: 0 8px 22px rgb(0 0 0 / 30%);
+  transition:
+    opacity 220ms ease,
+    transform 260ms var(--ease-out);
+}
+@starting-style {
+  .rl-map-badge {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+.rl-map-badge-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #8fe3b1;
+}
+.rl-map-badge ul {
+  margin-top: 6px;
+  display: grid;
+  gap: 3px;
+}
+.rl-map-badge li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rl-map-badge li.is-ai {
+  margin-top: 2px;
+  color: #cfe9da;
+}
+.rl-map-key {
+  width: 22px;
+  height: 0;
+  flex: none;
+}
+.rl-map-key.is-route {
+  border-top: 4px solid #55f26b;
+}
+.rl-map-key.is-baseline {
+  border-top: 3px dashed #e7c9a9;
+}
+.rl-map-key.is-traffic {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px #fffcf7;
+  margin: 0 6px;
+}
+.rl-ladder {
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--band);
+}
+.rl-ladder-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+.rl-ladder ol {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+.rl-ladder li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px;
+  grid-template-areas:
+    'label value'
+    'bar bar';
+  gap: 2px 8px;
+  animation: rl-stop-in 260ms var(--ease-out) both;
+  animation-delay: var(--rung-delay, 0ms);
+}
+.rl-ladder-label {
+  grid-area: label;
+  font-size: 12px;
+  color: var(--foreground);
+}
+.rl-ladder-status {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.rl-ladder-value {
+  grid-area: value;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rl-ladder-bar {
+  grid-area: bar;
+  height: 6px;
+  background: var(--line);
+}
