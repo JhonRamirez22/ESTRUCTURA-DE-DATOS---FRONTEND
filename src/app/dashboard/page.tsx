@@ -1128,3 +1128,116 @@ export default function DashboardPage() {
                               </span>
                             </p>
                             <details>
+                              <summary className="cursor-pointer text-xs underline-offset-4 hover:underline">
+                                {t('dash.viewOrder')}
+                              </summary>
+                              <div className="mt-2">
+                                <RouteLine
+                                  label={`Orden propuesto para ${courier?.name ?? 'el repartidor'}`}
+                                  selected
+                                  stops={assignment.deliveryPointIds.map((id) => ({
+                                    id,
+                                    label: data.pendingPoints.find((point) => point.id === id)?.address ?? id,
+                                  }))}
+                                />
+                              </div>
+                            </details>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  {unassignedDeliveryPointIds.length > 0 ? (
+                    <div aria-live="polite" className="mt-5 border-t-2 border-[#c08a2c] pt-3 text-sm" role="status">
+                      <p className="font-semibold !text-[var(--board-ink)]">
+                        {unassignedDeliveryPointIds.length === 1
+                          ? 'Un pedido sigue sin asignar.'
+                          : `${unassignedDeliveryPointIds.length} pedidos siguen sin asignar.`}
+                      </p>
+                      <p className="mt-1 leading-5">
+                        Puede faltar capacidad de ruta, GPS reciente o el pedido pudo cambiar de estado. Estos
+                        pedidos siguen pendientes; no se despacharán.
+                      </p>
+                      <ul className="mt-2 space-y-1 text-[var(--board-soft)]">
+                        {unassignedDeliveryPointIds.slice(0, 5).map((id) => {
+                          const point = data.pendingPoints.find((item) => item.id === id);
+                          return (
+                            <li className="break-words" key={id}>
+                              {point
+                                ? `${formatOrderReference(point.orderId)} · ${point.address}`
+                                : 'Un pedido seleccionado ya no está disponible.'}
+                            </li>
+                          );
+                        })}
+                        {unassignedDeliveryPointIds.length > 5 ? (
+                          <li>Y {unassignedDeliveryPointIds.length - 5} más.</li>
+                        ) : null}
+                      </ul>
+                      <button
+                        className="rp-button rp-button-quiet rp-button-small mt-3"
+                        disabled={loading}
+                        onClick={() => {
+                          setAssignmentPreview([]);
+                          setUnassignedDeliveryPointIds([]);
+                          void loadDashboard();
+                        }}
+                        type="button"
+                      >
+                        Actualizar pedidos pendientes
+                      </button>
+                    </div>
+                  ) : null}
+                  {assignmentImprovement && assignmentPreview.length > 0 ? (
+                    <section aria-label={t('dash.improve.title')} className="mt-5 text-sm">
+                      <p className="font-semibold !text-[var(--board-ink)]">{t('dash.improve.title')}</p>
+                      {improvementTone(assignmentImprovement) === 'unchanged' ? (
+                        <p className="mt-1 text-xs leading-5">{t('dash.improve.none')}</p>
+                      ) : (
+                        <>
+                          <p className="mt-1 text-xs leading-5">
+                            {t('dash.improve.longest', {
+                              before: (assignmentImprovement.longestBeforeMinutes ?? 0).toLocaleString('es-CO'),
+                              after: (assignmentImprovement.longestAfterMinutes ?? 0).toLocaleString('es-CO'),
+                            })}{' '}
+                            {t('dash.improve.total', {
+                              before: (assignmentImprovement.beforeMinutes ?? 0).toLocaleString('es-CO'),
+                              after: (assignmentImprovement.afterMinutes ?? 0).toLocaleString('es-CO'),
+                            })}
+                          </p>
+                          <ul className="mt-2 grid gap-1 text-xs leading-5">
+                            {topMoves(assignmentImprovement).map((move) => {
+                              const order = (id: string | null) =>
+                                formatOrderReference(data.pendingPoints.find((point) => point.id === id)?.orderId ?? '');
+                              const courier = (id: string) => data.couriers.find((item) => item.id === id)?.name ?? '—';
+                              return (
+                                <li key={`${move.deliveryPointId}-${move.swappedDeliveryPointId ?? ''}`}>
+                                  {move.kind === 'swap'
+                                    ? t('dash.improve.swap', {
+                                        order: order(move.deliveryPointId),
+                                        other: order(move.swappedDeliveryPointId),
+                                        from: courier(move.fromCourierId),
+                                        to: courier(move.toCourierId),
+                                      })
+                                    : t('dash.improve.move', {
+                                        order: order(move.deliveryPointId),
+                                        from: courier(move.fromCourierId),
+                                        to: courier(move.toCourierId),
+                                      })}{' '}
+                                  <span className="tabular-nums">
+                                    ({t('dash.improve.gain', { min: move.gainMinutes.toLocaleString('es-CO') })})
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </>
+                      )}
+                    </section>
+                  ) : null}
+                  {assignmentAiStatus ? (
+                    <p className="mt-4 text-xs leading-5" role="status">
+                      <span className="font-semibold !text-[var(--board-ink)]">
+                        {assignmentAiStatus.source === 'tomtom-live'
+                          ? 'TomTom Traffic Flow priorizado'
+                          : assignmentAiStatus.source === 'external-ai' && assignmentAiStatus.applied
+                            ? 'Factor de congestión sugerido por IA aplicado'
