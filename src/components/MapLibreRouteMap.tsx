@@ -912,3 +912,86 @@ function updateMapData(
     labelFeatures.push(pointFeature(coordinate, courierColor, courier.name));
   }
 
+  for (const route of data.routes) {
+    const routeColor = data.routeColors?.[route.id] ?? DEFAULT_ROUTE_COLOR;
+    const dimmed = Boolean(data.focusRouteId) && data.focusRouteId !== route.id;
+    const currentCourier =
+      data.couriers.find((courier) => courier.id === route.courier.id) ?? route.courier;
+
+    if (
+      currentCourier.currentLat !== null &&
+      currentCourier.currentLng !== null &&
+      isWithinPastoServiceArea(currentCourier.currentLat, currentCourier.currentLng)
+    ) {
+      focusCoordinates.push([currentCourier.currentLng, currentCourier.currentLat]);
+    }
+    // No dibujamos datos históricos fuera de Pasto: evita que un registro
+    // antiguo con coordenadas 0,0 cambie el encuadre hacia otro país.
+    const validRoutePoints = route.deliveryPoints.filter((point) =>
+      isWithinPastoServiceArea(point.lat, point.lng)
+    );
+    const geometryCoordinates = route.geometry?.coordinates;
+    const hasValidGeometry =
+      isRoadGeometryProvider(route.geometryProvider) &&
+      geometryCoordinates !== undefined &&
+      geometryCoordinates.length > 1 &&
+      geometryCoordinates.every(([lng, lat]) => isWithinPastoServiceArea(lat, lng));
+    // Sin geometría vial de OSRM no dibujamos conexiones rectas que aparenten
+    // ser calles: los marcadores siguen visibles y la navegación puede reintentarse.
+    if (hasValidGeometry && geometryCoordinates) {
+      focusCoordinates.push(...geometryCoordinates);
+      directionFeatures.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: geometryCoordinates },
+        properties: {
+          route: 'SELECTED',
+          color: routeColor,
+          dim: dimmed,
+          routeId: route.id,
+        },
+      });
+    }
+
+    for (const [index, point] of validRoutePoints.entries()) {
+      const coordinate: [number, number] = [point.lng, point.lat];
+      focusCoordinates.push(coordinate);
+      const label = `${(point.sequenceIndex ?? index) + 1}`;
+      const stopFeature = pointFeature(coordinate, routeColor, label);
+      stopFeature.properties.stopId = point.id;
+      stopFeature.properties.routeId = route.id;
+      stopFeature.properties.ring = stopRingColor(point.status);
+      stopFeature.properties.dim = dimmed;
+      stopFeature.properties.kind = 'route-stop';
+      routeStopFeatures.push(stopFeature);
+      labelFeatures.push(pointFeature(coordinate, routeColor, label));
+    }
+  }
+
+  const assignedIds = new Set(data.routes.flatMap((route) => route.deliveryPoints.map((p) => p.id)));
+  for (const point of data.pendingPoints) {
+    if (assignedIds.has(point.id) || !isWithinPastoServiceArea(point.lat, point.lng)) {
+      continue;
+    }
+    const coordinate: [number, number] = [point.lng, point.lat];
+    if (data.routes.length === 0) focusCoordinates.push(coordinate);
+    deliveryFeatures.push(pointFeature(coordinate, '#f59e0b', 'Pendiente'));
+    labelFeatures.push(pointFeature(coordinate, '#f59e0b', 'Pendiente'));
+  }
+
+  if (
+    data.selectedCoordinate &&
+    isWithinPastoServiceArea(data.selectedCoordinate[0], data.selectedCoordinate[1])
+  ) {
+    const coordinate: [number, number] = [data.selectedCoordinate[1], data.selectedCoordinate[0]];
+    focusCoordinates.push(coordinate);
+    deliveryFeatures.push(pointFeature(coordinate, '#facc15', 'Nueva ubicación'));
+    labelFeatures.push(pointFeature(coordinate, '#facc15', 'Nueva ubicación'));
+  }
+
+  const directionsSource = map.getSource('delivery-directions') as GeoJSONSource | undefined;
+  const labelsSource = map.getSource('delivery-labels') as GeoJSONSource | undefined;
+  const couriersSource = map.getSource('courier-points') as GeoJSONSource | undefined;
+  const deliveriesSource = map.getSource('delivery-points') as GeoJSONSource | undefined;
+  directionsSource?.setData(featureCollection(directionFeatures));
+  labelsSource?.setData(featureCollection(labelFeatures));
+  couriersSource?.setData(featureCollection(courierFeatures));
