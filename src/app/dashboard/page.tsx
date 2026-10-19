@@ -1015,3 +1015,116 @@ export default function DashboardPage() {
                       ? t('dash.showFewer')
                       : t('dash.showAll', { n: data.pendingPoints.length })}
                   </button>
+                ) : null}
+                {data.pendingPoints.filter((point) => point.scheduleState).length > 0 ? (
+                  <p className="rl-notice is-warn mt-3" role="status">
+                    {t('dash.schedule.notice', { n: data.pendingPoints.filter((point) => point.scheduleState).length })}
+                  </p>
+                ) : null}
+                <div className="mt-4">
+                  <div className="rl-head">
+                    <h3>
+                      {t('dash.scheduled.title')} <small>{data.scheduledPoints.length}</small>
+                    </h3>
+                  </div>
+                  {readyError ? <p className="rl-notice is-error" role="alert">{readyError}</p> : null}
+                  {data.scheduledPoints.length === 0 ? (
+                    <p className="rl-empty">{t('dash.scheduled.empty')}</p>
+                  ) : (
+                    <ul className="rl-rows">
+                      {data.scheduledPoints.map((point) => (
+                        <li className="rl-row" key={point.id}>
+                          <span className="rl-row-main">
+                            <strong className="truncate">{point.address}</strong>
+                            <span className="rl-ref">
+                              {formatOrderReference(point.orderId)} · {formatBogota(point.scheduledFor, lang)}
+                            </span>
+                          </span>
+                          <button
+                            className="rp-button rp-button-secondary rp-button-small"
+                            disabled={markingReadyId === point.id}
+                            onClick={() => void markReady(point)}
+                            type="button"
+                          >
+                            {t('dash.scheduled.ready')}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <DispatchSuggestions onSelect={(ids) => setSelectedPendingIds(ids)} refreshKey={data.pendingPoints.length} />
+                <AiGroupSuggestions onSelect={(ids) => setSelectedPendingIds(ids)} />
+              </div>
+              <div className="min-w-0">
+                <div className="rl-head">
+                  <h3>
+                    {t('dash.step2')} <small>{t('dash.recentGps')}</small>
+                  </h3>
+                </div>
+                {availableCouriers.length === 0 ? (
+                  <p className="rl-empty">{t('dash.noCouriers')}</p>
+                ) : (
+                  <ul className="rl-rows">
+                    {availableCouriers.map((courier) => {
+                      const checked = selectedCourierIds.includes(courier.id);
+                      return (
+                        <li className={`rl-row ${checked ? 'is-selected' : ''}`} key={courier.id}>
+                          <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                            <input
+                              checked={checked}
+                              className="h-[18px] w-[18px] shrink-0"
+                              onChange={() =>
+                                setSelectedCourierIds((current) =>
+                                  checked
+                                    ? current.filter((id) => id !== courier.id)
+                                    : [...current, courier.id]
+                                )
+                              }
+                              type="checkbox"
+                            />
+                            <span className="rl-row-main">
+                              <strong>{courier.name}</strong>
+                              <span className="tabular-nums">{t('dash.gpsActive')} · {courier.phone}</span>
+                            </span>
+                            <span className="rl-state is-route">{t('dash.free')}</span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <p className="mt-3 text-xs text-[var(--ink-soft)]">
+                  {t('dash.multi')}
+                </p>
+              </div>
+              {assignmentPreview.length > 0 || unassignedDeliveryPointIds.length > 0 ? (
+                <aside aria-label="Propuesta" className="rl-board route-proposal order-first min-w-0">
+                  <div className="rl-head">
+                    <h3>
+                      {assignmentPreview.length > 0 ? t('dash.step3.ready') : t('dash.step3.unassigned')}
+                    </h3>
+                  </div>
+                  <p className="mt-3 text-sm">
+                    {assignmentPreview.length > 0
+                      ? t('dash.step3.review')
+                      : t('dash.step3.none')}
+                  </p>
+                  {assignmentPreview.length > 0 && !assignmentPreviewIsCurrent ? (
+                    <p className="mt-3 text-sm font-semibold !text-[#f3d9a4]" role="status">
+                      {t('dash.stale')}
+                    </p>
+                  ) : null}
+                  {assignmentPreview.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      {assignmentPreview.map((assignment) => {
+                        const courier = data.couriers.find((item) => item.id === assignment.courierId);
+                        return (
+                          <div key={assignment.courierId}>
+                            <p className="mb-2 flex items-baseline justify-between gap-3 text-sm font-semibold !text-[var(--board-ink)]">
+                              {courier?.name ?? 'Repartidor'}
+                              <span className="text-xs font-normal tabular-nums !text-[var(--board-soft)]">
+                                {t(assignment.deliveryPointIds.length === 1 ? 'dash.stops.one' : 'dash.stops', { n: assignment.deliveryPointIds.length })}
+                              </span>
+                            </p>
+                            <details>
