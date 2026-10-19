@@ -739,3 +739,85 @@ export default function RepartidorPage() {
           {t("courier.start")}
         </button>
       ) : null}
+      {canResolveCurrent && currentStop ? (
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <button
+            className="rp-button rp-button-go rp-button-block"
+            data-tip="tip.delivered"
+            onClick={() => void updateDeliveryStatus(currentStop.id, "DELIVERED")}
+            type="button"
+          >
+            {t("courier.deliverNow")}
+          </button>
+          <button
+            className="rp-button rp-button-danger"
+            data-tip="tip.failed"
+            onClick={() => void updateDeliveryStatus(currentStop.id, "FAILED")}
+            type="button"
+          >
+            {t("courier.failed")}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  ) : undefined;
+
+  return (
+    <AppShell active="courier">
+      <main className="rp-courier">
+        <SessionChangeNotice role="courier" />
+        <section
+          aria-label={t("courier.title")}
+          className={`rp-stage ${stageWide ? "is-wide" : ""}`}
+        >
+          {assignedRoute ? (
+            <CourierRouteMap
+              className="absolute inset-0 h-full w-full"
+              currentLocation={lastLocation}
+              inset={inset}
+              route={assignedRoute}
+              trafficMarks={trafficMarks}
+            />
+          ) : null}
+          <Sheet
+            foot={sheetFoot}
+            grabberLabel={t("courier.sheet.grabber")}
+            head={
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h1 className="text-2xl font-semibold leading-tight">{t("courier.title")}</h1>
+            <p className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className={`h-2.5 w-2.5 rounded-full ${isTracking ? "feed-pulse bg-[var(--route)]" : "bg-[var(--line-strong)]"}`}
+              />
+              <span>
+                <span className="sr-only">Sesión del repartidor: </span>
+                {loadingProfile
+                  ? "Verificando acceso…"
+                  : formatCourierStatus(courierStatus, lastLocation !== null)}
+              </span>
+            </p>
+                </div>
+                {gpsButton}
+              </div>
+            }
+            initialSnap={assignedRoute ? 2 : 1}
+            label={t("courier.title")}
+            mid={0.55}
+            onLayout={handleSheetLayout}
+            peek={assignedRoute ? 284 : 150}
+          >
+            <div className="grid gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              className="rp-button rp-button-quiet"
+              disabled={loadingProfile}
+              data-tip="tip.loadRoute"
+              onClick={() => void loadAssignedRoute()}
+              type="button"
+            >
+              {t("courier.loadRoute")}
+            </button>
+            <button
+              className="rp-button rp-button-quiet"
