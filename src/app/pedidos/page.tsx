@@ -512,3 +512,60 @@ export default function OrdersPage() {
                     <select
                       className="rp-input mt-1.5 px-3 text-[15px] font-normal"
                       onChange={(event) =>
+                        setDraft((current) => ({ ...current, priority: event.target.value as OrderDraft['priority'] }))
+                      }
+                      value={draft.priority}
+                    >
+                      <option value="1">{t('orders.priority.normal')}</option>
+                      <option value="2">{t('orders.priority.high')}</option>
+                      <option value="3">{t('orders.priority.urgent')}</option>
+                    </select>
+                  </label>
+                  <label className="rp-field-label">
+                    {t('orders.windowStart')}
+                    <input
+                      className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
+                      onChange={(event) => setDraft((current) => ({ ...current, windowStart: event.target.value }))}
+                      type="time"
+                      value={draft.windowStart}
+                    />
+                  </label>
+                  <label className="rp-field-label">
+                    {t('orders.windowEnd')}
+                    <input
+                      className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
+                      onChange={(event) => setDraft((current) => ({ ...current, windowEnd: event.target.value }))}
+                      type="time"
+                      value={draft.windowEnd}
+                    />
+                  </label>
+                </div>
+                {windowInvalid ? <p className="rl-notice is-error" role="alert">{t('orders.windowInvalid')}</p> : null}
+                <label className="rp-field-label">
+                  {t('orders.schedule')}
+                  <input
+                    aria-describedby="orders-schedule-help"
+                    className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
+                    max={scheduleBounds().max}
+                    min={scheduleBounds().min}
+                    onChange={(event) => setDraft((current) => ({ ...current, scheduledFor: event.target.value }))}
+                    type="datetime-local"
+                    value={draft.scheduledFor}
+                  />
+                  <span className="rp-field-help" id="orders-schedule-help">{t('orders.schedule.help')}</span>
+                </label>
+                <div className="text-sm">
+                  <span className="font-semibold">{t('orders.coords')}</span>
+                  <p className={`mt-1 tabular-nums ${draft.lat && draft.lng ? 'text-[var(--route-ink)]' : 'text-[var(--ink-soft)]'}`}>
+                    {draft.lat && draft.lng ? `${draft.lat}, ${draft.lng}` : selectedCoordinate
+                      ? 'Sugerida · pendiente de confirmación' : t('orders.coords.empty')}
+                  </p>
+                </div>
+                <button
+                  className="rp-button rp-button-primary rp-button-block"
+                  data-tip="tip.saveOrder"
+                  disabled={saving}
+                  onClick={() => void createOrder()}
+                  type="button"
+                >
+                  {saving ? 'Registrando…' : t('orders.save')}
