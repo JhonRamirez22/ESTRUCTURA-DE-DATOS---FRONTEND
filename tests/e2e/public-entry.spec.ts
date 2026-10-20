@@ -3,7 +3,14 @@ import { expect, test } from '@playwright/test';
 test('la portada separa el acceso operativo del seguimiento y se adapta a móvil', async ({
   page,
 }, testInfo) => {
-  await page.goto('/');
+  const response = await page.goto('/');
+  expect(response).not.toBeNull();
+  const headers = response!.headers();
+  expect(headers['x-content-type-options']).toBe('nosniff');
+  expect(headers['x-frame-options']).toBe('DENY');
+  expect(headers['referrer-policy']).toBe('no-referrer');
+  expect(headers['permissions-policy']).toContain('geolocation=(self)');
+  expect(headers['strict-transport-security']).toContain('max-age=31536000');
 
   await expect(
     page.getByRole('heading', { name: 'Del pedido pendiente a la puerta, sin perder el hilo.' })

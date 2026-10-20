@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const executeFile = promisify(execFile);
@@ -10,12 +12,14 @@ interface TestDataIds {
 }
 
 export async function cleanupTestData(ids: TestDataIds): Promise<void> {
+  const backendRoot = resolve(
+    process.env.PLAYWRIGHT_BACKEND_ROOT ??
+      resolve(dirname(fileURLToPath(import.meta.url)), "../../../ESTRUCTURA-DE-DATOS---BACKEND")
+  );
   const args = [
     "run",
     "--project",
-    ".",
-    "--directory",
-    "backend",
+    backendRoot,
     "python",
     "-m",
     "scripts.e2e_cleanup",
@@ -31,7 +35,7 @@ export async function cleanupTestData(ids: TestDataIds): Promise<void> {
   }
 
   try {
-    await executeFile("uv", args, { cwd: process.cwd(), timeout: 30_000 });
+    await executeFile("uv", args, { cwd: backendRoot, timeout: 30_000 });
   } catch {
     throw new Error("La limpieza de datos e2e con el backend Python falló.");
   }

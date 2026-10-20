@@ -13,8 +13,20 @@ Next.js 15 - React 18 - TypeScript - Tailwind CSS 4 - MapLibre GL - shadcn/ui
 - Registro, listado y seguimiento de pedidos
 - Vista del repartidor con control de entregas y reporte de ubicación
 - Seguimiento del cliente y chat asociado al pedido
-- Capa de tráfico y explicación de la metodología de ruteo
+- Un recorrido verde por mapa, con selector cuando hay varias rutas asignadas
+- Tráfico TomTom consultado solo para el recorrido elegido, sin capas de otras calles
+- Optimización con datos TomTom y asesoría Groq al despachar o recalcular explícitamente;
+  el mapa muestra la geometría vial resultante, nunca alternativas ni conexiones rectas
 - Notificaciones por correo y SMS con consentimiento del cliente
+
+## Resiliencia y seguridad
+
+- Analítica y avisos pueden fallar sin bloquear el despacho; datos operativos vencidos dejan
+  las acciones en solo lectura hasta recuperar una actualización válida.
+- Cookies HttpOnly del mismo origen y errores con referencia de soporte; no se guardan tokens
+  de sesión en JavaScript. La autorización y CSRF se verifican en FastAPI.
+- CSP con nonce por documento: `CSP_MODE=report-only` para validar y `enforce` para aplicar.
+  Requiere renderizado por petición; la PWA solo cachea una pantalla offline estática.
 
 ## Requisitos
 

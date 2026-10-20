@@ -1,4 +1,5 @@
 import { apiRequest } from "./auth";
+import { mockMapStyle } from './mapStyle';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { loginAsDispatcher, reportCourierPosition } from './auth';
@@ -20,6 +21,7 @@ test('no expone datos operativos a una sesión pública', async ({ request }) =>
 });
 
 test('registra un pedido y lo despacha desde el flujo operativo', async ({ page }, testInfo) => {
+  await mockMapStyle(page);
   await loginAsDispatcher(page);
   const request = page.context().request;
   const suffix = randomUUID();
@@ -46,8 +48,9 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
     await expect(page.getByRole('heading', { name: 'Registrar un pedido' })).toBeVisible();
     const orderMap = page.getByLabel('Mapa para seleccionar la dirección del pedido');
     await expect(orderMap.locator('.maplibregl-canvas')).toBeVisible();
-    await orderMap.locator('.maplibregl-canvas').click({ position: { x: 280, y: 260 } });
     await page.getByRole('textbox', { name: 'Dirección' }).fill('Cra. 27 #18-09');
+    await expect(orderMap.getByRole('status')).toHaveCount(0, { timeout: 20_000 });
+    await orderMap.locator('.maplibregl-canvas').click({ position: { x: 280, y: 260 } });
     await page.getByLabel('Referencia interna del pedido (opcional)').fill(guide);
     await page
       .getByRole('checkbox', {
@@ -77,6 +80,8 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
       .getByRole('heading', { name: '1. Pedidos pendientes' })
       .locator('xpath=../../..');
     await pendingSection.getByRole('button', { name: 'Quitar todos' }).click();
+    await page.waitForTimeout(10_500);
+    await expect(pendingSection.locator('input[type="checkbox"]:checked')).toHaveCount(0);
     await pendingSection
       .locator('label')
       .filter({ hasText: guide })
@@ -101,6 +106,19 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
       page.getByRole('heading', { name: '3. Propuesta lista para despachar' })
     ).toBeVisible();
     await expect(dispatchSection.getByText('1 paradas', { exact: true })).toBeVisible();
+    const dispatchButton = page.getByRole('button', { name: 'Despachar rutas optimizadas' });
+    await pendingSection
+      .locator('label')
+      .filter({ hasText: guide })
+      .locator('input[type="checkbox"]')
+      .uncheck();
+    await expect(dispatchButton).toBeDisabled();
+    await pendingSection
+      .locator('label')
+      .filter({ hasText: guide })
+      .locator('input[type="checkbox"]')
+      .check();
+    await expect(dispatchButton).toBeEnabled();
 
     const routeResponsePromise = page.waitForResponse(
       (response) =>
@@ -222,5 +240,39 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
     await routeCard.screenshot({ path: testInfo.outputPath('route-undo-mobile.png') });
   } finally {
     await cleanupTestData({ courierId, orderIds: [guide] });
+  }
+});
+
+test('permite borrar desde despacho solo después de confirmar', async ({ page }) => {
+  await mockMapStyle(page);
+  await loginAsDispatcher(page);
+  const request = page.context().request;
+  const orderId = `DELETE-${randomUUID()}`;
+  const created = await apiRequest(request, 'POST', '/api/v1/pedidos', {
+    data: { address: 'Carrera 25 # 4 sur 65', lat: 1.2136, lng: -77.2811, orderId },
+  });
+  expect(created.status()).toBe(201);
+  const { deliveryPoint } = (await created.json()) as { deliveryPoint: { id: string } };
+
+  try {
+    await page.goto('/dashboard');
+    const dispatch = page.getByRole('region', { name: 'Despachar pedidos' });
+    const deleteButton = dispatch.getByRole('button', { name: `Eliminar pedido ${orderId}` });
+    await expect(deleteButton).toBeVisible();
+
+    page.once('dialog', (dialog) => void dialog.dismiss());
+    await deleteButton.click();
+    await expect(deleteButton).toBeVisible();
+
+    const deletion = page.waitForResponse(
+      (response) => response.url().includes(`/api/v1/pedidos/${deliveryPoint.id}`)
+        && response.request().method() === 'DELETE',
+    );
+    page.once('dialog', (dialog) => void dialog.accept());
+    await deleteButton.click();
+    expect((await deletion).status()).toBe(204);
+    await expect(dispatch.getByText(orderId, { exact: true })).toHaveCount(0);
+  } finally {
+    await apiRequest(request, 'DELETE', `/api/v1/pedidos/${deliveryPoint.id}`).catch(() => undefined);
   }
 });

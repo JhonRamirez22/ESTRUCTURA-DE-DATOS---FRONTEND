@@ -1,4 +1,5 @@
 import { apiRequest } from "./auth";
+import { mockMapStyle } from './mapStyle';
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { loginAsCourier, loginAsDispatcher, reportCourierPosition } from "./auth";
@@ -7,6 +8,7 @@ import { cleanupTestData } from "./cleanup";
 test("crea pedidos, optimiza una ruta y la muestra en el mapa", async ({
   page,
 }) => {
+  await mockMapStyle(page);
   await loginAsDispatcher(page);
   const request = page.context().request;
   const suffix = randomUUID();

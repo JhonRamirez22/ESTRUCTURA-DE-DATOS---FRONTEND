@@ -22,10 +22,14 @@ test('el dock tiene destinos reales, foco y magnificación sin desbordar', async
   });
   const item = staff.locator('..');
   await expect.poll(async () => (await item.boundingBox())!.width).toBeLessThan(45);
-  await staff.hover();
+  // El cursor debe entrar durante el resorte, sin esperar estabilidad geométrica.
+  const bounds = await staff.boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.mouse.move(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
   await expect.poll(async () => (await item.boundingBox())!.width).toBeGreaterThan(50);
   await page.screenshot({ path: testInfo.outputPath('dock-desktop.png') });
-  await staff.click();
+  await staff.focus();
+  await staff.press('Enter');
   await page.waitForURL('**/acceso');
   await expect(page.getByRole('heading', { name: 'Ingresar al sistema' })).toBeVisible();
   await page.setViewportSize({ width: 320, height: 844 });

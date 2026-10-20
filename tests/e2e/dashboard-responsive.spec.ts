@@ -1,7 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsDispatcher } from "./auth";
+import { mockMapStyle } from './mapStyle';
 
 async function mockDashboardData(page: Page): Promise<void> {
+  await mockMapStyle(page);
   const now = new Date().toISOString();
   const activeCourier = {
     id: "e2e-courier-active",
@@ -107,6 +109,62 @@ async function mockDashboardData(page: Page): Promise<void> {
   });
 }
 
+test('solo el recorrido seleccionado consulta tráfico, sin teselas extra ni recálculos', async ({ page }, testInfo) => {
+  await page.clock.install();
+  await mockDashboardData(page);
+  let consultations = 0;
+  let observedAt = Date.now();
+  const unwanted: string[] = [];
+  page.on('request', (request) => {
+    if (['/trafico/tiles/', '/trafico/estado', '/recalcular'].some((path) => request.url().includes(path))) unwanted.push(request.url());
+  });
+  await page.route('**/api/v1/rutas/e2e-route-001/trafico-vivo', (route) => {
+    consultations += 1;
+    return route.fulfill({ json: {
+      configured: true, available: true,
+      observations: [{ observedAt: new Date(observedAt).toISOString(), cacheStatus: 'LIVE', roadClosure: false }],
+    } });
+  });
+  await loginAsDispatcher(page);
+  await expect(page.getByText(/Tráfico de esta ruta/)).toBeVisible({ timeout: 15000 });
+  const initialConsultations = consultations;
+  expect(initialConsultations).toBeGreaterThanOrEqual(1);
+  await expect(page.getByRole('checkbox', { name: 'Tráfico TomTom' })).toHaveCount(0);
+  observedAt += 90_001;
+  await page.clock.fastForward(90_001);
+  await expect.poll(() => consultations).toBe(initialConsultations + 1);
+  await expect(page.getByText(/Tráfico de esta ruta/)).toBeVisible();
+  expect(unwanted).toEqual([]);
+  await page.screenshot({ path: testInfo.outputPath('solo-ruta-verde.png') });
+});
+
+test('la caída de analítica y avisos no impide analizar pedidos', async ({ page }) => {
+  await mockDashboardData(page);
+  for (const path of ['analitica', 'notificaciones']) {
+    await page.route(`**/api/v1/${path}*`, (route) => route.fulfill({ status: 503, json: {} }));
+  }
+  await loginAsDispatcher(page);
+  await expect(page.getByText('Avenida de Prueba 5 # 8-12, Pasto')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Analizar asignación' })).toBeEnabled();
+  await expect(page.getByText(/Analítica: El servicio no está disponible/)).toBeVisible();
+});
+
+test('una caída esencial conserva el mapa pero bloquea despachar hasta recuperar datos', async ({ page }) => {
+  await mockDashboardData(page);
+  await loginAsDispatcher(page);
+  await expect(page.getByText('Avenida de Prueba 5 # 8-12, Pasto')).toBeVisible();
+  await page.route('**/api/v1/rutas', (route) => route.fulfill({
+    status: 503, json: {}, headers: { 'X-Request-ID': 'e2e-safe-reference' },
+  }));
+  await page.getByRole('button', { name: 'Actualizar datos' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Rutas:' })).toContainText('e2e-safe-reference');
+  await expect(page.getByRole('button', { name: 'Analizar asignación' })).toBeDisabled();
+  await expect(page.getByText('Avenida de Prueba 5 # 8-12, Pasto')).toBeVisible();
+  await page.unroute('**/api/v1/rutas');
+  await page.getByRole('button', { name: 'Actualizar datos' }).click();
+  await expect(page.getByRole('button', { name: 'Analizar asignación' })).toBeEnabled();
+});
+
 test("el dashboard no se desborda en móviles estrechos", async ({ page }) => {
   await mockDashboardData(page);
   await loginAsDispatcher(page);
@@ -135,7 +193,9 @@ test("el mapa domina el dashboard antes de métricas y despacho", async ({ page 
   await expect(mapSection).toBeVisible();
   const map = page.getByRole("region", { name: "Mapa de rutas" });
   await expect(map).toBeVisible();
-  await expect(map.getByRole("status")).toHaveCount(0, { timeout: 15_000 });
+  await expect(map.getByRole("status", { name: "Carga del mapa" })).toHaveCount(0, {
+    timeout: 15_000,
+  });
   await expect(page.getByRole("region", { name: "Despachar pedidos" })).toBeVisible();
   const mapPrecedesSummary = await page.evaluate(() => {
     const map = document.querySelector('[aria-label="Mapa y rutas activas"]');
