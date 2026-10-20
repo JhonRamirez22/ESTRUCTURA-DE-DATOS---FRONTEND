@@ -614,7 +614,7 @@ export default function RepartidorPage() {
       <main className="rp-courier px-5 py-8 text-slate-950 sm:px-8">
         <SessionChangeNotice role="courier" />
       <section className="mx-auto max-w-xl">
-        <h1 className="text-3xl font-semibold tracking-tight">Tu ruta de hoy</h1>
+        <h1 className="text-2xl font-semibold sm:text-[28px]">Tu ruta de hoy</h1>
 
         <div className="mt-8 rounded-xl border border-slate-200/90 bg-[var(--surface)] p-5 ">
           <div className="flex items-center justify-between gap-4">
@@ -761,8 +761,8 @@ export default function RepartidorPage() {
               </p>
             ) : null}
             {nearestStopsByEta(stopEtas, 3).length > 0 ? (
-              <section className="mt-3 rounded-2xl border border-stone-200 bg-white/70 p-3" aria-label="Próximas paradas por tiempo estimado">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-600">Más cercanas por tiempo estimado</h3>
+              <section className="mt-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3" aria-label="Próximas paradas por tiempo estimado">
+                <h3 className="text-sm font-semibold text-stone-800">Más cercanas por tiempo estimado</h3>
                 <ol className="mt-1 space-y-1 text-sm">
                   {nearestStopsByEta(stopEtas, 3).map((eta) => (
                     <li key={eta.stopId} className="flex justify-between gap-3">
@@ -788,7 +788,7 @@ export default function RepartidorPage() {
               <div className="mt-3 rounded-2xl border border-sky-100 bg-sky-50 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+                    <p className="text-xs font-semibold text-sky-800">
                       Navegación activa
                     </p>
                     <p className="mt-1 text-sm font-semibold text-slate-800">

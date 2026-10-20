@@ -105,10 +105,10 @@ export default function OptimizationFeed() {
 
   return (
     <section aria-label="Optimizaciones en vivo" className="rp-feed mb-6">
-      <div className="rounded-2xl border border-stone-200 bg-white/80 p-5 shadow-sm">
+      <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-base font-semibold text-stone-900">
-            <span className={`h-2.5 w-2.5 rounded-full ${paused ? 'bg-stone-400' : 'feed-pulse bg-teal-500'}`} aria-hidden="true" />
+            <span className={`h-2.5 w-2.5 rounded-full ${paused ? 'bg-stone-400' : 'feed-pulse bg-[#3e9b6a]'}`} aria-hidden="true" />
             Optimizaciones en vivo
           </h2>
           <div className="flex flex-wrap gap-2">
@@ -138,7 +138,7 @@ export default function OptimizationFeed() {
         {error ? <p className="mt-3 text-sm text-amber-900" role="status">{error}</p> : null}
         {summary ? (
           <p className="feed-enter mt-4 rounded-xl border border-teal-200 bg-teal-50 p-3 text-sm leading-6 text-teal-950" role="status">
-            <strong className="block text-xs uppercase tracking-wide text-teal-800">Resumen IA · no cambia rutas</strong>
+            <strong className="block text-sm font-semibold text-teal-900">Resumen de la IA (no cambia rutas)</strong>
             {summary}
           </p>
         ) : null}

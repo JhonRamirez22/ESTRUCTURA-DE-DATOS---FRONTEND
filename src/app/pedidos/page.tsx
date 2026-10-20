@@ -260,15 +260,15 @@ export default function OrdersPage() {
       <main className="rp-orders mx-auto max-w-[1600px] px-5 py-6 sm:px-8 lg:px-10">
         <section className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+            <h1 className="text-2xl font-semibold text-[var(--foreground)] sm:text-[28px]">
               Registrar un pedido
             </h1>
           </div>
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-right ">
-            <p className="text-2xl font-bold tabular-nums text-emerald-800">
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-right">
+            <p className="text-2xl font-semibold tabular-nums text-[var(--foreground)]">
               {pendingPoints.length}
             </p>
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            <p className="text-sm text-[var(--ink-soft)]">
               pendientes
             </p>
           </div>

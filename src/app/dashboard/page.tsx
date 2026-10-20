@@ -674,7 +674,7 @@ export default function DashboardPage() {
         <div className="mx-auto max-w-[1600px] px-5 py-6 sm:px-8 lg:px-10">
           <header className="rp-page-heading flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+              <h1 className="text-2xl font-semibold text-[var(--foreground)] sm:text-[28px]">
                 Despacho
               </h1>
             </div>

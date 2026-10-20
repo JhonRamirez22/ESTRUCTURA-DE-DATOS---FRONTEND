@@ -149,7 +149,7 @@ export default function ClientePage() {
           ← Inicio
         </Link>
         <div className="mt-8 max-w-2xl">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h1 className="text-2xl font-semibold sm:text-[28px]">
             Sigue tu pedido con la guía
           </h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">

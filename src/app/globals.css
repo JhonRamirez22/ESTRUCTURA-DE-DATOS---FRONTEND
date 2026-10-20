@@ -29,6 +29,9 @@
   --input: #c9b9a8;
   --ring: #8c654d;
   --radius: 0.75rem;
+  /* Curvas de movimiento: salida fuerte para respuesta inmediata; in-out para lo que se desplaza. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 @theme inline {
@@ -214,8 +217,9 @@ a {
   color: var(--ink-soft);
   font-size: 13px;
   transition:
-    color 160ms,
-    background 160ms;
+    color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms var(--ease-out);
 }
 .rp-nav-item > svg {
   width: 16px;
@@ -372,7 +376,15 @@ a {
   transition:
     background-color 160ms ease,
     border-color 160ms ease,
-    color 160ms ease;
+    color 160ms ease,
+    transform 160ms var(--ease-out);
+}
+/* El botón cede al pulsarlo: confirma que la interfaz escuchó. */
+.rp-button:active:not(:disabled),
+.ui-button:active:not(:disabled),
+.ui-dock-action:active,
+.rp-nav-item:active {
+  transform: scale(0.97);
 }
 .rp-button:disabled,
 .ui-button:disabled {
@@ -549,10 +561,12 @@ a {
   width: 20px;
   height: 20px;
   margin-left: auto;
-  transition: transform 200ms;
+  transition: transform 200ms var(--ease-out);
 }
-.rp-entry-link:hover .rp-entry-arrow {
-  transform: translateX(3px);
+@media (hover: hover) and (pointer: fine) {
+  .rp-entry-link:hover .rp-entry-arrow {
+    transform: translateX(3px);
+  }
 }
 .rp-home-section {
   padding: 44px 0;
@@ -768,6 +782,10 @@ a {
   justify-content: center;
   border-radius: inherit;
   color: var(--foreground);
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms var(--ease-out);
 }
 .ui-dock-action:hover {
   color: var(--accent-strong);
@@ -936,8 +954,15 @@ a {
   .rp-nav-item,
   .rp-entry-arrow,
   .rp-input,
-  .rp-entry-link {
+  .rp-entry-link,
+  .ui-dock-action {
     transition: none;
+  }
+  .rp-button:active:not(:disabled),
+  .ui-button:active:not(:disabled),
+  .ui-dock-action:active,
+  .rp-nav-item:active {
+    transform: none;
   }
   .ui-loading-icon {
     animation: none;
@@ -952,7 +977,7 @@ a {
   animation: route-celebrate 1.6s ease-out 2;
 }
 .route-proposal {
-  animation: route-proposal-in 420ms ease-out;
+  animation: route-proposal-in 260ms var(--ease-out);
 }
 @keyframes route-celebrate {
   0% { box-shadow: 0 0 0 0 rgba(62, 155, 106, 0.55); }
@@ -972,7 +997,7 @@ a {
 
 /* Panel de optimizaciones en vivo: entradas nuevas y punto de estado. */
 .feed-enter {
-  animation: feed-enter 380ms ease-out;
+  animation: feed-enter 240ms var(--ease-out);
 }
 .feed-pulse {
   animation: feed-pulse 1.8s ease-in-out infinite;
@@ -982,8 +1007,8 @@ a {
   to { opacity: 1; transform: none; }
 }
 @keyframes feed-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.5); }
-  50% { box-shadow: 0 0 0 6px rgba(20, 184, 166, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(62, 155, 106, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(62, 155, 106, 0); }
 }
 @media (prefers-reduced-motion: reduce) {
   .feed-enter,
