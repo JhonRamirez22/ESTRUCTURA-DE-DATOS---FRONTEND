@@ -903,3 +903,85 @@ export default function RepartidorPage() {
               </p>
               <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
                 <div>
+                  <dt className="text-[11px] !text-[var(--board-soft)]">Mejoras aplicadas</dt>
+                  <dd className="text-lg font-semibold tabular-nums !text-[var(--board-ink)]">{optimizations.length}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] !text-[var(--board-soft)]">Ahorro acumulado</dt>
+                  <dd className="text-lg font-semibold tabular-nums !text-[var(--board-ink)]">
+                    {Math.round(optimizations.reduce((sum, item) => sum + (item.savedMinutes ?? 0), 0))} min
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] !text-[var(--board-soft)]">Tiempo estimado</dt>
+                  <dd className="text-lg font-semibold tabular-nums !text-[var(--board-ink)]">
+                    {assignedRoute.estimatedDurationMinutes !== undefined ? `${Math.ceil(assignedRoute.estimatedDurationMinutes)} min` : "—"}
+                  </dd>
+                </div>
+              </dl>
+              {optimizations.length > 0 ? (
+                <p className="mt-2 text-xs !text-[var(--board-soft)]">
+                  Última: {new Date(optimizations[optimizations.length - 1]!.at).toLocaleTimeString("es-CO")} ·{" "}
+                  {optimizations[optimizations.length - 1]!.auto ? "automática" : "manual"}
+                  {optimizations[optimizations.length - 1]!.savedMinutes !== null
+                    ? ` · ahorró ~${Math.round(optimizations[optimizations.length - 1]!.savedMinutes!)} min`
+                    : ""}
+                </p>
+              ) : null}
+            </section>
+            {proposal && (proposal.worthApplying ?? proposal.changed) && proposal.orderedDeliveryPointIds.join(',') !== dismissedProposal && activeDeliveryPoints.length > 0 ? (
+              <div className="rl-notice is-ok route-proposal mt-4" role="status">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">{t("courier.optimized")}</p>
+                  <p className="text-sm leading-5">
+                    {proposal.improvementMinutes !== null && proposal.improvementMinutes > 0
+                      ? `Ahorras unos ${Math.round(proposal.improvementMinutes)} min con el tráfico de ahora${
+                          proposal.baselineDurationMinutes != null
+                            ? ` (de ${Math.round(proposal.baselineDurationMinutes)} a ${Math.round(proposal.estimatedDurationMinutes)} min).`
+                            : "."
+                        }`
+                      : "La IA encontró un orden distinto según el tráfico de ahora."}
+                  </p>
+                  {proposal.aiOrder?.accepted ? (
+                    <p className="text-xs leading-5">
+                      La IA propuso este orden y el algoritmo lo verificó con Dijkstra: ahorra {proposal.aiOrder.savingMinutes ?? 0} min.
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button className="rp-button rp-button-quiet rp-button-small" disabled={applying}
+                    onClick={() => setDismissedProposal(proposal.orderedDeliveryPointIds.join(","))} type="button">
+                    {t("courier.dismissRoute")}
+                  </button>
+                  <button className="rp-button rp-button-go rp-button-small" data-tip="tip.applyRoute" disabled={applying}
+                    onClick={() => void applyProposal()} type="button">
+                    {applying ? t("courier.applying") : t("courier.applyRoute")}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {proposalStatus ? <p className="mt-3 text-xs text-[var(--ink-soft)]" aria-live="polite">{proposalStatus}</p> : null}
+            {appliedNotice ? (
+              <p className={`rl-notice is-ok mt-3 ${celebrating ? "route-celebrate" : ""}`} role="status">
+                {appliedNotice}
+              </p>
+            ) : null}
+            {pendingUpdates > 0 ? (
+              <p className="rl-notice is-warn mt-3" role="status">
+                {pendingUpdates} entrega{pendingUpdates === 1 ? "" : "s"} pendiente{pendingUpdates === 1 ? "" : "s"} de enviar; se reintentará sola.
+              </p>
+            ) : null}
+
+            <ol aria-label="Paradas de tu ruta" className="rl-line is-route mt-5">
+              {activeDeliveryPoints.length === 0 ? (
+                <li className="rl-empty">{t("courier.noStops")}</li>
+              ) : activeDeliveryPoints.map((point, index) => {
+                const current = index === 0;
+                return (
+                  <li key={point.id} className={`rl-stop ${current ? "is-current" : "is-pending"}`}>
+                    <span aria-hidden="true" className="rl-dot" />
+                    <span className="rl-stop-label">
+                      <span className="tabular-nums text-[var(--ink-soft)]">{(point.sequenceIndex ?? index) + 1}. </span>
+                      {point.address}
+                      <span className="rl-stop-meta">{formatDeliveryStatus(point.status)}</span>
+                      {!current &&
