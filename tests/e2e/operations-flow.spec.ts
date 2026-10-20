@@ -52,20 +52,6 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
     await expect(orderMap.getByRole('status')).toHaveCount(0, { timeout: 20_000 });
     await orderMap.locator('.maplibregl-canvas').click({ position: { x: 280, y: 260 } });
     await page.getByLabel('Referencia interna del pedido (opcional)').fill(guide);
-    await page
-      .getByRole('checkbox', {
-        name: 'El cliente acepta recibir avisos por correo sobre su entrega.',
-      })
-      .check();
-    await page
-      .getByRole('textbox', { name: 'Correo del cliente' })
-      .fill(`cliente-${suffix}@example.com`);
-    await page
-      .getByRole('checkbox', {
-        name: 'El cliente acepta recibir avisos SMS en su celular.',
-      })
-      .check();
-    await page.getByRole('textbox', { name: 'Celular del cliente' }).fill('3001234567');
     await page.getByRole('button', { name: 'Registrar pedido pendiente' }).click();
     await expect(
       page.getByText(new RegExp(`Pedido ${guide} listo\\. Guía privada para el cliente:`))

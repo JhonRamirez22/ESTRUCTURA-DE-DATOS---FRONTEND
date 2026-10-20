@@ -10,11 +10,6 @@ import AppShell from '@/components/AppShell';
 import { isCourierLocationFresh } from '@/lib/courierLocation';
 import { isRoadGeometryProvider } from '@/lib/roadGeometry';
 import { formatNotificationMessage, formatOrderReference } from '@/lib/formatOrderReference';
-import CustomerNotificationReadiness, {
-  isCustomerNotificationOperationsStatus,
-  type CustomerNotificationOperationsStatus,
-} from '@/components/CustomerNotificationReadiness';
-import RoutingMethodology from '@/components/RoutingMethodology';
 import { SessionChangeNotice } from "@/components/SessionChangeNotice";
 import OptimizationFeed from '@/components/OptimizationFeed';
 
@@ -103,15 +98,6 @@ interface LiveTrafficStatus {
   warning: string;
 }
 
-interface CustomerNotificationSummary {
-  queued: number;
-  channels: {
-    email: { queued: number; configured: boolean };
-    sms: { queued: number; configured: boolean };
-  };
-  warning?: string | null;
-}
-
 const ROUTE_STATUS_PRIORITY: Record<Route['status'], number> = {
   IN_PROGRESS: 0,
   PLANNED: 1,
@@ -190,12 +176,6 @@ export default function DashboardPage() {
   const [routeActionNotice, setRouteActionNotice] = useState<string | null>(null);
   const [assignmentAiStatus, setAssignmentAiStatus] = useState<AssignmentAiStatus | null>(null);
   const [liveTrafficNotice, setLiveTrafficNotice] = useState<string | null>(null);
-  const [customerNotificationSummary, setCustomerNotificationSummary] =
-    useState<CustomerNotificationSummary | null>(null);
-  const [customerNotificationOperationsStatus, setCustomerNotificationOperationsStatus] =
-    useState<CustomerNotificationOperationsStatus | null>(null);
-  const [customerNotificationOperationsUnavailable, setCustomerNotificationOperationsUnavailable] =
-    useState(false);
   const dashboardRequestId = useRef(0);
   const dashboardController = useRef<AbortController | null>(null);
   const selectionInitialized = useRef(false);
@@ -222,10 +202,9 @@ export default function DashboardPage() {
         apiJson<{ routes: Route[] }>('/api/rutas', options),
         apiJson<{ notifications: Notification[]; warning?: string }>('/api/notificaciones?recipientId=dispatcher&limit=5', options),
         apiJson<{ metrics: FleetMetrics }>('/api/analitica', options),
-        apiJson<unknown>('/api/notificaciones/clientes/estado', options),
       ]);
       if (controller.signal.aborted || requestId !== dashboardRequestId.current) return;
-      const names = ['Repartidores', 'Pedidos', 'Rutas', 'Avisos', 'Analítica', 'Estado de avisos'];
+      const names = ['Repartidores', 'Pedidos', 'Rutas', 'Avisos', 'Analítica'];
       const describeFailure = (index: number) => {
         const result = results[index];
         if (result.status !== 'rejected') return '';
@@ -240,7 +219,6 @@ export default function DashboardPage() {
         setData(EMPTY_DASHBOARD_DATA);
         setLastUpdatedAt(null);
         setDashboardWarning(null);
-        setCustomerNotificationOperationsStatus(null);
         setSelectedCourierIds([]);
         setSelectedPendingIds([]);
         setAssignmentPreview([]);
@@ -248,13 +226,12 @@ export default function DashboardPage() {
         setUnassignedDeliveryPointIds([]);
         setCourierDraft({ name: '', phone: '', email: '', password: '' });
         setAccountDraft(null);
-        setCustomerNotificationSummary(null);
         setRouteActionNotice(null);
         setAssignmentAiStatus(null);
         setLiveTrafficNotice(null);
         throw new Error(describeFailure(denied));
       }
-      const [couriers, orders, routes, notifications, analytics, notificationStatus] = results;
+      const [couriers, orders, routes, notifications, analytics] = results;
       setDashboardWarning(results.slice(3).map((result, index) => result.status === 'rejected'
         ? describeFailure(index + 3) : '').filter(Boolean).join(' ') || null);
       if (couriers.status !== 'fulfilled' || orders.status !== 'fulfilled' || routes.status !== 'fulfilled') {
@@ -270,16 +247,6 @@ export default function DashboardPage() {
         setOperationalReady(false);
         throw new Error('Los datos operativos tienen un formato inválido. Reintenta la actualización.');
       }
-      const customerNotificationStatusPayload = notificationStatus.status === 'fulfilled'
-        ? notificationStatus.value : null;
-
-      if (isCustomerNotificationOperationsStatus(customerNotificationStatusPayload)) {
-        setCustomerNotificationOperationsStatus(customerNotificationStatusPayload);
-        setCustomerNotificationOperationsUnavailable(false);
-      } else {
-        setCustomerNotificationOperationsUnavailable(true);
-      }
-
       const availableCourierIds = couriersPayload.couriers
         .filter(
           (courier) =>
@@ -526,7 +493,6 @@ export default function DashboardPage() {
 
     setDispatching(true);
     setError(null);
-    setCustomerNotificationSummary(null);
 
     try {
       const routeResponse = await apiFetch('/api/asignaciones/aplicar', {
@@ -544,7 +510,6 @@ export default function DashboardPage() {
           trafficAi?: AssignmentAiStatus;
           liveTraffic?: LiveTrafficStatus;
         }>;
-        customerNotifications?: unknown;
       };
       const trafficSummaries = (routePayload.routes ?? [])
         .map((route) => route.liveTraffic)
@@ -552,11 +517,6 @@ export default function DashboardPage() {
       if (trafficSummaries.length > 0) {
         setLiveTrafficNotice(summarizeLiveTraffic(trafficSummaries));
       }
-      setCustomerNotificationSummary(
-        isCustomerNotificationSummary(routePayload.customerNotifications)
-          ? routePayload.customerNotifications
-          : null
-      );
       const routeAiStatus = routePayload.routes?.find(
         (route) => route.trafficAi !== undefined
       )?.trafficAi;
@@ -718,10 +678,6 @@ export default function DashboardPage() {
               <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
                 Rutas en movimiento
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                Supervisa repartidores disponibles y rutas planificadas desde una sola vista
-                operativa.
-              </p>
             </div>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
               <span className="flex items-center gap-2 text-xs text-slate-600 sm:justify-end">
@@ -813,8 +769,7 @@ export default function DashboardPage() {
                     Acceso de {accountDraft.courierName}
                   </h2>
                   <p className="mt-1 text-xs leading-5 text-amber-900">
-                    Asigna su correo y una contraseña de al menos 15 caracteres. Comparte el acceso
-                    por un canal privado.
+                    Correo y contraseña de al menos 15 caracteres.
                   </p>
                 </div>
                 <button
@@ -937,8 +892,7 @@ export default function DashboardPage() {
                 ) : activeRoutes.length === 0 ? (
                   <div className="rounded-2xl bg-slate-50 px-4 py-5">
                     <p className="text-sm leading-6 text-slate-600">
-                      No hay recorridos activos. Al despachar pedidos se consultarán TomTom e IA
-                      para optimizar la ruta asignada; el historial no se recalcula.
+                      No hay recorridos activos.
                     </p>
                     <Link
                       className="mt-3 inline-flex text-xs font-bold text-emerald-800 underline decoration-emerald-300 underline-offset-4 hover:text-emerald-950"
@@ -988,7 +942,6 @@ export default function DashboardPage() {
             </aside>
           </section>
 
-          <RoutingMethodology />
 
           <dl
             aria-label="Resumen operativo"
@@ -1045,11 +998,6 @@ export default function DashboardPage() {
             </section>
           ) : null}
 
-          <CustomerNotificationReadiness
-            status={customerNotificationOperationsStatus}
-            unavailable={customerNotificationOperationsUnavailable}
-          />
-
           <section
             aria-label="Despachar pedidos"
             className="mb-6 scroll-mt-24 rounded-[1.5rem] border border-slate-200/90 bg-[var(--surface)] p-5  sm:p-6"
@@ -1058,11 +1006,6 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-xl font-bold text-slate-950">Selecciona, analiza y despacha</h2>
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
-                  El sistema asigna los pedidos a los repartidores elegidos por cercanía y balanceo.
-                  Después consulta OSRM y, si TomTom está configurado, tráfico en vivo; aplica
-                  <strong> nearest neighbor + 2-opt</strong> y guarda el orden final.
-                </p>
               </div>
               <Link
                 className="rp-button rp-button-secondary rp-button-small shrink-0"
@@ -1072,58 +1015,6 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            {customerNotificationSummary ? (
-              (() => {
-                const pendingChannels = [
-                  customerNotificationSummary.channels.email.queued > 0 &&
-                  !customerNotificationSummary.channels.email.configured
-                    ? 'correo electrónico'
-                    : null,
-                  customerNotificationSummary.channels.sms.queued > 0 &&
-                  !customerNotificationSummary.channels.sms.configured
-                    ? 'SMS'
-                    : null,
-                ].filter((channel): channel is string => channel !== null);
-                const pendingSetup = pendingChannels.length > 0;
-                const queuedChannels = [
-                  customerNotificationSummary.channels.email.queued > 0
-                    ? 'correo electrónico'
-                    : null,
-                  customerNotificationSummary.channels.sms.queued > 0 ? 'SMS' : null,
-                ].filter((channel): channel is string => channel !== null);
-                return (
-              <div
-                className={`mt-4 rounded-xl border px-4 py-3 ${
-                  pendingSetup
-                    ? 'border-amber-200 bg-amber-50 text-amber-950'
-                    : customerNotificationSummary.queued > 0
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
-                      : 'border-slate-200 bg-slate-50 text-slate-800'
-                }`}
-                aria-label="Resumen de avisos a clientes"
-                role="status"
-              >
-                <p className="text-sm font-semibold">
-                  {pendingSetup
-                    ? 'Ruta creada; canal de aviso pendiente de configuración'
-                    : customerNotificationSummary.queued > 0
-                      ? 'Avisos al cliente en cola'
-                      : 'Ruta creada sin avisos al cliente'}
-                </p>
-                <p className="mt-1 text-sm leading-5">
-                  {customerNotificationSummary.queued > 0
-                    ? `${customerNotificationSummary.queued} aviso${customerNotificationSummary.queued === 1 ? '' : 's'} de asignación ${customerNotificationSummary.queued === 1 ? 'quedó' : 'quedaron'} en cola por ${queuedChannels.join(' y ')}. `
-                    : 'Ningún pedido de esta ruta tenía correo o celular y consentimiento activos. '}
-                  {pendingSetup
-                    ? 'Abre «Avisos al cliente» para configurar SMTP o Twilio en el backend. Mientras tanto, la ruta y el seguimiento siguen activos.'
-                    : customerNotificationSummary.queued > 0
-                      ? `Canales solicitados: ${queuedChannels.join(' y ')}. El sistema intentará el aviso de cercanía cuando el GPS reporte al repartidor dentro del radio aproximado de 500 m del destino.`
-                      : 'Las rutas y el seguimiento funcionan normalmente.'}
-                </p>
-              </div>
-                );
-              })()
-            ) : null}
 
             {liveTrafficNotice ? (
               <div
@@ -1422,10 +1313,6 @@ export default function DashboardPage() {
                   <h3 className="text-sm font-semibold text-slate-800">
                     ¿No aparece un repartidor?
                   </h3>
-                  <p className="text-xs text-slate-500">
-                    Se crea fuera de turno; su primera ubicación válida llega desde el GPS privado
-                    de la PWA.
-                  </p>
                 </div>
               </div>
               <div className="mt-3 grid items-end gap-3 sm:grid-cols-2">
@@ -1492,10 +1379,6 @@ export default function DashboardPage() {
             {data.couriers.length > 0 ? (
               <div className="mt-4 rounded-2xl border border-slate-100 bg-[var(--surface)] p-4">
                 <h3 className="text-sm font-semibold text-slate-800">Accesos del equipo</h3>
-                <p className="mt-1 text-xs text-slate-500">
-                  Las cuentas usan correo y contraseña. Puedes registrar o actualizar el acceso de
-                  cada repartidor.
-                </p>
                 <ul className="mt-3 divide-y divide-slate-100">
                   {data.couriers.map((courier) => (
                     <li className="flex items-center justify-between gap-3 py-2.5" key={courier.id}>
@@ -1562,36 +1445,8 @@ function summarizeLiveTraffic(statuses: LiveTrafficStatus[]): string {
   const warnings = [...new Set(statuses.map((status) => status.warning).filter(Boolean))];
   const sourceSummary = configured
     ? `TomTom midió ${sampledSegments} de ${routeSegments} tramos y ajustó ${adjustedSegments}${closedSegments > 0 ? `; marcó ${closedSegments} como cerrados` : ''}.`
-    : 'TomTom aún no está configurado; se conservaron los tiempos de calles de OSRM.';
+    : 'Sin tráfico en vivo; se usaron los tiempos de base.';
   return [sourceSummary, ...warnings].join(' ');
-}
-
-function isCustomerNotificationSummary(value: unknown): value is CustomerNotificationSummary {
-  if (typeof value !== 'object' || value === null || !('channels' in value)) {
-    return false;
-  }
-  const summary = value as Partial<CustomerNotificationSummary>;
-  const validChannel = (channel: unknown): boolean =>
-    typeof channel === 'object' &&
-    channel !== null &&
-    'queued' in channel &&
-    typeof channel.queued === 'number' &&
-    Number.isSafeInteger(channel.queued) &&
-    channel.queued >= 0 &&
-    'configured' in channel &&
-    typeof channel.configured === 'boolean';
-  const channels = summary.channels;
-  return (
-    Number.isSafeInteger(summary.queued) &&
-    (summary.queued ?? -1) >= 0 &&
-    typeof channels === 'object' &&
-    channels !== null &&
-    validChannel(channels.email) &&
-    validChannel(channels.sms) &&
-    (summary.warning === undefined ||
-      summary.warning === null ||
-      typeof summary.warning === 'string')
-  );
 }
 
 function RouteSummary({
@@ -1669,9 +1524,6 @@ function RouteSummary({
             ))}
           </ol>
         ) : <p className="mt-2 text-slate-600">Sin paradas</p>}
-        <p className="mt-3 text-xs leading-5 text-slate-600">
-          OSRM calcula calles y tiempos base; TomTom ajusta tramos medidos cuando está activo.
-        </p>
       </div>
       {canRecalculate && !isRoadGeometryProvider(route.geometryProvider) ? (
         <div

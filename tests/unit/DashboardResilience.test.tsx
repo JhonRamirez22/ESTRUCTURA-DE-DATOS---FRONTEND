@@ -90,7 +90,7 @@ it('no solapa refrescos y cancela consultas al salir de la pantalla', async () =
   const { unmount } = await act(async () => render(<DashboardPage />));
   const signal = vi.mocked(fetch).mock.calls[0][1]!.signal!;
   await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
-  expect(request).toHaveBeenCalledTimes(6);
+  expect(request).toHaveBeenCalledTimes(5);
   unmount();
   expect(signal.aborted).toBe(true);
   await act(async () => finish(Response.json({ couriers: [] })));

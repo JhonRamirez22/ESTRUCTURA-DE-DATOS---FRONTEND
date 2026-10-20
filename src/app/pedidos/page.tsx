@@ -6,8 +6,6 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AppShell from '@/components/AppShell';
 import { formatOrderReference } from '@/lib/formatOrderReference';
-import { buildCustomerEmailConsent } from '@/lib/customerEmailConsent';
-import { buildCustomerSmsConsent } from '@/lib/customerSmsConsent';
 import { isWithinPastoServiceArea, normalizePastoAddress } from '@/lib/pastoArea';
 import type { MapDeliveryPoint } from '@/components/MapLibreRouteMap';
 import { addressCacheKey, getResolvedAddress, rememberResolvedAddress } from '@/lib/addressCache';
@@ -26,10 +24,6 @@ interface OrderDraft {
   orderId: string;
   lat: string;
   lng: string;
-  customerEmail: string;
-  emailNotificationsEnabled: boolean;
-  customerPhone: string;
-  smsNotificationsEnabled: boolean;
 }
 
 interface AddressNormalizationStatus {
@@ -55,10 +49,6 @@ export default function OrdersPage() {
     orderId: '',
     lat: '',
     lng: '',
-    customerEmail: '',
-    emailNotificationsEnabled: false,
-    customerPhone: '',
-    smsNotificationsEnabled: false,
   });
   const [pendingPoints, setPendingPoints] = useState<PendingOrderPoint[]>([]);
   const [selectedCoordinate, setSelectedCoordinate] = useState<[number, number] | null>(null);
@@ -208,12 +198,6 @@ export default function OrdersPage() {
   const createOrder = async (): Promise<void> => {
     const lat = Number(draft.lat);
     const lng = Number(draft.lng);
-    const emailConsent = buildCustomerEmailConsent(
-      draft.customerEmail,
-      draft.emailNotificationsEnabled
-    );
-    const smsConsent = buildCustomerSmsConsent(draft.customerPhone, draft.smsNotificationsEnabled);
-
     if (
       draft.address.trim() === '' ||
       !Number.isFinite(lat) ||
@@ -225,15 +209,6 @@ export default function OrdersPage() {
       );
       return;
     }
-    if (emailConsent === null) {
-      setError('Para activar los avisos, escribe un correo electrónico válido.');
-      return;
-    }
-    if (smsConsent === null) {
-      setError('Para activar los avisos por SMS, escribe un celular colombiano válido.');
-      return;
-    }
-
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -247,8 +222,6 @@ export default function OrdersPage() {
           lat,
           lng,
           orderId: draft.orderId.trim() || `PED-${Date.now()}`,
-          ...emailConsent,
-          ...smsConsent,
         }),
       });
 
@@ -263,21 +236,13 @@ export default function OrdersPage() {
       };
       setNormalization(payload.addressNormalization ?? null);
       setSuccess(
-        `Pedido ${formatOrderReference(payload.deliveryPoint.orderId)} listo. Guía privada para el cliente: ${payload.trackingGuide}.${
-          emailConsent.emailNotificationsEnabled || smsConsent.smsNotificationsEnabled
-            ? ' La solicitud de avisos quedó guardada; su entrega depende de que el canal elegido esté configurado.'
-            : ''
-        }`
+        `Pedido ${formatOrderReference(payload.deliveryPoint.orderId)} listo. Guía privada para el cliente: ${payload.trackingGuide}.`
       );
       setDraft({
         address: '',
         orderId: '',
         lat: '',
         lng: '',
-        customerEmail: '',
-        emailNotificationsEnabled: false,
-        customerPhone: '',
-        smsNotificationsEnabled: false,
       });
       setSelectedCoordinate(null);
       await loadPendingOrders();
@@ -416,83 +381,6 @@ export default function OrdersPage() {
                     value={draft.orderId}
                   />
                 </label>
-                <div className="border-t border-slate-200 pt-4">
-                  <label className="flex min-h-11 cursor-pointer items-start gap-3 text-sm font-medium leading-5 text-slate-700">
-                    <input
-                      checked={draft.emailNotificationsEnabled}
-                      className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700"
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          emailNotificationsEnabled: event.target.checked,
-                          customerEmail: event.target.checked ? current.customerEmail : '',
-                        }))
-                      }
-                      type="checkbox"
-                    />
-                    <span>El cliente acepta recibir avisos por correo sobre su entrega.</span>
-                  </label>
-                  {draft.emailNotificationsEnabled ? (
-                    <label className="mt-3 block text-xs font-semibold text-slate-600">
-                      Correo del cliente
-                      <input
-                        autoComplete="email"
-                        className="rp-input mt-1.5 px-3 py-3 text-sm font-normal"
-                        maxLength={320}
-                        onChange={(event) =>
-                          setDraft((current) => ({ ...current, customerEmail: event.target.value }))
-                        }
-                        placeholder="cliente@ejemplo.com"
-                        required
-                        type="email"
-                        value={draft.customerEmail}
-                      />
-                    </label>
-                  ) : null}
-                  <p className="mt-2 text-xs leading-5 text-slate-600">
-                    Solo se usarán los canales autorizados para avisar cuando el pedido tenga
-                    repartidor asignado y cuando el repartidor esté cerca.
-                  </p>
-                </div>
-                <div className="border-t border-slate-200 pt-4">
-                  <label className="flex min-h-11 cursor-pointer items-start gap-3 text-sm font-medium leading-5 text-slate-700">
-                    <input
-                      checked={draft.smsNotificationsEnabled}
-                      className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700"
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          smsNotificationsEnabled: event.target.checked,
-                          customerPhone: event.target.checked ? current.customerPhone : '',
-                        }))
-                      }
-                      type="checkbox"
-                    />
-                    <span>El cliente acepta recibir avisos SMS en su celular.</span>
-                  </label>
-                  {draft.smsNotificationsEnabled ? (
-                    <label className="mt-3 block text-xs font-semibold text-slate-600">
-                      Celular del cliente
-                      <input
-                        autoComplete="tel"
-                        className="rp-input mt-1.5 px-3 py-3 text-sm font-normal"
-                        inputMode="tel"
-                        maxLength={30}
-                        onChange={(event) =>
-                          setDraft((current) => ({ ...current, customerPhone: event.target.value }))
-                        }
-                        placeholder="300 123 4567"
-                        required
-                        type="tel"
-                        value={draft.customerPhone}
-                      />
-                    </label>
-                  ) : null}
-                  <p className="mt-2 text-xs leading-5 text-slate-600">
-                    El número se guarda solo con consentimiento y se usa únicamente para los avisos
-                    de asignación y cercanía. La entrega requiere configurar SMS.
-                  </p>
-                </div>
                 <div className="border-t border-slate-200 py-3 text-xs text-slate-600">
                   <span className="font-semibold text-slate-700">Coordenadas seleccionadas</span>
                   <p className="mt-1 font-mono text-[11px]">
