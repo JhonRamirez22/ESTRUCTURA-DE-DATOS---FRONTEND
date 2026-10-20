@@ -63,13 +63,11 @@ it('conserva los últimos datos pero impide despachar si falla una consulta esen
 it('ante una sesión vencida retira los datos privados y ofrece volver a ingresar', async () => {
   const request = mockResponses('');
   await act(async () => render(<DashboardPage />));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Nombre completo' }), { target: { value: 'Borrador privado' } });
   request.mockResolvedValue(Response.json({}, { status: 401 }));
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Actualizar datos' })));
   expect(screen.queryByText('Calle de prueba en Pasto')).toBeNull();
   expect(screen.getByRole('alert').textContent).toContain('La sesión expiró');
   expect(screen.getByRole('link', { name: 'Volver a ingresar' })).toHaveAttribute('href', '/acceso?retorno=%2Fdashboard');
-  expect(screen.getByRole('textbox', { name: 'Nombre completo' })).toHaveValue('');
 });
 
 it('un payload esencial malformado tampoco permite actuar sobre datos anteriores', async () => {

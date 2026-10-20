@@ -122,13 +122,6 @@ interface AssignmentProposal {
   deliveryPointIds: string[];
 }
 
-interface CourierAccountDraft {
-  courierId: string;
-  courierName: string;
-  email: string;
-  password: string;
-}
-
 const EMPTY_DASHBOARD_DATA: DashboardData = {
     couriers: [],
     notifications: [],
@@ -149,7 +142,6 @@ const EMPTY_DASHBOARD_DATA: DashboardData = {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD_DATA);
   const [loading, setLoading] = useState(true);
-  const [creatingCourier, setCreatingCourier] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [dispatching, setDispatching] = useState(false);
   const [recalculatingRouteId, setRecalculatingRouteId] = useState<string | null>(null);
@@ -161,14 +153,6 @@ export default function DashboardPage() {
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   const [unassignedDeliveryPointIds, setUnassignedDeliveryPointIds] = useState<string[]>([]);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
-  const [courierDraft, setCourierDraft] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    password: '',
-  });
-  const [accountDraft, setAccountDraft] = useState<CourierAccountDraft | null>(null);
-  const [savingAccount, setSavingAccount] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dashboardWarning, setDashboardWarning] = useState<string | null>(null);
   const [operationalReady, setOperationalReady] = useState(false);
@@ -224,8 +208,6 @@ export default function DashboardPage() {
         setAssignmentPreview([]);
         setAssignmentPreviewSelectionKey(null);
         setUnassignedDeliveryPointIds([]);
-        setCourierDraft({ name: '', phone: '', email: '', password: '' });
-        setAccountDraft(null);
         setRouteActionNotice(null);
         setAssignmentAiStatus(null);
         setLiveTrafficNotice(null);
@@ -574,71 +556,6 @@ export default function DashboardPage() {
     }
   };
 
-  const createCourier = async (): Promise<void> => {
-    if (
-      courierDraft.name.trim() === '' ||
-      courierDraft.phone.trim() === '' ||
-      courierDraft.email.trim() === '' ||
-      courierDraft.password.length < 15
-    ) {
-      setError('Completa nombre, teléfono, correo y contraseña de al menos 15 caracteres.');
-      return;
-    }
-
-    setCreatingCourier(true);
-    setError(null);
-
-    try {
-      const response = await apiFetch('/api/repartidores', {
-        body: JSON.stringify({
-          name: courierDraft.name.trim(),
-          phone: courierDraft.phone.trim(),
-          account: { email: courierDraft.email.trim(), password: courierDraft.password },
-        }),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error(await readApiError(response, 'No se pudo registrar el repartidor.'));
-      }
-
-      setRouteActionNotice(
-        `Cuenta creada para ${courierDraft.email.trim()}. Puede ingresar con su contraseña y activar el GPS.`
-      );
-      setCourierDraft({ name: '', phone: '', email: '', password: '' });
-      await loadDashboard();
-    } catch (createError) {
-      setError(
-        createError instanceof Error ? createError.message : 'No se pudo registrar el repartidor.'
-      );
-    } finally {
-      setCreatingCourier(false);
-    }
-  };
-
-  const saveCourierAccount = async (): Promise<void> => {
-    if (!accountDraft) return;
-    setSavingAccount(true);
-    setError(null);
-    try {
-      const response = await apiFetch('/api/auth/courier-account', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(accountDraft),
-      });
-      if (!response.ok) {
-        throw new Error(await readApiError(response, 'No se pudo guardar el acceso.'));
-      }
-      setRouteActionNotice(`Acceso actualizado para ${accountDraft.courierName}.`);
-      setAccountDraft(null);
-    } catch (issueError) {
-      setError(issueError instanceof Error ? issueError.message : 'No se pudo guardar el acceso.');
-    } finally {
-      setSavingAccount(false);
-    }
-  };
-
   const availableCouriers = data.couriers.filter(
     (courier) =>
       courier.status === 'AVAILABLE' &&
@@ -756,75 +673,6 @@ export default function DashboardPage() {
           ) : null}
 
           <fieldset disabled={!operationalReady} aria-label="Operación de despacho" className="min-w-0 border-0 p-0">
-
-          {accountDraft ? (
-            <section
-              className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4"
-              aria-label="Cuenta de repartidor"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-bold text-amber-950">
-                    Acceso de {accountDraft.courierName}
-                  </h2>
-                  <p className="mt-1 text-xs leading-5 text-amber-900">
-                    Correo y contraseña de al menos 15 caracteres.
-                  </p>
-                </div>
-                <button
-                  className="text-xs font-semibold text-amber-900 underline"
-                  onClick={() => setAccountDraft(null)}
-                  type="button"
-                >
-                  Cancelar
-                </button>
-              </div>
-              <form
-                className="mt-3 grid gap-3 sm:grid-cols-2"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void saveCourierAccount();
-                }}
-              >
-                <label className="text-sm font-semibold">
-                  Correo electrónico
-                  <input
-                    className="rp-input mt-1"
-                    type="email"
-                    autoComplete="off"
-                    required
-                    maxLength={254}
-                    value={accountDraft.email}
-                    onChange={(event) =>
-                      setAccountDraft({ ...accountDraft, email: event.target.value })
-                    }
-                  />
-                </label>
-                <label className="text-sm font-semibold">
-                  Nueva contraseña
-                  <input
-                    className="rp-input mt-1"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={15}
-                    maxLength={128}
-                    value={accountDraft.password}
-                    onChange={(event) =>
-                      setAccountDraft({ ...accountDraft, password: event.target.value })
-                    }
-                  />
-                </label>
-                <button
-                  className="rp-button rp-button-primary"
-                  type="submit"
-                  disabled={savingAccount}
-                >
-                  {savingAccount ? 'Guardando…' : 'Guardar acceso'}
-                </button>
-              </form>
-            </section>
-          ) : null}
 
           <dl
             aria-label="Resumen operativo"
@@ -1157,123 +1005,12 @@ export default function DashboardPage() {
             ) : null}
             </div>
 
-            <details className="mt-6 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-800">Equipo y accesos</summary>
-              <div className="scroll-mt-24 pt-3" id="equipo">
-            <div className="rp-panel-quiet mt-5 p-4">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-800">
-                    ¿No aparece un repartidor?
-                  </h3>
-                </div>
-              </div>
-              <div className="mt-3 grid items-end gap-3 sm:grid-cols-2">
-                <label className="block text-xs font-semibold text-slate-700">
-                  Nombre completo
-                  <input
-                    className="rp-input mt-1 px-3 py-2.5 text-sm"
-                    onChange={(event) =>
-                      setCourierDraft((draft) => ({ ...draft, name: event.target.value }))
-                    }
-                    placeholder="Ej. Camila Ramírez"
-                    value={courierDraft.name}
-                  />
-                </label>
-                <label className="block text-xs font-semibold text-slate-700">
-                  Teléfono
-                  <input
-                    className="rp-input mt-1 px-3 py-2.5 text-sm"
-                    onChange={(event) =>
-                      setCourierDraft((draft) => ({ ...draft, phone: event.target.value }))
-                    }
-                    placeholder="Ej. 300 123 4567"
-                    value={courierDraft.phone}
-                  />
-                </label>
-                <label className="block text-xs font-semibold text-slate-700">
-                  Correo electrónico
-                  <input
-                    className="rp-input mt-1 px-3 py-2.5 text-sm"
-                    type="email"
-                    autoComplete="off"
-                    maxLength={254}
-                    value={courierDraft.email}
-                    onChange={(event) =>
-                      setCourierDraft({ ...courierDraft, email: event.target.value })
-                    }
-                  />
-                </label>
-                <label className="block text-xs font-semibold text-slate-700">
-                  Contraseña (mínimo 15 caracteres)
-                  <input
-                    className="rp-input mt-1 px-3 py-2.5 text-sm"
-                    type="password"
-                    autoComplete="new-password"
-                    minLength={15}
-                    maxLength={128}
-                    value={courierDraft.password}
-                    onChange={(event) =>
-                      setCourierDraft({ ...courierDraft, password: event.target.value })
-                    }
-                  />
-                </label>
-                <button
-                  className="rp-button rp-button-secondary"
-                  disabled={creatingCourier}
-                  onClick={() => void createCourier()}
-                  type="button"
-                >
-                  {creatingCourier ? 'Guardando…' : 'Registrar'}
-                </button>
-              </div>
-            </div>
-
-            {data.couriers.length > 0 ? (
-              <div className="mt-4 rounded-2xl border border-slate-100 bg-[var(--surface)] p-4">
-                <h3 className="text-sm font-semibold text-slate-800">Accesos del equipo</h3>
-                <ul className="mt-3 divide-y divide-slate-100">
-                  {data.couriers.map((courier) => (
-                    <li className="flex items-center justify-between gap-3 py-2.5" key={courier.id}>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium text-slate-800">
-                          {courier.name}
-                        </span>
-                        <span className="block text-[11px] text-slate-500">
-                          {isCourierLocationFresh(
-                            courier.lastLocationAt ? new Date(courier.lastLocationAt) : null
-                          )
-                            ? courier.status === 'AVAILABLE'
-                              ? 'Disponible · GPS reciente'
-                              : courier.status === 'ON_ROUTE'
-                                ? 'En ruta · GPS reciente'
-                                : 'Fuera de línea'
-                            : courier.lastLocationAt
-                              ? `GPS vencido · última lectura ${new Date(courier.lastLocationAt).toLocaleTimeString('es-CO')}`
-                              : 'Sin ubicación GPS'}
-                        </span>
-                      </span>
-                      <button
-                        className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-2 text-[11px] font-semibold text-slate-600 hover:border-amber-300 hover:text-amber-800"
-                        onClick={() =>
-                          setAccountDraft({
-                            courierId: courier.id,
-                            courierName: courier.name,
-                            email: '',
-                            password: '',
-                          })
-                        }
-                        type="button"
-                      >
-                        Configurar acceso
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-              </div>
-            </details>
+            <p className="mt-6 text-sm text-[var(--ink-soft)]">
+              ¿Falta un repartidor?{' '}
+              <Link className="font-semibold text-[var(--accent-strong)] underline-offset-2 hover:underline" href="/personal">
+                Agrégalo en Personal
+              </Link>
+            </p>
           </section>
 
           <div className="scroll-mt-24" id="en-vivo">

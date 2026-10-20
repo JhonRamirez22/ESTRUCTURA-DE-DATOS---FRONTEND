@@ -11,7 +11,7 @@ import { Dock, DockIcon, DockItem, DockLabel } from '@/components/ui/dock';
 
 interface AppShellProps {
   children: ReactNode;
-  active?: 'home' | 'orders' | 'dispatch' | 'courier' | 'tracking';
+  active?: 'home' | 'orders' | 'dispatch' | 'team' | 'courier' | 'tracking';
 }
 
 const navigationBySurface = {
@@ -25,20 +25,21 @@ const navigationBySurface = {
     { href: '/dashboard', label: 'Despacho', key: 'dispatch' },
     { href: '/dashboard#en-vivo', label: 'En vivo', key: 'live' },
     { href: '/pedidos', label: 'Pedidos', key: 'orders' },
-    { href: '/dashboard#equipo', label: 'Equipo', key: 'team' },
+    { href: '/personal', label: 'Personal', key: 'team' },
   ],
 } as const;
 
 export default function AppShell({ children, active }: AppShellProps) {
   const pathname = usePathname();
-  const operational = active === 'orders' || active === 'dispatch' || active === 'courier';
-  const sidebar = active === 'orders' || active === 'dispatch';
+  const dispatcherSurface = active === 'orders' || active === 'dispatch' || active === 'team';
+  const operational = dispatcherSurface || active === 'courier';
+  const sidebar = dispatcherSurface;
   const navigation =
     active === 'tracking'
       ? navigationBySurface.tracking
       : active === 'courier'
         ? navigationBySurface.courier
-        : active === 'orders' || active === 'dispatch'
+        : dispatcherSurface
           ? navigationBySurface.dispatcher
           : navigationBySurface.home;
 
@@ -91,7 +92,9 @@ export default function AppShell({ children, active }: AppShellProps) {
                         ? 'package'
                         : item.key === 'tracking'
                           ? 'search'
-                          : 'route'
+                          : item.key === 'team'
+                            ? 'users'
+                            : 'route'
                     }
                   />
                   <span>{item.label}</span>
@@ -101,7 +104,7 @@ export default function AppShell({ children, active }: AppShellProps) {
             })}
           </nav>
           <div className="rp-shell-account">
-            {active === 'orders' || active === 'dispatch' || active === 'courier' ? (
+            {operational ? (
               <LogoutButton />
             ) : null}
             <span className="rp-service-area">
