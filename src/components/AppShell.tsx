@@ -11,15 +11,19 @@ import { Dock, DockIcon, DockItem, DockLabel } from '@/components/ui/dock';
 
 interface AppShellProps {
   children: ReactNode;
-  active?: 'home' | 'orders' | 'dispatch' | 'team' | 'courier' | 'tracking';
+  active?: 'home' | 'orders' | 'dispatch' | 'team' | 'courier' | 'tracking' | 'request';
 }
 
 const navigationBySurface = {
   home: [
     { href: '/acceso', label: 'Personal', key: 'staff' },
+    { href: '/solicitar', label: 'Solicitar envío', key: 'request' },
     { href: '/cliente', label: 'Seguimiento', key: 'tracking' },
   ],
-  tracking: [{ href: '/cliente', label: 'Seguimiento', key: 'tracking' }],
+  tracking: [
+    { href: '/solicitar', label: 'Solicitar envío', key: 'request' },
+    { href: '/cliente', label: 'Seguimiento', key: 'tracking' },
+  ],
   courier: [{ href: '/repartidor', label: 'Mi ruta', key: 'courier' }],
   dispatcher: [
     { href: '/dashboard', label: 'Despacho', key: 'dispatch' },
@@ -34,7 +38,7 @@ export default function AppShell({ children, active }: AppShellProps) {
   const dispatcherSurface = active === 'orders' || active === 'dispatch' || active === 'team';
   const operational = dispatcherSurface || active === 'courier';
   const navigation =
-    active === 'tracking'
+    active === 'tracking' || active === 'request'
       ? navigationBySurface.tracking
       : active === 'courier'
         ? navigationBySurface.courier
@@ -73,7 +77,7 @@ export default function AppShell({ children, active }: AppShellProps) {
           <nav
             aria-label="Navegación principal"
             className="rp-navigation"
-            hidden={active === 'courier' || active === 'tracking'}
+            hidden={active === 'courier'}
           >
             {navigation.map((item) => {
               const isActive = active === item.key || (!active && pathname === item.href);
@@ -91,7 +95,9 @@ export default function AppShell({ children, active }: AppShellProps) {
                         ? 'package'
                         : item.key === 'tracking'
                           ? 'search'
-                          : item.key === 'team'
+                          : item.key === 'request'
+                            ? 'package'
+                            : item.key === 'team'
                             ? 'users'
                             : 'route'
                     }
@@ -128,7 +134,7 @@ export default function AppShell({ children, active }: AppShellProps) {
         </DockItem>
         {navigation.map((item) => {
           const Icon =
-            item.key === 'orders'
+            item.key === 'orders' || item.key === 'request'
               ? Package
               : item.key === 'tracking'
                 ? Search

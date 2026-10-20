@@ -60,6 +60,9 @@ export default function OrdersPage() {
   const [candidates, setCandidates] = useState<AddressCandidate[]>([]);
   const [addressNotice, setAddressNotice] = useState<string | null>(null);
   const [findingAddress, setFindingAddress] = useState(false);
+  const [requests, setRequests] = useState<PendingOrderPoint[]>([]);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
   const lookupSequence = useRef(0);
 
   useEffect(() => {
@@ -142,6 +145,50 @@ export default function OrdersPage() {
     setCandidates([]);
   };
 
+  /** Solicitudes de clientes: no entran al despacho hasta que se aceptan aquí. */
+  const loadRequests = useCallback(async (): Promise<void> => {
+    try {
+      const response = await apiFetch('/api/pedidos?status=REQUESTED', { cache: 'no-store' });
+      if (!response.ok) throw new Error('No se pudieron cargar las solicitudes de clientes.');
+      const payload = (await response.json()) as {
+        deliveryPoints: Array<{ id: string; orderId: string; address: string; lat: number; lng: number }>;
+      };
+      setRequests(
+        payload.deliveryPoints.map((point) => ({ ...point, status: 'PENDING' as const, sequenceIndex: null }))
+      );
+      setRequestError(null);
+    } catch (loadError) {
+      setRequestError(
+        loadError instanceof Error ? loadError.message : 'No se pudieron cargar las solicitudes de clientes.'
+      );
+    }
+  }, []);
+
+  const resolveRequest = async (request: PendingOrderPoint, action: 'aceptar' | 'rechazar'): Promise<void> => {
+    setResolvingId(request.id);
+    setRequestError(null);
+    setSuccess(null);
+    try {
+      const response = await apiFetch(`/api/solicitudes/${encodeURIComponent(request.id)}/${action}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'No se pudo resolver la solicitud.'));
+      }
+      setSuccess(
+        action === 'aceptar'
+          ? `Solicitud ${formatOrderReference(request.orderId)} aceptada: ya está en pendientes para despachar.`
+          : `Solicitud ${formatOrderReference(request.orderId)} rechazada.`
+      );
+      await Promise.all([loadRequests(), loadPendingOrders()]);
+    } catch (resolveError) {
+      setRequestError(resolveError instanceof Error ? resolveError.message : 'No se pudo resolver la solicitud.');
+      await loadRequests();
+    } finally {
+      setResolvingId(null);
+    }
+  };
+
   const loadPendingOrders = useCallback(async (): Promise<void> => {
     try {
       const response = await apiFetch('/api/pedidos?status=PENDING', { cache: 'no-store' });
@@ -178,7 +225,8 @@ export default function OrdersPage() {
 
   useEffect(() => {
     void loadPendingOrders();
-  }, [loadPendingOrders]);
+    void loadRequests();
+  }, [loadPendingOrders, loadRequests]);
 
   const handleMapClick = ({ lat, lng }: { lat: number; lng: number }) => {
     ++lookupSequence.current;
@@ -305,6 +353,56 @@ export default function OrdersPage() {
           </div>
 
           <div className="min-w-0 space-y-10 lg:order-1">
+            {requests.length > 0 || requestError ? (
+              <section aria-label="Solicitudes de clientes" className="rl-section">
+                <div className="rl-head">
+                  <h2>
+                    Solicitudes de clientes <small>{requests.length} en revisión</small>
+                  </h2>
+                </div>
+                {requestError ? (
+                  <p className="rl-notice is-warn mt-3" role="alert">
+                    {requestError}
+                  </p>
+                ) : null}
+                <ul className="rl-rows">
+                  {requests.map((request) => (
+                    <li className="rl-row flex-wrap !items-start !py-3" key={request.id}>
+                      <button
+                        className="rl-row-main min-w-0 text-left"
+                        onClick={() => setSelectedCoordinate([request.lat, request.lng])}
+                        title="Ver en el mapa"
+                        type="button"
+                      >
+                        <strong className="truncate">{request.address}</strong>
+                        <span className="rl-ref">{formatOrderReference(request.orderId)} · ver en el mapa</span>
+                      </button>
+                      <span className="flex gap-2">
+                        <button
+                          aria-label={`Rechazar solicitud ${formatOrderReference(request.orderId)}`}
+                          className="rp-button rp-button-danger rp-button-small"
+                          disabled={resolvingId !== null}
+                          onClick={() => void resolveRequest(request, 'rechazar')}
+                          type="button"
+                        >
+                          Rechazar
+                        </button>
+                        <button
+                          aria-label={`Aceptar solicitud ${formatOrderReference(request.orderId)}`}
+                          className="rp-button rp-button-go rp-button-small"
+                          disabled={resolvingId !== null}
+                          onClick={() => void resolveRequest(request, 'aceptar')}
+                          type="button"
+                        >
+                          {resolvingId === request.id ? 'Guardando…' : 'Aceptar'}
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
             <section className="rl-section">
               <div className="rl-head">
                 <h2>Datos del pedido</h2>

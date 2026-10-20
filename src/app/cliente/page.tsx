@@ -3,7 +3,7 @@
 import { apiFetch } from "@/lib/apiClient";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import CustomerOrderChat from "@/components/CustomerOrderChat";
@@ -20,7 +20,7 @@ const TrackingMap = dynamic(() => import("@/components/MapLibreRouteMap"), {
 
 interface TrackingData {
   guide: string;
-  status: "PENDING" | "EN_ROUTE" | "DELIVERED" | "FAILED";
+  status: "REQUESTED" | "PENDING" | "EN_ROUTE" | "DELIVERED" | "FAILED";
   address: string;
   coordinates: { lat: number; lng: number };
   route: {
@@ -109,6 +109,18 @@ export default function ClientePage() {
     }
   }, [guide, tracking?.guide]);
 
+  // El enlace de una solicitud recién enviada trae la guía: se consulta una sola vez.
+  const guideFromLink = useRef(false);
+  useEffect(() => {
+    if (guideFromLink.current) return;
+    guideFromLink.current = true;
+    const linked = new URLSearchParams(window.location.search).get("guia")?.trim();
+    if (linked) {
+      setGuide(linked);
+      void searchTracking(linked);
+    }
+  }, [searchTracking]);
+
   useEffect(() => {
     if (!tracking || tracking.status === "DELIVERED" || tracking.status === "FAILED") {
       return;
@@ -138,7 +150,8 @@ export default function ClientePage() {
         lat: tracking.coordinates.lat,
         lng: tracking.coordinates.lng,
         sequenceIndex: null,
-        status: tracking.status,
+        // El mapa dibuja una solicitud en revisión igual que un pedido pendiente.
+        status: tracking.status === "REQUESTED" ? ("PENDING" as const) : tracking.status,
       }
     : null;
 
@@ -260,7 +273,9 @@ export default function ClientePage() {
                 </>
               ) : (
                 <p className="mt-4 text-sm leading-6 text-[var(--ink-soft)]">
-                  El pedido fue recibido, pero todavía no ha sido asignado a una ruta.
+                  {tracking.status === "REQUESTED"
+                    ? "Recibimos tu solicitud. El despacho la revisa antes de asignarla a un repartidor."
+                    : "El pedido fue recibido, pero todavía no ha sido asignado a una ruta."}
                 </p>
               )}
               <button
@@ -312,12 +327,18 @@ function trackingStages(tracking: TrackingData): LineStop[] {
   const failed = tracking.status === "FAILED";
   const enRoute = tracking.status === "EN_ROUTE";
   const assigned = tracking.route !== null;
+  const inReview = tracking.status === "REQUESTED";
   return [
-    { id: "recibido", label: "Pedido recibido", state: "done" },
+    {
+      id: "recibido",
+      label: inReview ? "Solicitud en revisión" : "Pedido recibido",
+      meta: inReview ? "El despacho confirma la dirección" : undefined,
+      state: inReview ? "current" : "done",
+    },
     {
       id: "asignado",
       label: "Asignado a un repartidor",
-      state: assigned || delivered || failed ? "done" : "current",
+      state: inReview ? "pending" : assigned || delivered || failed ? "done" : "current",
     },
     { id: "camino", label: "En camino", state: enRoute ? "current" : delivered || failed ? "done" : "pending" },
     {
@@ -339,6 +360,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function formatStatus(status: TrackingData["status"]): string {
   return {
+    REQUESTED: "En revisión",
     PENDING: "Pendiente",
     EN_ROUTE: "En camino",
     DELIVERED: "Entregado",

@@ -22,6 +22,11 @@ export default function Home() {
               <span><strong>Soy repartidor o despachador</strong><p>Acceso privado para reparto y despacho.</p></span>
               <InterfaceIcon name="arrow" className="rp-entry-arrow" />
             </Link>
+            <Link className="rp-entry-link" href="/solicitar">
+              <InterfaceIcon name="route" />
+              <span><strong>Quiero enviar algo</strong><p>Solicita una entrega en Pasto; el despacho la confirma.</p></span>
+              <InterfaceIcon name="arrow" className="rp-entry-arrow" />
+            </Link>
             <Link className="rp-entry-link" href="/cliente">
               <InterfaceIcon name="package" />
               <span><strong>Soy cliente</strong><p>Consulta el avance de tu envío con la guía.</p></span>

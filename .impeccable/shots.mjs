@@ -39,6 +39,7 @@ function body(path, method, search) {
   if (path === '/api/v1/auth/session') return { authenticated: true };
   if (path === '/api/v1/repartidores/me') return { courier: { status: 'ON_ROUTE', currentLat: 1.2142, currentLng: -77.2804, lastLocationAt: iso(3) } };
   if (path === '/api/v1/repartidores') return { couriers };
+  if (path === '/api/v1/pedidos' && search.get('status') === 'REQUESTED') return { deliveryPoints: [{ id: 'q1', orderId: 'SOL-7F3A9C', address: 'Calle 16 #24-30, Centro', lat: 1.2144, lng: -77.2815, status: 'REQUESTED', sequenceIndex: null }, { id: 'q2', orderId: 'SOL-B21E04', address: 'Carrera 32 #12-08, Las Cuadras', lat: 1.2203, lng: -77.2741, status: 'REQUESTED', sequenceIndex: null }] };
   if (path === '/api/v1/pedidos') return { deliveryPoints: pending };
   if (path === '/api/v1/rutas') return { routes: [route] };
   if (path.endsWith('/navegacion')) return { navigation: { geometry, distanceMeters: 1400, durationMinutes: 6, source: 'osrm', geometryProvider: 'OSRM', nextDeliveryPointId: 's2', remainingDeliveryPointIds: ['s2', 's3', 's4'] } };
@@ -49,6 +50,7 @@ function body(path, method, search) {
   if (path === '/api/v1/analitica') return { metrics: { routeCount: 3, completedRouteCount: 1, estimatedDurationMinutes: 61, estimatedDistanceMeters: 9100, timeSavedMinutes: 6.8, distanceSavedMeters: 900, routesWithBaseline: 3 } };
   if (path === '/api/v1/optimizaciones/recientes') return { events: [{ at: iso(5), kind: 'propuesta', routeAlias: 'Ruta de Carlos', changed: false, improvementMinutes: 2.4, trafficSegments: 3, aiApplied: true, aiOrderAccepted: true, aiOrderSavingMinutes: 2.4 }, { at: iso(65), kind: 'aplicada', routeAlias: 'Ruta de Laura', changed: true, improvementMinutes: 3.1, trafficSegments: 5, aiApplied: true }], incidents: [], stats: { proposals: 42, cacheHits: 30, applied: 3, trafficSegments: 18, savedMinutes: 6.8 }, summaryCooldownSeconds: 0 };
   if (path === '/api/v1/seguimiento') return { tracking: { guide: search.get('guia'), status: 'EN_ROUTE', address: 'Avenida Idema #5-30, Las Lunas', coordinates: { lat: 1.2172, lng: -77.2744 }, route: { id: 'r1', status: 'IN_PROGRESS', courier: { currentLat: 1.215, currentLng: -77.2798, lastLocationAt: iso(6) }, geometry, geometryProvider: 'OSRM', estimatedMinutesFromNow: 14, distanceFromCourierMeters: 2300, estimateNote: 'Estimado por calles con tráfico del primer tramo.' } } };
+  if (path === '/api/v1/solicitudes') return { trackingGuide: '5b1f0c2e-8d4a-4c6e-9f1a-2e7d3c9b8a41', reference: 'SOL-7F3A9C', status: 'REQUESTED' };
   if (path === '/api/v1/asignaciones') return { assignments: [{ courierId: 'c2', deliveryPointIds: ['p2', 'p4', 'p1'] }], unassignedDeliveryPointIds: ['p3'], ai: { source: 'deterministic', applied: false } };
   if (path === '/api/v1/cliente/chat/estado') return { available: true };
   return method === 'GET' ? {} : { ok: true };
@@ -65,6 +67,9 @@ const pages = [
   ['repartidor', '/repartidor', 'mobile'],
   ['cliente', '/cliente?guia=RP-7F3A-9C21', 'mobile'],
   ['inicio', '/', 'desktop'],
+  ['solicitar', '/solicitar', 'desktop'],
+  ['solicitar-ok', '/solicitar', 'desktop'],
+  ['solicitar-movil', '/solicitar', 'mobile'],
 ].filter(([name]) => only.length === 0 || only.includes(name));
 
 const browser = await chromium.launch({ channel: 'chrome' });
@@ -93,6 +98,15 @@ for (const [name, path, kind] of pages) {
   if (name === 'personal-borrar') {
     await page.waitForTimeout(1500);
     await page.getByRole('button', { name: 'Eliminar a Carlos Muñoz' }).click();
+  }
+  if (name === 'solicitar-ok') {
+    await page.waitForTimeout(3000);
+    await page.getByLabel(/Dirección de entrega/).fill('Calle 16 #24-30, Centro');
+    const map = page.locator('.maplibregl-canvas').first();
+    const box = await map.boundingBox();
+    if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: 'Enviar solicitud' }).click();
   }
   if (name === 'propuesta') {
     await page.waitForTimeout(1500);

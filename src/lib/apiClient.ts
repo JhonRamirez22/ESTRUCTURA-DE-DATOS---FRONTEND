@@ -79,7 +79,9 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     : AbortSignal.timeout(API_TIMEOUT_MS);
   const headers = new Headers(init.headers);
   const unsafe = !['GET', 'HEAD', 'OPTIONS'].includes(method);
-  const staffMutation = unsafe && !['/api/v1/auth/login', '/api/v1/cliente/chat'].includes(url);
+  // Escrituras públicas: no hay sesión de personal ni prueba CSRF; el backend exige su origen.
+  const staffMutation =
+    unsafe && !['/api/v1/auth/login', '/api/v1/cliente/chat', '/api/v1/solicitudes'].includes(url);
   const role = sessionRole;
   if (role) headers.set(SESSION_ROLE_HEADER, role);
   const bearer = role ? accessTokens[role] : undefined;
