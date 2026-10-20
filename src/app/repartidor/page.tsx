@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import AppShell from "@/components/AppShell";
 import { isCourierLocationFresh } from "@/lib/courierLocation";
+import { Queue } from "@/core/structures/Queue";
 
 const CourierRouteMap = dynamic(() => import("./CourierRouteMap"), {
   ssr: false,
@@ -17,6 +18,8 @@ const CourierRouteMap = dynamic(() => import("./CourierRouteMap"), {
 });
 
 const MIN_UPDATE_INTERVAL_MS = 5_000;
+// Cola acotada: si la red se degrada, se descartan las posiciones más antiguas.
+const MAX_PENDING_LOCATIONS = 20;
 const NAVIGATION_REFRESH_INTERVAL_MS = 15_000;
 
 interface LastLocation {
@@ -42,6 +45,8 @@ interface NavigationSnapshot {
 interface AssignedRoute {
   id: string;
   status: "PLANNED" | "IN_PROGRESS";
+  optimizedAt?: string | null;
+  estimatedDurationMinutes?: number;
   courier: {
     currentLat: number | null;
     currentLng: number | null;
@@ -78,8 +83,13 @@ export default function RepartidorPage() {
   const [navigation, setNavigation] = useState<NavigationSnapshot | null>(null);
   const [navigationError, setNavigationError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizationNotice, setOptimizationNotice] = useState<string | null>(null);
+  const routeGeneration = useRef(0);
   const watchId = useRef<number | null>(null);
   const lastSentAt = useRef(0);
+  const pendingLocations = useRef(new Queue<LastLocation>());
+  const isSendingLocations = useRef(false);
   const activeDeliveryPoints =
     assignedRoute?.deliveryPoints.filter(
       (point) => point.status === "PENDING" || point.status === "EN_ROUTE",
@@ -120,9 +130,11 @@ export default function RepartidorPage() {
   }, []);
 
   const refreshNavigation = useCallback(async (routeId: string): Promise<void> => {
+    const generation = routeGeneration.current;
     const response = await apiFetch(`/api/rutas/${encodeURIComponent(routeId)}/navegacion`, {
       cache: "no-store",
     });
+    if (generation !== routeGeneration.current) return;
 
     if (!response.ok) {
       throw new Error(await readApiError(response, "No se pudo actualizar la navegación."));
@@ -131,6 +143,7 @@ export default function RepartidorPage() {
     const payload = (await response.json()) as {
       navigation: NavigationSnapshot | null;
     };
+    if (generation !== routeGeneration.current) return;
     setNavigation(payload.navigation);
     setNavigationError(null);
 
@@ -141,6 +154,12 @@ export default function RepartidorPage() {
               ...currentRoute,
               geometry: payload.navigation!.geometry,
               geometryProvider: payload.navigation!.geometryProvider,
+              deliveryPoints: currentRoute.deliveryPoints
+                .map((point) => {
+                  const index = payload.navigation!.remainingDeliveryPointIds.indexOf(point.id);
+                  return index < 0 ? point : { ...point, sequenceIndex: index };
+                })
+                .sort((a, b) => (a.sequenceIndex ?? 0) - (b.sequenceIndex ?? 0)),
             }
           : currentRoute,
       );
@@ -148,14 +167,17 @@ export default function RepartidorPage() {
   }, []);
 
   const loadAssignedRoute = useCallback(async (): Promise<void> => {
+    const generation = routeGeneration.current;
     try {
       const response = await apiFetch("/api/rutas", { cache: "no-store" });
+      if (generation !== routeGeneration.current) return;
 
       if (!response.ok) {
         throw new Error(await readApiError(response, "No se pudo cargar la ruta asignada."));
       }
 
       const payload = (await response.json()) as { routes: AssignedRoute[] };
+      if (generation !== routeGeneration.current) return;
       const route = payload.routes.find(
         (candidate) =>
           candidate.status === "PLANNED" || candidate.status === "IN_PROGRESS",
@@ -183,6 +205,39 @@ export default function RepartidorPage() {
       );
     }
   }, [refreshNavigation]);
+
+  const optimizeRoute = async (): Promise<void> => {
+    if (!assignedRoute || optimizing) return;
+    routeGeneration.current += 1;
+    setOptimizing(true);
+    setError(null);
+    try {
+      const response = await apiFetch(`/api/rutas/${encodeURIComponent(assignedRoute.id)}/recalcular`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      });
+      if (!response.ok) throw new Error(await readApiError(response, 'No se pudo optimizar tu ruta.'));
+      const result = (await response.json()) as {
+        route: AssignedRoute;
+        trafficAi: { source: string; applied: boolean; warning?: string };
+        liveTraffic: { applied: boolean; usedMeasuredSegments?: number; adjustedSegments?: number; warning?: string };
+      };
+      setAssignedRoute(result.route);
+      setNavigation(null);
+      setNavigationError(null);
+      const traffic = result.liveTraffic.applied
+        ? `TomTom: ${result.liveTraffic.usedMeasuredSegments ?? result.liveTraffic.adjustedSegments ?? 0} tramos de la ruta con medición.`
+        : 'TomTom sin mediciones utilizables; se conservaron tiempos viales.';
+      const ai = result.trafficAi.source === 'external-ai'
+        ? result.trafficAi.applied ? 'IA consultada con ajustes validados.' : 'IA consultada, sin ajustes adicionales.'
+        : 'IA no disponible; optimización determinista aplicada.';
+      setOptimizationNotice(`${traffic} ${ai} ${result.liveTraffic.warning ?? ''} ${result.trafficAi.warning ?? ''}`.trim());
+    } catch (optimizationError) {
+      setError(optimizationError instanceof Error ? optimizationError.message : 'No se pudo optimizar tu ruta.');
+    } finally {
+      routeGeneration.current += 1;
+      setOptimizing(false);
+    }
+  };
 
   useEffect(() => {
     // Retira identificadores y rutas privadas almacenados por versiones antiguas de la PWA.
@@ -232,7 +287,7 @@ export default function RepartidorPage() {
       routeId !== undefined &&
       (assignedRoute?.status === "IN_PROGRESS" || isTracking);
 
-    if (!shouldRefresh || routeId === undefined) {
+    if (!shouldRefresh || routeId === undefined || optimizing) {
       return;
     }
 
@@ -244,13 +299,14 @@ export default function RepartidorPage() {
     const interval = window.setInterval(refresh, NAVIGATION_REFRESH_INTERVAL_MS);
 
     return () => window.clearInterval(interval);
-  }, [assignedRoute?.id, assignedRoute?.status, isTracking, refreshNavigation]);
+  }, [assignedRoute?.id, assignedRoute?.status, isTracking, optimizing, refreshNavigation]);
 
   const stopTracking = async () => {
     if (watchId.current !== null) {
       navigator.geolocation.clearWatch(watchId.current);
       watchId.current = null;
     }
+    pendingLocations.current.clear();
     setIsTracking(false);
     try {
       const response = await apiFetch("/api/repartidores/me/ubicacion", { method: "DELETE" });
@@ -309,6 +365,43 @@ export default function RepartidorPage() {
     }
   };
 
+  // Envía las posiciones en orden FIFO, de una en una, para que el backend no rechace
+  // lecturas antiguas que llegan después de las nuevas.
+  const sendQueuedLocations = async () => {
+    if (isSendingLocations.current) {
+      return;
+    }
+    isSendingLocations.current = true;
+    try {
+      for (
+        let next = pendingLocations.current.dequeue();
+        next !== undefined;
+        next = pendingLocations.current.dequeue()
+      ) {
+        const result = await sendLocation(next);
+        if (result.accepted) {
+          setLastLocation(next);
+          setCourierStatus(assignedRoute ? "ON_ROUTE" : "AVAILABLE");
+          setSentEvents((current) => current + 1);
+          setError(null);
+        } else if (result.error) {
+          setError(result.error);
+        }
+      }
+    } finally {
+      isSendingLocations.current = false;
+    }
+  };
+
+  const enqueueLocation = (location: LastLocation) => {
+    const queue = pendingLocations.current;
+    if (queue.size() >= MAX_PENDING_LOCATIONS) {
+      queue.dequeue();
+    }
+    queue.enqueue(location);
+    void sendQueuedLocations();
+  };
+
   const startTracking = () => {
     if (!navigator.geolocation) {
       setError("Este dispositivo no permite obtener la ubicación.");
@@ -330,21 +423,10 @@ export default function RepartidorPage() {
         }
 
         lastSentAt.current = now;
-        const location = {
+        enqueueLocation({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
           recordedAt,
-        };
-
-        void sendLocation(location).then((result) => {
-          if (result.accepted) {
-            setLastLocation(location);
-            setCourierStatus(assignedRoute ? "ON_ROUTE" : "AVAILABLE");
-            setSentEvents((current) => current + 1);
-            setError(null);
-          } else if (result.error) {
-            setError(result.error);
-          }
         });
       },
       (positionError) => {
@@ -482,6 +564,21 @@ export default function RepartidorPage() {
                 ) : null}
               </div>
             </div>
+            <div className="my-4 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-slate-600">
+                {assignedRoute.optimizedAt
+                  ? `Última optimización: ${new Date(assignedRoute.optimizedAt).toLocaleString('es-CO')}`
+                  : 'Ruta asignada por despacho; puedes recalcularla si cambia el tráfico.'}
+                {assignedRoute.estimatedDurationMinutes !== undefined
+                  ? ` · ${Math.ceil(assignedRoute.estimatedDurationMinutes)} min estimados` : ''}
+              </p>
+              <button className="rp-button rp-button-primary rp-button-small" type="button"
+                aria-busy={optimizing} disabled={optimizing || activeDeliveryPoints.length === 0}
+                onClick={() => void optimizeRoute()}>
+                {optimizing ? 'Optimizando…' : 'Optimizar con tráfico e IA'}
+              </button>
+            </div>
+            {optimizationNotice ? <p className="mb-3 rounded-xl border border-teal-200 bg-teal-50 p-3 text-xs leading-5 text-teal-950" role="status">{optimizationNotice}</p> : null}
             <CourierRouteMap currentLocation={lastLocation} route={assignedRoute} />
             {navigationError ? (
               <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900" role="status">
