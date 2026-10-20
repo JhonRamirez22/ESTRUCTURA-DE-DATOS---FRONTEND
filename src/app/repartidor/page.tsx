@@ -985,3 +985,85 @@ export default function RepartidorPage() {
                       {point.address}
                       <span className="rl-stop-meta">{formatDeliveryStatus(point.status)}</span>
                       {!current &&
+                      assignedRoute.status === "IN_PROGRESS" &&
+                      (point.status === "PENDING" || point.status === "EN_ROUTE") ? (
+                        <span className="mt-2 flex gap-2">
+                          <button
+                            className={`rp-button ${current ? "rp-button-go" : "rp-button-quiet"} rp-button-small`}
+                            data-tip="tip.delivered"
+                            onClick={() => void updateDeliveryStatus(point.id, "DELIVERED")}
+                            type="button"
+                          >
+                            {t("courier.delivered")}
+                          </button>
+                          <button
+                            className="rp-button rp-button-danger rp-button-small"
+                            data-tip="tip.failed"
+                            onClick={() => void updateDeliveryStatus(point.id, "FAILED")}
+                            type="button"
+                          >
+                            {t("courier.failed")}
+                          </button>
+                        </span>
+                      ) : null}
+                    </span>
+                    <span />
+                  </li>
+                );
+              })}
+            </ol>
+
+            {trafficMarks.length > 0 ? (
+              <p className="mt-2 text-xs text-[var(--ink-soft)]">
+                Tráfico sobre tu ruta: {summarizeTraffic(trafficMarks)}. Medido a las{" "}
+                {new Date(trafficMarks[0]!.observedAt).toLocaleTimeString("es-CO")}.
+              </p>
+            ) : null}
+            {nearest.length > 0 ? (
+              <section aria-label="Próximas paradas por tiempo estimado" className="mt-6">
+                <div className="rl-head">
+                  <h3>{t("courier.nearest")}</h3>
+                </div>
+                <ul className="rl-rows">
+                  {nearest.map((eta) => (
+                    <li key={eta.stopId} className="rl-row !min-h-11 text-sm">
+                      <span className="rl-row-main">
+                        {assignedRoute.deliveryPoints.find((point) => point.id === eta.stopId)?.address ?? "Parada"}
+                      </span>
+                      <span className="tabular-nums font-semibold">
+                        {Math.ceil(eta.estimatedMinutesFromNow)} min
+                        {eta.historicalMinutesFromNow !== undefined &&
+                        Math.abs(eta.historicalMinutesFromNow - eta.estimatedMinutesFromNow) >= 1 ? (
+                          <small className="block text-xs font-normal text-[var(--ink-soft)]">
+                            ≈{Math.ceil(eta.historicalMinutesFromNow)} min {t("courier.etaHistorical")}
+                            {historySimulated ? ` · ${t("courier.etaSimulated")}` : ""}
+                          </small>
+                        ) : null}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+              </section>
+            ) : null}
+        {!assignedRoute && !loadingProfile && !error ? (
+          <p className="rl-empty mt-6">
+            {loadingProfile ? "Cargando tus entregas…" : t("courier.noRoute")}
+          </p>
+        ) : null}
+          </Sheet>
+        </section>
+      </main>
+    </AppShell>
+  );
+}
+
+async function sendLocation(
+  location: LastLocation,
+): Promise<{ accepted: boolean; error?: string }> {
+  try {
+    const response = await apiFetch("/api/repartidores/me/ubicacion", {
+      body: JSON.stringify(location),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
