@@ -275,7 +275,7 @@ export default function CustomerOrderChat({ guide }: CustomerOrderChatProps) {
                 value={draft}
               />
               <button
-                className="rp-button rp-button-primary min-w-28 disabled:opacity-60"
+                className="rp-button rp-button-primary min-w-28"
                 disabled={!draft.trim() || submitting}
                 type="submit"
               >

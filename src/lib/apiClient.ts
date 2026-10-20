@@ -1,6 +1,14 @@
 /** HTTP del mismo origen: la cookie HttpOnly viaja sin exponerse a JavaScript. */
 const API_TIMEOUT_MS = 15_000;
-let csrfProof: string | null = null;
+const SESSION_ROLE_HEADER = 'X-Session-Role';
+const SESSION_CHANNEL = 'rutas-pasto-session';
+
+export type SessionRole = 'dispatcher' | 'courier';
+export type SessionChange = { role: SessionRole | 'all'; kind: 'login' | 'logout' };
+
+/** Rol de la pestaña: cada rol tiene su cookie, así que la pestaña debe indicarlo. */
+let sessionRole: SessionRole | null = null;
+let csrfProof: { role: SessionRole | null; value: string } | null = null;
 
 export class ApiRequestError extends Error {
   constructor(
@@ -11,6 +19,27 @@ export class ApiRequestError extends Error {
     super(message);
     this.name = 'ApiRequestError';
   }
+}
+
+/** Fija el rol que usa esta pestaña; un cambio descarta la prueba CSRF del rol anterior. */
+export function setSessionRole(role: SessionRole | null): void {
+  sessionRole = role;
+  if (csrfProof && csrfProof.role !== role) csrfProof = null;
+}
+
+/** Avisa a otras pestañas del navegador cuando cambia una sesión (no se notifica a sí misma). */
+export function onSessionChange(listener: (change: SessionChange) => void): () => void {
+  if (typeof BroadcastChannel === 'undefined') return () => undefined;
+  const channel = new BroadcastChannel(SESSION_CHANNEL);
+  channel.onmessage = (event: MessageEvent<SessionChange>) => listener(event.data);
+  return () => channel.close();
+}
+
+function announceSessionChange(change: SessionChange): void {
+  if (typeof BroadcastChannel === 'undefined') return;
+  const channel = new BroadcastChannel(SESSION_CHANNEL);
+  channel.postMessage(change);
+  channel.close();
 }
 
 /** No expone HTML de proxies ni detalles internos de excepciones del servidor. */
@@ -49,20 +78,25 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   const headers = new Headers(init.headers);
   const unsafe = !['GET', 'HEAD', 'OPTIONS'].includes(method);
   const staffMutation = unsafe && !['/api/v1/auth/login', '/api/v1/cliente/chat'].includes(url);
+  const role = sessionRole;
+  if (role) headers.set(SESSION_ROLE_HEADER, role);
   try {
+    if (staffMutation && csrfProof?.role !== role) csrfProof = null;
     if (staffMutation && !csrfProof) {
       const session = await fetch('/api/v1/auth/session', {
         credentials: 'same-origin',
         cache: 'no-store',
+        headers: role ? { [SESSION_ROLE_HEADER]: role } : undefined,
         signal,
       });
-      csrfProof = session.headers.get('X-CSRF-Token');
-      if (!session.ok || !csrfProof) {
+      const proof = session.headers.get('X-CSRF-Token');
+      if (!session.ok || !proof) {
         throw new ApiRequestError('La sesión expiró. Vuelve a ingresar.', requestId);
       }
+      csrfProof = { role: (session.headers.get(SESSION_ROLE_HEADER) as SessionRole | null) ?? role, value: proof };
     }
     headers.set('X-Request-ID', requestId);
-    if (unsafe && csrfProof) headers.set('X-CSRF-Token', csrfProof);
+    if (unsafe && csrfProof) headers.set('X-CSRF-Token', csrfProof.value);
     const response = await fetch(url, {
       ...init,
       headers,
@@ -71,8 +105,15 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
       cache: 'no-store',
     });
     const proof = response.headers.get('X-CSRF-Token');
-    if (proof) csrfProof = proof;
+    const responseRole = response.headers.get(SESSION_ROLE_HEADER) as SessionRole | null;
+    if (proof) csrfProof = { role: responseRole ?? role, value: proof };
     if (response.status === 401 || url === '/api/v1/auth/logout') csrfProof = null;
+    if (response.ok && url === '/api/v1/auth/login' && responseRole) {
+      announceSessionChange({ role: responseRole, kind: 'login' });
+    }
+    if (response.ok && url === '/api/v1/auth/logout') {
+      announceSessionChange({ role: role ?? 'all', kind: 'logout' });
+    }
     if (!response.ok && !response.headers.get('Content-Type')?.includes('application/json')) {
       return Response.json(
         {

@@ -15,6 +15,7 @@ import CustomerNotificationReadiness, {
   type CustomerNotificationOperationsStatus,
 } from '@/components/CustomerNotificationReadiness';
 import RoutingMethodology from '@/components/RoutingMethodology';
+import { SessionChangeNotice } from "@/components/SessionChangeNotice";
 
 const RouteMap = dynamic(() => import('./RouteMap'), {
   ssr: false,
@@ -708,6 +709,7 @@ export default function DashboardPage() {
   return (
     <AppShell active="dispatch">
       <main className="rp-dashboard text-slate-950">
+        <SessionChangeNotice role="dispatcher" />
         <div className="mx-auto max-w-[1600px] px-5 py-6 sm:px-8 lg:px-10">
           <header className="rp-page-heading flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -731,7 +733,7 @@ export default function DashboardPage() {
                     : 'Actualización automática activa'}
               </span>
               <button
-                className="rp-button rp-button-quiet w-full disabled:cursor-wait sm:w-auto"
+                className="rp-button rp-button-quiet w-full sm:w-auto"
                 disabled={loading}
                 onClick={() => void loadDashboard()}
                 type="button"
@@ -1268,7 +1270,7 @@ export default function DashboardPage() {
                     </div>
                   )}
                   <button
-                    className="rp-button rp-button-primary mt-4 w-full disabled:cursor-not-allowed"
+                    className="rp-button rp-button-primary mt-4 w-full"
                     disabled={
                       analyzing ||
                       selectedPendingIds.length === 0 ||
@@ -1300,7 +1302,7 @@ export default function DashboardPage() {
                   </div>
                   {assignmentPreview.length > 0 ? (
                     <button
-                      className="rp-button rp-button-primary disabled:opacity-50"
+                      className="rp-button rp-button-primary"
                       disabled={dispatching || !assignmentPreviewIsCurrent}
                       onClick={() => void dispatchAssignments()}
                       type="button"
@@ -1475,7 +1477,7 @@ export default function DashboardPage() {
                   />
                 </label>
                 <button
-                  className="rp-button rp-button-secondary disabled:cursor-not-allowed"
+                  className="rp-button rp-button-secondary"
                   disabled={creatingCourier}
                   onClick={() => void createCourier()}
                   type="button"

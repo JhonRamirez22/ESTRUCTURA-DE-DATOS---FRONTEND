@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import AppShell from "@/components/AppShell";
 import { isCourierLocationFresh } from "@/lib/courierLocation";
 import { Queue } from "@/core/structures/Queue";
+import { SessionChangeNotice } from "@/components/SessionChangeNotice";
 
 const CourierRouteMap = dynamic(() => import("./CourierRouteMap"), {
   ssr: false,
@@ -445,6 +446,7 @@ export default function RepartidorPage() {
   return (
     <AppShell active="courier">
       <main className="rp-courier px-5 py-8 text-slate-950 sm:px-8">
+        <SessionChangeNotice role="courier" />
       <section className="mx-auto max-w-xl">
         <h1 className="text-3xl font-semibold tracking-tight">Tu próxima entrega, clara y cerca</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
@@ -466,24 +468,27 @@ export default function RepartidorPage() {
           </div>
 
           <div className="mt-4 flex flex-wrap gap-3">
+            {/* Una sola acción de ubicación visible: iniciar o detener según el estado. */}
+            {isTracking ? (
+              <button
+                className="rp-button rp-button-danger"
+                onClick={stopTracking}
+                type="button"
+              >
+                Detener ubicación
+              </button>
+            ) : (
+              <button
+                className="rp-button rp-button-primary"
+                disabled={loadingProfile}
+                onClick={startTracking}
+                type="button"
+              >
+                Iniciar ubicación
+              </button>
+            )}
             <button
-              className="rp-button rp-button-primary disabled:cursor-not-allowed"
-              disabled={isTracking || loadingProfile}
-              onClick={startTracking}
-              type="button"
-            >
-              Iniciar ubicación
-            </button>
-            <button
-              className="rp-button rp-button-danger disabled:cursor-not-allowed"
-              disabled={!isTracking}
-              onClick={stopTracking}
-              type="button"
-            >
-              Detener
-            </button>
-            <button
-              className="rp-button rp-button-secondary disabled:cursor-not-allowed"
+              className="rp-button rp-button-secondary"
               disabled={loadingProfile}
               onClick={() => void loadAssignedRoute()}
               type="button"
@@ -491,7 +496,7 @@ export default function RepartidorPage() {
               Cargar ruta asignada
             </button>
             <button
-              className="rp-button rp-button-quiet disabled:cursor-not-allowed"
+              className="rp-button rp-button-quiet"
               disabled={isTracking || loadingProfile}
               onClick={() => {
                 void loadCourierProfile();

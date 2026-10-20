@@ -4,7 +4,11 @@ import { afterEach, expect, it, vi } from 'vitest';
 import RepartidorPage from '@/app/repartidor/page';
 
 const { request } = vi.hoisted(() => ({ request: vi.fn() }));
-vi.mock('@/lib/apiClient', () => ({ apiFetch: request }));
+vi.mock('@/lib/apiClient', () => ({
+  apiFetch: request,
+  onSessionChange: () => () => undefined,
+  setSessionRole: () => undefined,
+}));
 vi.mock('@/components/AppShell', () => ({
   default: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));

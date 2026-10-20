@@ -489,7 +489,7 @@ export default function OrdersPage() {
                   </p>
                 </div>
                 <button
-                  className="rp-button rp-button-primary w-full disabled:cursor-wait"
+                  className="rp-button rp-button-primary w-full"
                   disabled={saving}
                   onClick={() => void createOrder()}
                   type="button"

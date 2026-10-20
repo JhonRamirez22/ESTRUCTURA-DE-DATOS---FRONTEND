@@ -366,7 +366,7 @@ a {
   padding: 10px 16px;
   border-radius: 8px;
   border: 1px solid transparent;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.3;
   transition:
@@ -387,8 +387,8 @@ a {
 }
 .rp-button-primary:hover:not(:disabled),
 .ui-button-primary:hover:not(:disabled) {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
+  background: #4a3429;
+  border-color: #4a3429;
   color: #ffffff;
 }
 .rp-button-secondary,
@@ -441,7 +441,14 @@ a {
 .ui-button-small {
   min-height: 44px;
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: 13px;
+}
+/* En escritorio con ratón basta 36 px; en pantalla táctil se mantienen 44 px. */
+@media (pointer: fine) {
+  .rp-button-small,
+  .ui-button-small {
+    min-height: 36px;
+  }
 }
 .ui-button-large {
   padding: 12px 24px;

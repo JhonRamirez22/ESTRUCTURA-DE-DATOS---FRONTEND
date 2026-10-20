@@ -183,7 +183,7 @@ export default function ClientePage() {
             </span>
           </label>
           <button
-            className="rp-button rp-button-primary px-5 disabled:opacity-60"
+            className="rp-button rp-button-primary px-5"
             disabled={loading}
             type="submit"
           >
@@ -344,7 +344,7 @@ export default function ClientePage() {
                 </p>
               )}
               <button
-                className="rp-button rp-button-quiet mt-6 w-full disabled:cursor-wait"
+                className="rp-button rp-button-quiet mt-6 w-full"
                 disabled={loading}
                 onClick={() => void searchTracking(tracking.guide)}
                 type="button"
