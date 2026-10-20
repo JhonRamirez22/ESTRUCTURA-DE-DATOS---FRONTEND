@@ -34,7 +34,7 @@ const EMPTY_DRAFT: CourierDraft = { name: '', phone: '', email: '', password: ''
 const MIN_PASSWORD = 15;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-/** Personal: alta de repartidores con su acceso y cambio de credenciales del equipo. */
+/** Personal: alta y baja de repartidores con su acceso, y cambio de credenciales del equipo. */
 export default function StaffPage() {
   const [couriers, setCouriers] = useState<Courier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +46,9 @@ export default function StaffPage() {
   const [access, setAccess] = useState<AccessDraft | null>(null);
   const [savingAccess, setSavingAccess] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ courierId: string; message: string } | null>(null);
 
   const loadCouriers = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -133,6 +136,36 @@ export default function StaffPage() {
     }
   };
 
+  const deleteCourier = async (courier: Courier): Promise<void> => {
+    setDeletingId(courier.id);
+    setDeleteError(null);
+    setNotice(null);
+    try {
+      const response = await apiFetch(`/api/repartidores/${encodeURIComponent(courier.id)}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const message =
+          response.status === 409
+            ? `${courier.name} tiene rutas en su historial; se conserva para no perder ese registro.`
+            : await readApiError(response, 'No se pudo eliminar el repartidor.');
+        throw new Error(message);
+      }
+      setConfirmingDeleteId(null);
+      if (access?.courierId === courier.id) setAccess(null);
+      setNotice(`${courier.name} fue eliminado y su cuenta ya no puede ingresar.`);
+      await loadCouriers();
+    } catch (error) {
+      setConfirmingDeleteId(null);
+      setDeleteError({
+        courierId: courier.id,
+        message: error instanceof Error ? error.message : 'No se pudo eliminar el repartidor.',
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const connected = couriers.filter(
     (courier) => courier.status !== 'OFFLINE' && isFresh(courier.lastLocationAt)
   ).length;
@@ -201,6 +234,8 @@ export default function StaffPage() {
               <ul className="rl-rows">
                 {couriers.map((courier) => {
                   const editing = access?.courierId === courier.id;
+                  const confirming = confirmingDeleteId === courier.id;
+                  const rowError = deleteError?.courierId === courier.id ? deleteError.message : null;
                   return (
                     <li className="border-b border-[var(--line)] py-3" key={courier.id}>
                       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -212,18 +247,71 @@ export default function StaffPage() {
                             <span className="tabular-nums">{courier.phone}</span> · {describeStatus(courier)}
                           </p>
                         </div>
-                        <button
-                          aria-expanded={editing}
-                          className="rp-button rp-button-quiet rp-button-small"
-                          onClick={() => {
-                            setAccessError(null);
-                            setAccess(editing ? null : { courierId: courier.id, email: '', password: '' });
-                          }}
-                          type="button"
-                        >
-                          {editing ? 'Cancelar' : 'Cambiar acceso'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            aria-expanded={editing}
+                            className="rp-button rp-button-quiet rp-button-small"
+                            onClick={() => {
+                              setAccessError(null);
+                              setConfirmingDeleteId(null);
+                              setAccess(editing ? null : { courierId: courier.id, email: '', password: '' });
+                            }}
+                            type="button"
+                          >
+                            {editing ? 'Cancelar' : 'Cambiar acceso'}
+                          </button>
+                          {/* La acción destructiva queda separada y pide una segunda confirmación. */}
+                          <button
+                            aria-expanded={confirming}
+                            aria-label={`Eliminar a ${courier.name}`}
+                            className="rp-button rp-button-danger rp-button-small ml-3"
+                            disabled={deletingId !== null}
+                            onClick={() => {
+                              setDeleteError(null);
+                              setAccess(null);
+                              setConfirmingDeleteId(confirming ? null : courier.id);
+                            }}
+                            type="button"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </div>
+                      {confirming ? (
+                        <div
+                          className="route-proposal mt-3 flex flex-wrap items-center justify-between gap-3 bg-[var(--danger-band)] p-3"
+                          role="group"
+                          aria-label={`Confirmar eliminación de ${courier.name}`}
+                        >
+                          <p className="text-sm text-[#5e1a24]">
+                            ¿Eliminar a <strong>{courier.name}</strong>? Se borra también su cuenta de acceso. No se
+                            puede deshacer.
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              className="rp-button rp-button-quiet rp-button-small"
+                              disabled={deletingId === courier.id}
+                              onClick={() => setConfirmingDeleteId(null)}
+                              type="button"
+                            >
+                              Conservar
+                            </button>
+                            <button
+                              className="rp-button rp-button-small !border-[var(--danger)] !bg-[var(--danger)] !text-white"
+                              disabled={deletingId === courier.id}
+                              onClick={() => void deleteCourier(courier)}
+                              type="button"
+                            >
+                              {deletingId === courier.id ? 'Eliminando…' : 'Sí, eliminar'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                      {rowError ? (
+                        <p className="rl-notice is-warn mt-3" role="alert">
+                          {rowError}
+                        </p>
+                      ) : null}
                       {editing && access ? (
                         <form
                           aria-label={`Acceso de ${courier.name}`}

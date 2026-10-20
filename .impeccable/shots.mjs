@@ -61,6 +61,7 @@ const pages = [
   ['propuesta', '/dashboard', 'desktop'],
   ['pedidos', '/pedidos', 'desktop'],
   ['personal', '/personal', 'desktop'],
+  ['personal-borrar', '/personal', 'desktop'],
   ['repartidor', '/repartidor', 'mobile'],
   ['cliente', '/cliente?guia=RP-7F3A-9C21', 'mobile'],
   ['inicio', '/', 'desktop'],
@@ -88,6 +89,10 @@ for (const [name, path, kind] of pages) {
   if (name === 'cliente') {
     const input = page.locator('#tracking-guide');
     if (await input.count()) { await input.fill('RP-7F3A-9C21'); await page.keyboard.press('Enter'); }
+  }
+  if (name === 'personal-borrar') {
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: 'Eliminar a Carlos Muñoz' }).click();
   }
   if (name === 'propuesta') {
     await page.waitForTimeout(1500);
