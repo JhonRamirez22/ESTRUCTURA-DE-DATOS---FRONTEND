@@ -58,7 +58,7 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
     ).toBeVisible();
 
     await page.goto('/dashboard');
-    await expect(page.getByRole('heading', { name: 'Rutas en movimiento' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Despacho', exact: true })).toBeVisible();
     await expect(page.getByText(guide, { exact: true })).toBeVisible();
 
     const dispatchSection = page.getByRole('region', { name: 'Despachar pedidos' });

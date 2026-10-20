@@ -991,3 +991,70 @@ a {
     animation: none;
   }
 }
+
+/* Despacho: barra lateral fija en escritorio; en pantallas menores se conserva el encabezado. */
+.rp-panel-primary {
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+}
+.rp-panel-quiet {
+  background: var(--secondary);
+  border-radius: 12px;
+}
+@media (min-width: 1024px) {
+  .rp-shell-sidebar {
+    padding-left: 224px;
+    padding-bottom: 0;
+  }
+  .rp-shell-sidebar .rp-shell-header {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 224px;
+    border-bottom: 0;
+    border-right: 1px solid var(--line);
+    background: var(--secondary);
+  }
+  .rp-shell-sidebar .rp-shell-header-inner {
+    min-height: 100%;
+    height: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 24px;
+    padding: 20px 12px;
+  }
+  .rp-shell-sidebar .rp-navigation {
+    flex-direction: column;
+    margin: 0;
+    gap: 4px;
+  }
+  .rp-shell-sidebar .rp-nav-item {
+    justify-content: flex-start;
+    font-size: 14px;
+  }
+  .rp-shell-sidebar .rp-nav-item.is-active {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .rp-shell-sidebar .rp-shell-account {
+    margin-top: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .rp-shell-sidebar .rp-shell-content {
+    min-width: 0;
+  }
+}
+
+/* Móvil: cuatro destinos caben sin desbordar si se omiten los iconos. */
+@media (max-width: 1023px) {
+  .rp-shell-sidebar .rp-nav-item {
+    padding-inline: 6px;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .rp-shell-sidebar .rp-nav-item > svg {
+    display: none;
+  }
+}

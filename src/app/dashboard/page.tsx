@@ -672,11 +672,10 @@ export default function DashboardPage() {
       <main className="rp-dashboard text-slate-950">
         <SessionChangeNotice role="dispatcher" />
         <div className="mx-auto max-w-[1600px] px-5 py-6 sm:px-8 lg:px-10">
-          <OptimizationFeed />
           <header className="rp-page-heading flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-                Rutas en movimiento
+                Despacho
               </h1>
             </div>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
@@ -827,122 +826,6 @@ export default function DashboardPage() {
             </section>
           ) : null}
 
-          <section
-            aria-label="Mapa y rutas activas"
-            className="mb-6 grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]"
-          >
-            <div className="rp-map-frame min-w-0">
-              <div className="rp-map-heading">
-                <div className="min-w-0">
-                  <h2 className="font-semibold text-slate-900">Mapa operativo</h2>
-                  <p className="mt-1 max-w-3xl text-sm leading-5 text-slate-600">
-                    Ubicaciones del equipo y recorridos por calles de Pasto.
-                  </p>
-                </div>
-                <div className="rp-map-legend">
-                  <span className="inline-flex whitespace-nowrap items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-cyan-400" />
-                    Repartidor
-                  </span>
-                  <span className="inline-flex whitespace-nowrap items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-amber-500" />
-                    Pendiente
-                  </span>
-                  <span className="inline-flex whitespace-nowrap items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-sky-400" />
-                    En camino
-                  </span>
-                  <span className="inline-flex whitespace-nowrap items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    Entregada
-                  </span>
-                </div>
-              </div>
-              <RouteMap
-                showTraffic={activeRoutes.length > 0}
-                couriers={data.couriers}
-                pendingPoints={data.pendingPoints}
-                routes={activeRoutes}
-              />
-            </div>
-
-            <aside className="rp-route-list min-w-0" id="active-routes">
-              <div className="mb-5 flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="font-semibold text-slate-900">Rutas activas</h2>
-                  <p className="mt-1 text-xs text-slate-500">Recorridos planificados y en curso</p>
-                </div>
-                <span
-                  aria-label={`${activeRoutes.length} rutas activas`}
-                  className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800"
-                >
-                  {activeRoutes.length}
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {loading && data.routes.length === 0 ? (
-                  <p
-                    aria-live="polite"
-                    className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500"
-                    role="status"
-                  >
-                    Cargando rutas activas…
-                  </p>
-                ) : activeRoutes.length === 0 ? (
-                  <div className="rounded-2xl bg-slate-50 px-4 py-5">
-                    <p className="text-sm leading-6 text-slate-600">
-                      No hay recorridos activos.
-                    </p>
-                    <Link
-                      className="mt-3 inline-flex text-xs font-bold text-emerald-800 underline decoration-emerald-300 underline-offset-4 hover:text-emerald-950"
-                      href="#dispatch-orders"
-                    >
-                      Ir al despacho
-                    </Link>
-                  </div>
-                ) : (
-                  activeRoutes.map((route) => (
-                    <RouteSummary
-                      key={route.id}
-                      isRecalculating={recalculatingRouteId === route.id}
-                      isUndoing={undoingRouteId === route.id}
-                      onRecalculate={recalculateRouteGeometry}
-                      onUndo={undoRouteRecalculation}
-                      onStatusChange={updateRouteStatus}
-                      route={route}
-                    />
-                  ))
-                )}
-              </div>
-              {historicalRoutes.length > 0 ? (
-                <details
-                  aria-label="Historial de rutas"
-                  className="mt-4 border-t border-slate-100 pt-3"
-                >
-                  <summary className="cursor-pointer rounded-lg py-2 text-xs font-semibold text-slate-600 outline-offset-4 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-emerald-600">
-                    Historial de rutas{' '}
-                    <span className="ml-1 text-slate-400">({historicalRoutes.length})</span>
-                  </summary>
-                  <div className="mt-3 space-y-3">
-                    {historicalRoutes.map((route) => (
-                      <RouteSummary
-                        key={route.id}
-                        isRecalculating={false}
-                        isUndoing={false}
-                        onRecalculate={recalculateRouteGeometry}
-                        onUndo={undoRouteRecalculation}
-                        onStatusChange={updateRouteStatus}
-                        route={route}
-                      />
-                    ))}
-                  </div>
-                </details>
-              ) : null}
-            </aside>
-          </section>
-
-
           <dl
             aria-label="Resumen operativo"
             className="rp-operational-summary mb-6 grid grid-cols-2 divide-x divide-y divide-slate-200 sm:grid-cols-3 lg:grid-cols-5 lg:divide-y-0"
@@ -951,7 +834,7 @@ export default function DashboardPage() {
               <div className="min-w-0 px-3 py-3 sm:px-4" key={metric.label}>
                 <dt className="text-xs font-medium leading-5 text-slate-600">{metric.label}</dt>
                 <dd
-                  className={`mt-1 text-2xl font-semibold tabular-nums ${metric.warning ? 'text-amber-700' : 'text-slate-950'}`}
+                  className={`mt-1 text-xl font-semibold tabular-nums ${metric.warning ? 'text-amber-700' : 'text-slate-950'}`}
                 >
                   {metric.value}
                 </dd>
@@ -959,53 +842,14 @@ export default function DashboardPage() {
             ))}
           </dl>
 
-          {data.notifications.length > 0 ? (
-            <section
-              aria-label="Avisos operativos"
-              className="mb-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-sm font-semibold text-slate-900">Actividad reciente</h2>
-                <span className="text-xs text-slate-500">Avisos del equipo</span>
-              </div>
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                {data.notifications.map((notification) => {
-                  const isFailure = notification.kind === 'ROUTE_RECALCULATION_FAILED';
-                  return (
-                    <article
-                      className={`rounded-xl border px-3 py-2 ${isFailure ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-[var(--surface)]'}`}
-                      key={notification.id}
-                    >
-                      <p
-                        className={`text-xs font-semibold ${isFailure ? 'text-amber-900' : 'text-slate-800'}`}
-                      >
-                        {notification.title}
-                      </p>
-                      <p
-                        className={`mt-1 text-xs ${isFailure ? 'text-amber-800' : 'text-slate-600'}`}
-                      >
-                        {formatNotificationMessage(notification.message)}
-                      </p>
-                      <time
-                        className={`mt-1 block text-[11px] ${isFailure ? 'text-amber-700' : 'text-slate-500'}`}
-                      >
-                        {new Date(notification.createdAt).toLocaleString('es-CO')}
-                      </time>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null}
-
           <section
             aria-label="Despachar pedidos"
-            className="mb-6 scroll-mt-24 rounded-[1.5rem] border border-slate-200/90 bg-[var(--surface)] p-5  sm:p-6"
+            className="mb-8 scroll-mt-24"
             id="dispatch-orders"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-xl font-bold text-slate-950">Selecciona, analiza y despacha</h2>
+                <h2 className="text-xl font-bold text-slate-950">Nuevo despacho</h2>
               </div>
               <Link
                 className="rp-button rp-button-secondary rp-button-small shrink-0"
@@ -1026,7 +870,7 @@ export default function DashboardPage() {
               </div>
             ) : null}
 
-            <div className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+            <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_340px]">
               <div className="rounded-2xl border border-slate-200/90 bg-slate-50/40">
                 <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                   <div>
@@ -1176,10 +1020,9 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
-            </div>
-
+            
             {assignmentPreview.length > 0 || unassignedDeliveryPointIds.length > 0 ? (
-              <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+              <div className="rp-panel-primary p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h3 className="text-sm font-bold text-emerald-950">
@@ -1306,8 +1149,18 @@ export default function DashboardPage() {
                 ) : null}
               </div>
             ) : null}
+            {assignmentPreview.length === 0 && unassignedDeliveryPointIds.length === 0 ? (
+              <aside aria-label="Propuesta" className="rp-panel-quiet p-4 text-sm text-slate-600">
+                <h3 className="text-sm font-bold text-slate-900">3. Propuesta</h3>
+                <p className="mt-1">Elige pedidos y repartidores y pulsa «Analizar asignación».</p>
+              </aside>
+            ) : null}
+            </div>
 
-            <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <details className="mt-6 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+              <summary className="cursor-pointer text-sm font-semibold text-slate-800">Equipo y accesos</summary>
+              <div className="scroll-mt-24 pt-3" id="equipo">
+            <div className="rp-panel-quiet mt-5 p-4">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-800">
@@ -1419,7 +1272,168 @@ export default function DashboardPage() {
                 </ul>
               </div>
             ) : null}
+              </div>
+            </details>
           </section>
+
+          <div className="scroll-mt-24" id="en-vivo">
+          <OptimizationFeed />
+          <section
+            aria-label="Mapa y rutas activas"
+            className="mb-6 grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]"
+          >
+            <div className="rp-map-frame min-w-0">
+              <div className="rp-map-heading">
+                <div className="min-w-0">
+                  <h2 className="font-semibold text-slate-900">Mapa operativo</h2>
+                  <p className="mt-1 max-w-3xl text-sm leading-5 text-slate-600">
+                    Ubicaciones del equipo y recorridos por calles de Pasto.
+                  </p>
+                </div>
+                <div className="rp-map-legend">
+                  <span className="inline-flex whitespace-nowrap items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-cyan-400" />
+                    Repartidor
+                  </span>
+                  <span className="inline-flex whitespace-nowrap items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                    Pendiente
+                  </span>
+                  <span className="inline-flex whitespace-nowrap items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-sky-400" />
+                    En camino
+                  </span>
+                  <span className="inline-flex whitespace-nowrap items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-green-500" />
+                    Entregada
+                  </span>
+                </div>
+              </div>
+              <RouteMap
+                showTraffic={activeRoutes.length > 0}
+                couriers={data.couriers}
+                pendingPoints={data.pendingPoints}
+                routes={activeRoutes}
+              />
+            </div>
+
+            <aside className="rp-route-list min-w-0" id="active-routes">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-semibold text-slate-900">Rutas activas</h2>
+                  <p className="mt-1 text-xs text-slate-500">Recorridos planificados y en curso</p>
+                </div>
+                <span
+                  aria-label={`${activeRoutes.length} rutas activas`}
+                  className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800"
+                >
+                  {activeRoutes.length}
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {loading && data.routes.length === 0 ? (
+                  <p
+                    aria-live="polite"
+                    className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500"
+                    role="status"
+                  >
+                    Cargando rutas activas…
+                  </p>
+                ) : activeRoutes.length === 0 ? (
+                  <div className="rounded-2xl bg-slate-50 px-4 py-5">
+                    <p className="text-sm leading-6 text-slate-600">
+                      No hay recorridos activos.
+                    </p>
+                    <Link
+                      className="mt-3 inline-flex text-xs font-bold text-emerald-800 underline decoration-emerald-300 underline-offset-4 hover:text-emerald-950"
+                      href="#dispatch-orders"
+                    >
+                      Ir al despacho
+                    </Link>
+                  </div>
+                ) : (
+                  activeRoutes.map((route) => (
+                    <RouteSummary
+                      key={route.id}
+                      isRecalculating={recalculatingRouteId === route.id}
+                      isUndoing={undoingRouteId === route.id}
+                      onRecalculate={recalculateRouteGeometry}
+                      onUndo={undoRouteRecalculation}
+                      onStatusChange={updateRouteStatus}
+                      route={route}
+                    />
+                  ))
+                )}
+              </div>
+              {historicalRoutes.length > 0 ? (
+                <details
+                  aria-label="Historial de rutas"
+                  className="mt-4 border-t border-slate-100 pt-3"
+                >
+                  <summary className="cursor-pointer rounded-lg py-2 text-xs font-semibold text-slate-600 outline-offset-4 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-emerald-600">
+                    Historial de rutas{' '}
+                    <span className="ml-1 text-slate-400">({historicalRoutes.length})</span>
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    {historicalRoutes.map((route) => (
+                      <RouteSummary
+                        key={route.id}
+                        isRecalculating={false}
+                        isUndoing={false}
+                        onRecalculate={recalculateRouteGeometry}
+                        onUndo={undoRouteRecalculation}
+                        onStatusChange={updateRouteStatus}
+                        route={route}
+                      />
+                    ))}
+                  </div>
+                </details>
+              ) : null}
+            </aside>
+          </section>
+
+
+          {data.notifications.length > 0 ? (
+            <section
+              aria-label="Avisos operativos"
+              className="mb-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-sm font-semibold text-slate-900">Actividad reciente</h2>
+                <span className="text-xs text-slate-500">Avisos del equipo</span>
+              </div>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {data.notifications.map((notification) => {
+                  const isFailure = notification.kind === 'ROUTE_RECALCULATION_FAILED';
+                  return (
+                    <article
+                      className={`rounded-xl border px-3 py-2 ${isFailure ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-[var(--surface)]'}`}
+                      key={notification.id}
+                    >
+                      <p
+                        className={`text-xs font-semibold ${isFailure ? 'text-amber-900' : 'text-slate-800'}`}
+                      >
+                        {notification.title}
+                      </p>
+                      <p
+                        className={`mt-1 text-xs ${isFailure ? 'text-amber-800' : 'text-slate-600'}`}
+                      >
+                        {formatNotificationMessage(notification.message)}
+                      </p>
+                      <time
+                        className={`mt-1 block text-[11px] ${isFailure ? 'text-amber-700' : 'text-slate-500'}`}
+                      >
+                        {new Date(notification.createdAt).toLocaleString('es-CO')}
+                      </time>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          </div>
           </fieldset>
         </div>
       </main>

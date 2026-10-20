@@ -133,7 +133,6 @@ export default function RepartidorPage() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [isTracking, setIsTracking] = useState(false);
   const [lastLocation, setLastLocation] = useState<LastLocation | null>(null);
-  const [sentEvents, setSentEvents] = useState(0);
   const [assignedRoute, setAssignedRoute] = useState<AssignedRoute | null>(null);
   const [navigation, setNavigation] = useState<NavigationSnapshot | null>(null);
   const [navigationError, setNavigationError] = useState<string | null>(null);
@@ -552,7 +551,6 @@ export default function RepartidorPage() {
         if (result.accepted) {
           setLastLocation(next);
           setCourierStatus(assignedRoute ? "ON_ROUTE" : "AVAILABLE");
-          setSentEvents((current) => current + 1);
           setError(null);
         } else if (result.error) {
           setError(result.error);
@@ -580,7 +578,6 @@ export default function RepartidorPage() {
 
     setError(null);
     void loadAssignedRoute();
-    setSentEvents(0);
     lastSentAt.current = 0;
 
     watchId.current = navigator.geolocation.watchPosition(
@@ -617,11 +614,7 @@ export default function RepartidorPage() {
       <main className="rp-courier px-5 py-8 text-slate-950 sm:px-8">
         <SessionChangeNotice role="courier" />
       <section className="mx-auto max-w-xl">
-        <h1 className="text-3xl font-semibold tracking-tight">Tu próxima entrega, clara y cerca</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">
-          Tu cuenta privada carga únicamente tus entregas. Activa el GPS al comenzar
-          el turno para que el despacho pueda asignarte rutas dentro de Pasto.
-        </p>
+        <h1 className="text-3xl font-semibold tracking-tight">Tu ruta de hoy</h1>
 
         <div className="mt-8 rounded-xl border border-slate-200/90 bg-[var(--surface)] p-5 ">
           <div className="flex items-center justify-between gap-4">
@@ -676,21 +669,6 @@ export default function RepartidorPage() {
               Actualizar estado
             </button>
           </div>
-        </div>
-
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <StatusCard
-            label="Estado"
-            value={
-              isTracking
-                ? lastLocation
-                  ? "GPS activo"
-                  : "Buscando GPS"
-                : formatCourierStatus(courierStatus, lastLocation !== null)
-            }
-            tone={isTracking ? "teal" : "slate"}
-          />
-          <StatusCard label="Eventos enviados" value={sentEvents.toString()} tone="blue" />
         </div>
 
         {lastLocation ? (
@@ -996,27 +974,3 @@ function formatGeolocationError(error: GeolocationPositionError): string {
   return "No se pudo obtener la ubicación actual. Intenta moverte a un lugar con mejor señal.";
 }
 
-function StatusCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "blue" | "slate" | "teal";
-}) {
-  const toneClasses = {
-    blue: "bg-blue-50 text-blue-700",
-    slate: "bg-slate-100 text-slate-700",
-    teal: "bg-teal-50 text-teal-700",
-  } as const;
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-[var(--surface)] p-4 ">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-2 inline-flex rounded-lg px-2.5 py-1 text-sm font-semibold ${toneClasses[tone]}`}>
-        {value}
-      </p>
-    </div>
-  );
-}

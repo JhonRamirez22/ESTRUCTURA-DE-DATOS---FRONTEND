@@ -104,7 +104,7 @@ export default function OptimizationFeed() {
   const events = feed?.events ?? [];
 
   return (
-    <section aria-label="Optimizaciones en vivo" className="rp-feed mx-auto mb-6 max-w-[1600px] px-5 sm:px-8 lg:px-10">
+    <section aria-label="Optimizaciones en vivo" className="rp-feed mb-6">
       <div className="rounded-2xl border border-stone-200 bg-white/80 p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-base font-semibold text-stone-900">

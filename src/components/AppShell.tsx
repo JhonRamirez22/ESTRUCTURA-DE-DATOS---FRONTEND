@@ -22,14 +22,17 @@ const navigationBySurface = {
   tracking: [{ href: '/cliente', label: 'Seguimiento', key: 'tracking' }],
   courier: [{ href: '/repartidor', label: 'Mi ruta', key: 'courier' }],
   dispatcher: [
-    { href: '/pedidos', label: 'Pedidos', key: 'orders' },
     { href: '/dashboard', label: 'Despacho', key: 'dispatch' },
+    { href: '/dashboard#en-vivo', label: 'En vivo', key: 'live' },
+    { href: '/pedidos', label: 'Pedidos', key: 'orders' },
+    { href: '/dashboard#equipo', label: 'Equipo', key: 'team' },
   ],
 } as const;
 
 export default function AppShell({ children, active }: AppShellProps) {
   const pathname = usePathname();
   const operational = active === 'orders' || active === 'dispatch' || active === 'courier';
+  const sidebar = active === 'orders' || active === 'dispatch';
   const navigation =
     active === 'tracking'
       ? navigationBySurface.tracking
@@ -50,7 +53,9 @@ export default function AppShell({ children, active }: AppShellProps) {
   }, []);
 
   return (
-    <div className={`rp-shell ${operational ? 'rp-shell-operational' : 'rp-shell-public'}`}>
+    <div
+      className={`rp-shell ${operational ? 'rp-shell-operational' : 'rp-shell-public'} ${sidebar ? 'rp-shell-sidebar' : ''}`}
+    >
       <a className="rp-skip-link" href="#main-content">
         Ir al contenido
       </a>
@@ -65,7 +70,11 @@ export default function AppShell({ children, active }: AppShellProps) {
             </span>
           </Link>
 
-          <nav aria-label="Navegación principal" className="rp-navigation">
+          <nav
+            aria-label="Navegación principal"
+            className="rp-navigation"
+            hidden={active === 'courier'}
+          >
             {navigation.map((item) => {
               const isActive = active === item.key || (!active && pathname === item.href);
 
@@ -103,16 +112,17 @@ export default function AppShell({ children, active }: AppShellProps) {
         </div>
       </header>
       <div className="rp-shell-content" id="main-content" tabIndex={-1}>
-        {operational && active !== 'dispatch' ? (
+        {active === 'orders' ? (
           <div className="rp-workspace-bar">
             <span>
-              {active === 'orders' ? 'Gestión de pedidos' : 'Espacio de reparto'}
+              Gestión de pedidos
             </span>
             <span>Operación local · Pasto</span>
           </div>
         ) : null}
         {children}
       </div>
+      {operational ? null : (
       <Dock className="rp-application-dock" ariaLabel="Accesos rápidos">
         <DockItem>
           <Link href="/" className="ui-dock-action" aria-label="Inicio">
@@ -149,6 +159,7 @@ export default function AppShell({ children, active }: AppShellProps) {
           );
         })}
       </Dock>
+      )}
     </div>
   );
 }

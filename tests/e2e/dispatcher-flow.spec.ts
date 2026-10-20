@@ -97,7 +97,7 @@ test("crea pedidos, optimiza una ruta y la muestra en el mapa", async ({
 
     await page.goto("/dashboard");
     await expect(
-      page.getByRole("heading", { name: "Rutas en movimiento" }),
+      page.getByRole("heading", { name: "Despacho", exact: true }),
     ).toBeVisible();
     await expect(
       page.locator("article").filter({ hasText: `E2E courier ${suffix}` }),
