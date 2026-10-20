@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import AppShell from '@/components/AppShell';
 import { usePreferences } from '@/lib/preferences';
@@ -19,6 +19,22 @@ const RequestMap = dynamic(() => import('@/components/MapLibreRouteMap'), {
   ),
 });
 
+interface AddressCandidate {
+  address: string;
+  lat: number;
+  lng: number;
+  precision: 'address' | 'intersection' | 'approximate';
+}
+
+interface LookupResult {
+  candidates: AddressCandidate[];
+  source: 'tomtom' | 'ai+tomtom' | 'local';
+  normalizedAddress: string;
+  warning: string | null;
+}
+
+const LOOKUP_DEBOUNCE_MS = 600;
+
 interface CreatedRequest {
   trackingGuide: string;
   reference: string;
@@ -33,6 +49,64 @@ export default function RequestDeliveryPage() {
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedRequest | null>(null);
   const [copied, setCopied] = useState(false);
+  const [lookup, setLookup] = useState<LookupResult | null>(null);
+  const [looking, setLooking] = useState(false);
+  const [picked, setPicked] = useState(false);
+  const lookupSequence = useRef(0);
+
+  // La IA ayuda a deducir la dirección: TomTom primero y Groq solo si no hay coincidencias.
+  useEffect(() => {
+    const text = address.trim();
+    const sequence = ++lookupSequence.current;
+    if (picked || text.length < 5) {
+      setLooking(false);
+      if (!picked) setLookup(null);
+      return undefined;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setLooking(true);
+      void (async () => {
+        try {
+          const response = await apiFetch('/api/solicitudes/direccion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address: text }),
+            signal: controller.signal,
+          });
+          const payload = (await response.json().catch(() => null)) as (LookupResult & { error?: string }) | null;
+          if (sequence !== lookupSequence.current) return;
+          if (!response.ok || !payload) {
+            setLookup({
+              candidates: [],
+              source: 'local',
+              normalizedAddress: text,
+              warning: payload?.error ?? null,
+            });
+            return;
+          }
+          setLookup(payload);
+        } catch {
+          if (sequence === lookupSequence.current) setLookup(null);
+        } finally {
+          if (sequence === lookupSequence.current) setLooking(false);
+        }
+      })();
+    }, LOOKUP_DEBOUNCE_MS);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [address, picked]);
+
+  const pickCandidate = (candidate: AddressCandidate) => {
+    ++lookupSequence.current;
+    setPicked(true);
+    setAddress(candidate.address);
+    setPoint([candidate.lat, candidate.lng]);
+    setLookup(null);
+    setError(null);
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -146,7 +220,10 @@ export default function RequestDeliveryPage() {
                   autoComplete="street-address"
                   className="rp-input mt-1.5 px-3 text-[15px] font-normal"
                   maxLength={200}
-                  onChange={(event) => setAddress(event.target.value)}
+                  onChange={(event) => {
+                    setPicked(false);
+                    setAddress(event.target.value);
+                  }}
                   placeholder="Ej. Calle 18 # 22-14, Centro"
                   value={address}
                 />
@@ -154,6 +231,36 @@ export default function RequestDeliveryPage() {
                   {t('request.address.help')}
                 </span>
               </label>
+              <div aria-busy={looking} aria-live="polite">
+                {looking ? <p className="text-sm text-[var(--ink-soft)]">{t('request.searching')}</p> : null}
+                {picked ? <p className="rl-notice is-ok">{t('request.picked')}</p> : null}
+                {lookup?.source === 'ai+tomtom' && lookup.candidates.length > 0 ? (
+                  <p className="rl-notice is-ok mb-2">{t('request.ai', { address: lookup.normalizedAddress })}</p>
+                ) : null}
+                {lookup?.warning ? <p className="text-sm text-[var(--ink-soft)]">{lookup.warning}</p> : null}
+                {lookup && lookup.candidates.length > 0 ? (
+                  <ul aria-label={t('request.suggestions')} className="rl-rows">
+                    {lookup.candidates.map((candidate, index) => (
+                      <li key={`${candidate.lat}:${candidate.lng}:${index}`}>
+                        <button
+                          className="rl-row w-full text-left hover:bg-[var(--band)]"
+                          data-tip="tip.pickAddress"
+                          onClick={() => pickCandidate(candidate)}
+                          type="button"
+                        >
+                          <span className="rl-row-main">
+                            <strong>{candidate.address}</strong>
+                            <span>
+                              {t(`request.precision.${candidate.precision}`)} · {t('request.pick')}
+                            </span>
+                          </span>
+                          <span aria-hidden="true" className="text-lg">→</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
               <div className="text-sm">
                 <span className="font-semibold">{t('request.point')}</span>
                 <p className={`mt-1 tabular-nums ${point ? 'text-[var(--route-ink)]' : 'text-[var(--ink-soft)]'}`}>

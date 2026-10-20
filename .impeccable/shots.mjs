@@ -32,6 +32,25 @@ const geometry = { type: 'LineString', coordinates: [[-77.2804, 1.2142], [-77.27
 const route = {
   id: 'r1-7f3a9c21', courierId: 'c1', status: 'IN_PROGRESS', estimatedDurationMinutes: 27, estimatedDistanceMeters: 4200,
   canUndo: true, geometry, geometryProvider: 'OSRM', optimizedAt: iso(60), courier: couriers[0], deliveryPoints: stops,
+  optimization: {
+    ladder: [
+      { step: 'nearestNeighbor', minutes: 34.6 },
+      { step: 'twoOpt', minutes: 30.2 },
+      { step: 'orOpt', minutes: 28.9 },
+      { step: 'aiOrder', minutes: 27.1, accepted: true, proposed: true },
+    ],
+    baselineMinutes: 34.6, optimizedMinutes: 27.1, savedMinutes: 7.5,
+    baselineOrder: ['s1', 's3', 's2', 's4'], optimizedOrder: ['s1', 's2', 's3', 's4'],
+    baselineGeometry: { type: 'LineString', coordinates: [[-77.2804, 1.2142], [-77.2810, 1.2160], [-77.2760, 1.2185], [-77.2744, 1.2172], [-77.2770, 1.2150], [-77.2798, 1.215], [-77.2760, 1.2200], [-77.2722, 1.2196]] },
+    trafficPoints: [
+      { point: [-77.2799, 1.2144], level: 'MODERADO', multiplier: 1.3, closed: false, observedAt: iso(70) },
+      { point: [-77.2771, 1.2161], level: 'ALTO', multiplier: 1.8, closed: false, observedAt: iso(70) },
+      { point: [-77.2733, 1.2184], level: 'MUY_ALTO', multiplier: 2.4, closed: false, observedAt: iso(70) },
+    ],
+    tomtom: { configured: true, applied: true, sampled: 3, adjusted: 3, closed: 0, segments: 4 },
+    groq: { trafficSource: 'external-ai', trafficApplied: true, model: 'llama-3.3-70b-versatile', orderProposed: true, orderAccepted: true, orderSavingMinutes: 1.8, orderReason: null },
+    computedAt: iso(60),
+  },
 };
 
 function body(path, method, search) {
@@ -50,6 +69,7 @@ function body(path, method, search) {
   if (path === '/api/v1/analitica') return { metrics: { routeCount: 3, completedRouteCount: 1, estimatedDurationMinutes: 61, estimatedDistanceMeters: 9100, timeSavedMinutes: 6.8, distanceSavedMeters: 900, routesWithBaseline: 3 } };
   if (path === '/api/v1/optimizaciones/recientes') return { events: [{ at: iso(5), kind: 'propuesta', routeAlias: 'Ruta de Carlos', changed: false, improvementMinutes: 2.4, trafficSegments: 3, aiApplied: true, aiOrderAccepted: true, aiOrderSavingMinutes: 2.4 }, { at: iso(65), kind: 'aplicada', routeAlias: 'Ruta de Laura', changed: true, improvementMinutes: 3.1, trafficSegments: 5, aiApplied: true }], incidents: [], stats: { proposals: 42, cacheHits: 30, applied: 3, trafficSegments: 18, savedMinutes: 6.8 }, summaryCooldownSeconds: 0 };
   if (path === '/api/v1/seguimiento') return { tracking: { guide: search.get('guia'), status: 'EN_ROUTE', address: 'Avenida Idema #5-30, Las Lunas', coordinates: { lat: 1.2172, lng: -77.2744 }, route: { id: 'r1', status: 'IN_PROGRESS', courier: { currentLat: 1.215, currentLng: -77.2798, lastLocationAt: iso(6) }, geometry, geometryProvider: 'OSRM', estimatedMinutesFromNow: 14, distanceFromCourierMeters: 2300, estimateNote: 'Estimado por calles con tráfico del primer tramo.' } } };
+  if (path === '/api/v1/solicitudes/direccion') return { candidates: [{ address: 'Calle 18 # 22-14, Centro, Pasto', lat: 1.215, lng: -77.2798, precision: 'address' }, { address: 'Calle 18 # 22, Pasto', lat: 1.2151, lng: -77.2796, precision: 'intersection' }], source: 'ai+tomtom', normalizedAddress: 'Calle 18 # 22-14', warning: null, cached: false };
   if (path === '/api/v1/solicitudes') return { trackingGuide: '5b1f0c2e-8d4a-4c6e-9f1a-2e7d3c9b8a41', reference: 'SOL-7F3A9C', status: 'REQUESTED' };
   if (path === '/api/v1/asignaciones') return { assignments: [{ courierId: 'c2', deliveryPointIds: ['p2', 'p4', 'p1'] }], unassignedDeliveryPointIds: ['p3'], ai: { source: 'deterministic', applied: false } };
   if (path === '/api/v1/cliente/chat/estado') return { available: true };
@@ -75,6 +95,8 @@ const pages = [
   ['oscuro-cliente', '/cliente?guia=RP-7F3A-9C21', 'mobile'],
   ['en-dashboard', '/dashboard', 'desktop'],
   ['tooltip', '/dashboard', 'desktop'],
+  ['mapa-optimizado', '/dashboard', 'desktop'],
+  ['solicitar-ia', '/solicitar', 'desktop'],
   ['solicitar-ok', '/solicitar', 'desktop'],
   ['solicitar-movil', '/solicitar', 'mobile'],
 ].filter(([name]) => only.length === 0 || only.includes(name));
@@ -123,6 +145,17 @@ for (const [name, path, kind] of pages) {
     await page.getByRole('button', { name: 'Cómo funciona' }).click();
     await page.waitForTimeout(900);
   }
+  if (name === 'mapa-optimizado') {
+    await page.waitForTimeout(1500);
+    await page.locator('#active-routes').scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollBy(0, -80));
+    await page.waitForTimeout(1500);
+  }
+  if (name === 'solicitar-ia') {
+    await page.waitForTimeout(1500);
+    await page.getByLabel(/Dirección de entrega/).fill('cll 18 nro 22 14 centro');
+    await page.waitForTimeout(1500);
+  }
   if (name === 'tooltip') {
     await page.waitForTimeout(1500);
     await page.getByRole('button', { name: 'Analizar asignación' }).hover();
@@ -133,7 +166,7 @@ for (const [name, path, kind] of pages) {
     await page.getByRole('button', { name: 'Analizar asignación' }).click();
   }
   await page.waitForTimeout(2500);
-  await page.screenshot({ path: `${out}/${name}.png`, fullPage: !['propuesta', 'oscuro-propuesta', 'intro', 'tooltip', 'en-dashboard'].includes(name) });
+  await page.screenshot({ path: `${out}/${name}.png`, fullPage: !['propuesta', 'oscuro-propuesta', 'intro', 'tooltip', 'en-dashboard', 'mapa-optimizado', 'solicitar-ia'].includes(name) });
   console.log('shot', name);
   await context.close();
 }

@@ -194,8 +194,15 @@ describe("MapLibreRouteMap camera", () => {
       geometry: { ...first.geometry, coordinates: [[-77.28, 1.22], [-77.27, 1.23]] as [number, number][] } };
     render(<MapLibreRouteMap couriers={[courier]} routes={[first, second]} />);
     const lines = map.addLayer.mock.calls.map(([layer]) => layer).filter((layer) => layer.type === 'line');
-    expect(lines.map((layer) => layer.id)).toEqual(['delivery-route-highlight-casing', 'delivery-route-highlight']);
-    expect(lines[1].paint['line-color']).toBe('#55f26b');
+    // Un único recorrido verde; el orden base es una comparación discontinua y no verde.
+    expect(lines.map((layer) => layer.id)).toEqual([
+      'route-baseline',
+      'delivery-route-highlight-casing',
+      'delivery-route-highlight',
+    ]);
+    expect(lines[2].paint['line-color']).toBe('#55f26b');
+    expect(lines[0].paint['line-color']).not.toBe('#55f26b');
+    expect(lines[0].paint['line-dasharray']).toBeDefined()
     const data = () => sources.get('delivery-directions')!.setData.mock.lastCall![0];
     expect(data().features).toHaveLength(1);
     expect(data().features[0].geometry.coordinates).toEqual(first.geometry.coordinates);

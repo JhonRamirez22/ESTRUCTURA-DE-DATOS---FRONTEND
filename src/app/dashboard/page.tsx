@@ -14,6 +14,8 @@ import { formatNotificationMessage, formatOrderReference } from '@/lib/formatOrd
 import { SessionChangeNotice } from "@/components/SessionChangeNotice";
 import OptimizationFeed from '@/components/OptimizationFeed';
 import { RouteLine, RouteStrip, type StopState } from '@/components/RouteLine';
+import OptimizationLadder from '@/components/OptimizationLadder';
+import type { RouteOptimization } from '@/lib/routeOptimization';
 
 const RouteMap = dynamic(() => import('./RouteMap'), {
   ssr: false,
@@ -60,6 +62,7 @@ interface Route {
   geometryProvider: 'OSRM' | 'ORS' | null;
   courier: Courier;
   deliveryPoints: DeliveryPoint[];
+  optimization?: RouteOptimization | null;
 }
 
 interface DashboardData {
@@ -1176,6 +1179,13 @@ function RouteSummary({
       ) : (
         <p className="mt-2 text-sm text-[var(--ink-soft)]">{t('route.noStops')}</p>
       )}
+      {canRecalculate ? (
+        route.optimization ? (
+          <OptimizationLadder optimization={route.optimization} />
+        ) : (
+          <p className="mt-3 text-xs text-[var(--ink-soft)]">{t('opt.unavailable')}</p>
+        )
+      ) : null}
       {canRecalculate && !isRoadGeometryProvider(route.geometryProvider) ? (
         <div className="rl-notice is-warn mt-3 !block text-sm" role="status">
           <p className="font-semibold">Trazado antiguo sin verificar</p>

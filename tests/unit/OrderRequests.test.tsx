@@ -59,6 +59,42 @@ describe('solicitud pública de envío', () => {
   });
 });
 
+describe('la IA ayuda a deducir la dirección', () => {
+  beforeEach(() => {
+    request.mockReset();
+    vi.useFakeTimers();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('sugiere direcciones tras la pausa, avisa si la IA interpretó y ubica el punto', async () => {
+    request.mockResolvedValue(
+      Response.json({
+        candidates: [{ address: 'Calle 18 # 22-14, Pasto', lat: 1.2136, lng: -77.2811, precision: 'address' }],
+        source: 'ai+tomtom',
+        normalizedAddress: 'Calle 18 # 22-14',
+        warning: null,
+      })
+    );
+    render(<RequestDeliveryPage />);
+    fireEvent.change(screen.getByLabelText(/Dirección de entrega/), { target: { value: 'cll 18 nro 22 14' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(599);
+    });
+    expect(request).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    const [path, init] = request.mock.calls[0]!;
+    expect(path).toBe('/api/solicitudes/direccion');
+    expect(JSON.parse(String(init.body))).toEqual({ address: 'cll 18 nro 22 14' });
+    expect(screen.getByText(/La IA \(Groq\) interpretó tu texto/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Calle 18 # 22-14, Pasto/ }));
+    expect(screen.getByLabelText(/Dirección de entrega/)).toHaveValue('Calle 18 # 22-14, Pasto');
+    expect(screen.getByText('1.213600, -77.281100')).toBeInTheDocument();
+  });
+});
+
 describe('bandeja de solicitudes del despacho', () => {
   beforeEach(() => {
     request.mockReset();

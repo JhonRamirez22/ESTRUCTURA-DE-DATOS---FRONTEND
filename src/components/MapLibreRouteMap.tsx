@@ -9,6 +9,7 @@ import { getPastoMinimumZoom } from '@/lib/mapViewport';
 import TrafficOverlay from './TrafficOverlay';
 import { isRoadGeometryProvider } from '@/lib/roadGeometry';
 import { useT } from '@/lib/preferences';
+import { congestionLabel, mostCongested, type RouteOptimization } from '@/lib/routeOptimization';
 import {
   isMapStyleAuthorizationError,
   KEYLESS_DARK_MAP_STYLE_URL,
@@ -39,7 +40,12 @@ export interface MapRoute {
     type: 'LineString';
     coordinates: Array<[number, number]>;
   } | null;
+  /** Resumen de optimización del backend: orden base, tráfico medido e IA verificada. */
+  optimization?: RouteOptimization | null;
 }
+
+const DRAW_DURATION_MS = 900;
+const DRAWN_KEYS = 'rutas-pasto:drawn-optimizations';
 
 interface MapLibreRouteMapProps {
   couriers: MapCourier[];
@@ -65,7 +71,7 @@ type MapStatus = 'loading' | 'slow' | 'unavailable' | 'ready';
 interface MapProperties {
   color?: string;
   label?: string;
-  route?: 'SELECTED';
+  route?: 'SELECTED' | 'BASELINE';
 }
 
 type MapFeature = {
@@ -249,6 +255,47 @@ export default function MapLibreRouteMap({
     updateMapData(map, dataRef.current, cameraKeyRef);
   }, [couriers, pendingPoints, routes, selectedCoordinate, selectedRouteId, trafficMarks]);
 
+  // Una optimización nueva se dibuja de la salida a la última parada (una vez por sesión).
+  const drawKey = selectedRoute?.optimization?.computedAt
+    ? `${selectedRoute.id}:${selectedRoute.optimization.computedAt}`
+    : null;
+  useEffect(() => {
+    const map = mapRef.current;
+    const coordinates = selectedRoute?.geometry?.coordinates;
+    if (!map || !drawKey || !coordinates || coordinates.length < 2 || mapStatus !== 'ready') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let drawn: string[] = [];
+    try {
+      drawn = JSON.parse(window.sessionStorage.getItem(DRAWN_KEYS) ?? '[]') as string[];
+    } catch {
+      drawn = [];
+    }
+    if (drawn.includes(drawKey)) return;
+    try {
+      window.sessionStorage.setItem(DRAWN_KEYS, JSON.stringify([...drawn.slice(-20), drawKey]));
+    } catch {
+      // Sin almacenamiento se vuelve a dibujar en la próxima visita; no afecta los datos.
+    }
+    const source = map.getSource('delivery-directions') as GeoJSONSource | undefined;
+    if (!source) return;
+    let frame = 0;
+    const started = performance.now();
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - started) / DRAW_DURATION_MS);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const visible = coordinates.slice(0, Math.max(2, Math.ceil(eased * coordinates.length)));
+      source.setData(
+        featureCollection([
+          { type: 'Feature', geometry: { type: 'LineString', coordinates: visible }, properties: { route: 'SELECTED' } },
+        ])
+      );
+      if (progress < 1) frame = requestAnimationFrame(step);
+      else updateMapData(map, dataRef.current, cameraKeyRef);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [drawKey, mapStatus, selectedRoute?.geometry?.coordinates]);
+
   useEffect(() => {
     const map = mapRef.current;
 
@@ -296,6 +343,9 @@ export default function MapLibreRouteMap({
             </option>
           ))}
         </select>
+      ) : null}
+      {selectedRoute?.optimization && mapStatus === 'ready' ? (
+        <OptimizationBadge optimization={selectedRoute.optimization} />
       ) : null}
       <button
         className="rp-button rp-button-map absolute left-3 top-3 z-10"
@@ -355,6 +405,22 @@ export default function MapLibreRouteMap({
 }
 
 function addMapLayers(map: MapLibreMap): void {
+  if (!map.getSource('route-baseline')) {
+    // El orden sin optimizar, discontinuo y bajo la línea verde: muestra qué cambió.
+    map.addSource('route-baseline', { type: 'geojson', data: emptyFeatureCollection() });
+    map.addLayer({
+      id: 'route-baseline',
+      type: 'line',
+      source: 'route-baseline',
+      layout: { 'line-cap': 'butt', 'line-join': 'round' },
+      paint: {
+        'line-color': '#e7c9a9',
+        'line-opacity': 0.8,
+        'line-width': 3.5,
+        'line-dasharray': [1.4, 1.6],
+      },
+    });
+  }
   if (!map.getSource('delivery-directions')) {
     map.addSource('delivery-directions', {
       type: 'geojson',
@@ -624,6 +690,14 @@ function updateMapData(
   couriersSource?.setData(featureCollection(courierFeatures));
   deliveriesSource?.setData(featureCollection(deliveryFeatures));
 
+  const optimization = data.routes[0]?.optimization ?? null;
+  const baseline = optimization?.baselineGeometry?.coordinates;
+  const baselineFeatures: MapFeature[] =
+    baseline && baseline.length > 1 && baseline.every(([lng, lat]) => isWithinPastoServiceArea(lat, lng))
+      ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: baseline }, properties: { route: 'BASELINE' } }]
+      : [];
+  (map.getSource('route-baseline') as GeoJSONSource | undefined)?.setData(featureCollection(baselineFeatures));
+
   // Tráfico visible sobre la línea verde: halos por nivel, sin recolorear la ruta.
   if (!map.getSource('route-traffic')) {
     map.addSource('route-traffic', { type: 'geojson', data: featureCollection([]) });
@@ -644,8 +718,45 @@ function updateMapData(
     geometry: { type: 'Point', coordinates: mark.coordinates },
     properties: { color: trafficColor(mark.trafficLevel, mark.roadClosure) },
   }));
+  // Las mediciones que usó la optimización también se ven, aunque no haya consulta en vivo.
+  for (const item of optimization?.trafficPoints ?? []) {
+    if (!item.point || !isWithinPastoServiceArea(item.point[1], item.point[0])) continue;
+    trafficFeatures.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: item.point },
+      properties: { color: trafficColor(item.level ?? '', item.closed) },
+    });
+  }
   const trafficSource = map.getSource('route-traffic') as GeoJSONSource | undefined;
   trafficSource?.setData(featureCollection(trafficFeatures));
+
+  // Los tramos más lentos llevan su porcentaje encima (min-heap de tamaño 3).
+  if (!map.getSource('route-congestion')) {
+    map.addSource('route-congestion', { type: 'geojson', data: featureCollection([]) });
+    map.addLayer({
+      id: 'route-congestion',
+      type: 'symbol',
+      source: 'route-congestion',
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-size': 12,
+        'text-offset': [0, -1.5],
+        'text-anchor': 'bottom',
+        'text-allow-overlap': true,
+      },
+      paint: {
+        'text-color': '#fff7ed',
+        'text-halo-color': '#7c2d12',
+        'text-halo-width': 2,
+      },
+    });
+  }
+  const congestionFeatures: MapFeature[] = mostCongested(optimization?.trafficPoints ?? [], 3).map(
+    (item) => pointFeature(item.point, '#ea580c', congestionLabel(item, 'cerrado'))
+  );
+  (map.getSource('route-congestion') as GeoJSONSource | undefined)?.setData(
+    featureCollection(congestionFeatures)
+  );
 
   // El polling y el GPS actualizan marcadores sin interrumpir el zoom manual.
   const nextCameraKey = JSON.stringify({
@@ -697,4 +808,41 @@ function emptyFeatureCollection(): MapFeatureCollection {
 
 function featureCollection(features: MapFeature[]): MapFeatureCollection {
   return { type: 'FeatureCollection', features };
+}
+
+/** Sello sobre el mapa: ahorro frente al orden base y quién intervino. */
+function OptimizationBadge({ optimization }: { optimization: RouteOptimization }) {
+  const t = useT();
+  const saved = optimization.savedMinutes;
+  return (
+    <div className="rl-map-badge" role="note" aria-label={t('opt.badge')}>
+      <p className="rl-map-badge-title">
+        {saved !== null && saved > 0.05
+          ? t('opt.saved', { min: saved.toLocaleString('es-CO', { maximumFractionDigits: 1 }) })
+          : t('opt.already')}
+      </p>
+      <ul>
+        <li>
+          <span className="rl-map-key is-route" aria-hidden="true" />
+          {t('opt.legend.optimized')}
+        </li>
+        {optimization.baselineGeometry ? (
+          <li>
+            <span className="rl-map-key is-baseline" aria-hidden="true" />
+            {t('opt.legend.baseline')}
+          </li>
+        ) : null}
+        {optimization.tomtom.sampled > 0 ? (
+          <li>
+            <span className="rl-map-key is-traffic" aria-hidden="true" />
+            {t('opt.legend.tomtom', { n: optimization.tomtom.sampled })}
+          </li>
+        ) : null}
+        {optimization.groq.orderAccepted ? <li className="is-ai">{t('opt.legend.aiAccepted')}</li> : null}
+        {!optimization.groq.orderAccepted && optimization.groq.orderProposed ? (
+          <li className="is-ai">{t('opt.legend.aiRejected')}</li>
+        ) : null}
+      </ul>
+    </div>
+  );
 }

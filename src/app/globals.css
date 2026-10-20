@@ -2365,3 +2365,153 @@ input[type='checkbox'] {
     font-size: 16px;
   }
 }
+
+/* ============================================================
+   Optimización visible: sello sobre el mapa y escalera de mejoras.
+   ============================================================ */
+.rl-map-badge {
+  position: absolute;
+  right: 12px;
+  top: 60px;
+  z-index: 10;
+  max-width: min(320px, calc(100% - 24px));
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgb(15 11 9 / 88%);
+  color: #f6efe6;
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: 0 8px 22px rgb(0 0 0 / 30%);
+  transition:
+    opacity 220ms ease,
+    transform 260ms var(--ease-out);
+}
+@starting-style {
+  .rl-map-badge {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+.rl-map-badge-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #8fe3b1;
+}
+.rl-map-badge ul {
+  margin-top: 6px;
+  display: grid;
+  gap: 3px;
+}
+.rl-map-badge li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rl-map-badge li.is-ai {
+  margin-top: 2px;
+  color: #cfe9da;
+}
+.rl-map-key {
+  width: 22px;
+  height: 0;
+  flex: none;
+}
+.rl-map-key.is-route {
+  border-top: 4px solid #55f26b;
+}
+.rl-map-key.is-baseline {
+  border-top: 3px dashed #e7c9a9;
+}
+.rl-map-key.is-traffic {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px #fffcf7;
+  margin: 0 6px;
+}
+.rl-ladder {
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--band);
+}
+.rl-ladder-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+.rl-ladder ol {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+.rl-ladder li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px;
+  grid-template-areas:
+    'label value'
+    'bar bar';
+  gap: 2px 8px;
+  animation: rl-stop-in 260ms var(--ease-out) both;
+  animation-delay: var(--rung-delay, 0ms);
+}
+.rl-ladder-label {
+  grid-area: label;
+  font-size: 12px;
+  color: var(--foreground);
+}
+.rl-ladder-status {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.rl-ladder-value {
+  grid-area: value;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rl-ladder-bar {
+  grid-area: bar;
+  height: 6px;
+  background: var(--line);
+}
+.rl-ladder-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  animation: rl-bar-in 420ms var(--ease-out) both;
+  animation-delay: var(--rung-delay, 0ms);
+}
+.rl-ladder-bar i.is-final {
+  background: var(--route);
+}
+@keyframes rl-bar-in {
+  from {
+    transform: scaleX(0.2);
+  }
+}
+.rl-ladder-note {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rl-ladder li,
+  .rl-ladder-bar i,
+  .rl-map-badge {
+    animation: none;
+    transition: opacity 120ms ease;
+  }
+}
+@media (max-width: 640px) {
+  .rl-map-badge {
+    top: auto;
+    bottom: 64px;
+    right: 8px;
+    font-size: 11px;
+  }
+}
