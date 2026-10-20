@@ -1067,3 +1067,85 @@ async function sendLocation(
       body: JSON.stringify(location),
       headers: { "Content-Type": "application/json" },
       method: "POST",
+    });
+
+    if (!response.ok) {
+      return {
+        accepted: false,
+        error: await readApiError(response, "El servidor rechazó la ubicación."),
+      };
+    }
+
+    const payload = (await response.json()) as { accepted: boolean };
+    return payload.accepted
+      ? { accepted: true }
+      : { accepted: false, error: "Se ignoró una posición más antigua que la última recibida." };
+  } catch (error) {
+    // La siguiente lectura de geolocalización volverá a intentar sincronizar la posición.
+    return {
+      accepted: false,
+      error: error instanceof Error ? error.message : "No se pudo enviar la ubicación.",
+    };
+  }
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    return typeof payload.error === "string" ? payload.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function formatDeliveryStatus(status: AssignedRoute["deliveryPoints"][number]["status"]): string {
+  switch (status) {
+    case "DELIVERED":
+      return "Entregada";
+    case "FAILED":
+      return "Fallida";
+    case "EN_ROUTE":
+      return "En camino";
+    default:
+      return "Pendiente";
+  }
+}
+
+function formatDistance(distanceMeters: number): string {
+  if (distanceMeters >= 1000) {
+    return `${(distanceMeters / 1000).toFixed(1)} km`;
+  }
+
+  return `${Math.round(distanceMeters)} m`;
+}
+
+function formatCourierStatus(
+  status: CourierProfile["status"],
+  hasFreshPosition: boolean,
+): string {
+  if (status !== "OFFLINE" && !hasFreshPosition) {
+    return "GPS vencido · no disponible para asignación";
+  }
+
+  switch (status) {
+    case "AVAILABLE":
+      return "Disponible · GPS reciente";
+    case "ON_ROUTE":
+      return "En ruta";
+    default:
+      return "Fuera de turno";
+  }
+}
+
+function formatGeolocationError(error: GeolocationPositionError): string {
+  if (error.code === GeolocationPositionError.PERMISSION_DENIED) {
+    return "Permite el acceso a la ubicación para iniciar el seguimiento.";
+  }
+
+  if (error.code === GeolocationPositionError.TIMEOUT) {
+    return "El dispositivo tardó demasiado en obtener la ubicación.";
+  }
+
+  return "No se pudo obtener la ubicación actual. Intenta moverte a un lugar con mejor señal.";
+}
+
