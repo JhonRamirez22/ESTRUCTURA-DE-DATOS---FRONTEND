@@ -37,7 +37,7 @@ export function RouteLine({
             <span aria-hidden="true" className="rl-dot" />
             <span className="rl-stop-label">
               <span className="sr-only">{STATE_TEXT[state]}: </span>
-              {stop.label}
+              <span className="rl-stop-text">{stop.label}</span>
               {stop.meta ? <span className="rl-stop-meta">{stop.meta}</span> : null}
             </span>
             {stop.aside ? <span className="rl-stop-aside">{stop.aside}</span> : <span />}

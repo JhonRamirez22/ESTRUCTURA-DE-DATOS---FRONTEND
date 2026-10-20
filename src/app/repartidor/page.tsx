@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/apiClient";
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import AppShell from "@/components/AppShell";
+import { usePreferences } from '@/lib/preferences';
 import { isCourierLocationFresh } from "@/lib/courierLocation";
 import { Queue } from "@/core/structures/Queue";
 import { SessionChangeNotice } from "@/components/SessionChangeNotice";
@@ -129,6 +130,7 @@ function summarizeTraffic(marks: TrafficObservation[]): string {
 }
 
 export default function RepartidorPage() {
+  const { t } = usePreferences();
   const [courierStatus, setCourierStatus] = useState<CourierProfile["status"]>("OFFLINE");
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [isTracking, setIsTracking] = useState(false);
@@ -620,7 +622,7 @@ export default function RepartidorPage() {
         <SessionChangeNotice role="courier" />
         <header className="rl-page-head !mb-5">
           <div>
-            <h1>Tu ruta de hoy</h1>
+            <h1>{t("courier.title")}</h1>
             <p className="flex items-center gap-2">
               <span
                 aria-hidden="true"
@@ -639,27 +641,29 @@ export default function RepartidorPage() {
         <div className="grid gap-3">
           {/* Una sola acción de ubicación visible: iniciar o detener según el estado. */}
           {isTracking ? (
-            <button className="rp-button rp-button-danger rp-button-block" onClick={stopTracking} type="button">
-              Detener ubicación
+            <button className="rp-button rp-button-danger rp-button-block" data-tip="tip.stopGps" onClick={stopTracking} type="button">
+              {t("courier.stopGps")}
             </button>
           ) : (
             <button
               className="rp-button rp-button-go rp-button-block"
+              data-tip="tip.startGps"
               disabled={loadingProfile}
               onClick={startTracking}
               type="button"
             >
-              Iniciar ubicación
+              {t("courier.startGps")}
             </button>
           )}
           <div className="grid grid-cols-2 gap-3">
             <button
               className="rp-button rp-button-quiet"
               disabled={loadingProfile}
+              data-tip="tip.loadRoute"
               onClick={() => void loadAssignedRoute()}
               type="button"
             >
-              Cargar ruta asignada
+              {t("courier.loadRoute")}
             </button>
             <button
               className="rp-button rp-button-quiet"
@@ -669,13 +673,14 @@ export default function RepartidorPage() {
                 void loadAssignedRoute();
               }}
               type="button"
+              data-tip="tip.refreshStatus"
             >
-              Actualizar estado
+              {t("courier.refresh")}
             </button>
           </div>
           {lastLocation ? (
             <p className="text-xs tabular-nums text-[var(--ink-soft)]">
-              Última posición enviada: {lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)} ·{" "}
+              {t("courier.lastPosition")}: {lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)} ·{" "}
               {new Date(lastLocation.recordedAt).toLocaleString("es-CO")}
             </p>
           ) : null}
@@ -692,7 +697,7 @@ export default function RepartidorPage() {
             {navigation ? (
               <div className="rl-board">
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-xs font-semibold !text-[var(--board-soft)]">Navegación activa · próxima parada</p>
+                  <p className="text-xs font-semibold !text-[var(--board-soft)]">{t("courier.nav")}</p>
                   <span className="rl-state text-[var(--board-soft)]">Calles {navigation.geometryProvider}</span>
                 </div>
                 <p className="mt-2 text-2xl font-semibold leading-tight !text-[var(--board-ink)]">
@@ -701,11 +706,11 @@ export default function RepartidorPage() {
                 </p>
                 <dl className="mt-4 grid grid-cols-2 gap-4">
                   <div className="flex flex-col-reverse">
-                    <dt className="text-xs text-[var(--board-soft)]">Distancia restante</dt>
+                    <dt className="text-xs text-[var(--board-soft)]">{t("courier.distance")}</dt>
                     <dd className="text-2xl font-semibold tabular-nums">{formatDistance(navigation.distanceMeters)}</dd>
                   </div>
                   <div className="flex flex-col-reverse">
-                    <dt className="text-xs text-[var(--board-soft)]">Tiempo estimado</dt>
+                    <dt className="text-xs text-[var(--board-soft)]">{t("courier.eta")}</dt>
                     <dd className="text-2xl font-semibold tabular-nums">
                       {Math.max(1, Math.round(navigation.durationMinutes))} min
                     </dd>
@@ -725,13 +730,13 @@ export default function RepartidorPage() {
 
             <div className="rl-head mt-8">
               <h2>
-                <span>Ruta asignada</span>{" "}
+                <span>{t("courier.assigned")}</span>{" "}
                 <small className="tabular-nums">
-                  {assignedRoute.id.slice(0, 8)} · {activeDeliveryPoints.length} pendientes
+                  {assignedRoute.id.slice(0, 8)} · {t("courier.pendingCount", { n: activeDeliveryPoints.length })}
                 </small>
               </h2>
               <span className={`rl-state ${assignedRoute.status === "IN_PROGRESS" ? "is-route" : ""}`}>
-                {assignedRoute.status === "IN_PROGRESS" ? "En curso" : "Planeada"}
+                {assignedRoute.status === "IN_PROGRESS" ? t("courier.inProgress") : t("courier.planned")}
               </span>
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -745,19 +750,21 @@ export default function RepartidorPage() {
               {assignedRoute.status === "PLANNED" ? (
                 <button
                   className="rp-button rp-button-primary rp-button-small"
+                  data-tip="tip.startRoute"
                   onClick={() => void updateRouteStatus("IN_PROGRESS")}
                   type="button"
                 >
-                  Iniciar ruta
+                  {t("courier.start")}
                 </button>
               ) : null}
               {assignedRoute.status === "IN_PROGRESS" ? (
                 <button
                   className="rp-button rp-button-quiet rp-button-small"
+                  data-tip="tip.closeRoute"
                   onClick={() => void updateRouteStatus("COMPLETED")}
                   type="button"
                 >
-                  Cerrar ruta
+                  {t("courier.close")}
                 </button>
               ) : null}
             </div>
@@ -765,7 +772,7 @@ export default function RepartidorPage() {
             {proposal?.changed && activeDeliveryPoints.length > 0 ? (
               <div className="rl-notice is-ok route-proposal mt-4" role="status">
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold">Ruta optimizada disponible</p>
+                  <p className="font-semibold">{t("courier.optimized")}</p>
                   <p className="text-sm leading-5">
                     {proposal.improvementMinutes !== null && proposal.improvementMinutes > 0
                       ? `Ahorras unos ${Math.round(proposal.improvementMinutes)} min con el tráfico de ahora.`
@@ -777,9 +784,9 @@ export default function RepartidorPage() {
                     </p>
                   ) : null}
                 </div>
-                <button className="rp-button rp-button-go rp-button-small" disabled={applying}
+                <button className="rp-button rp-button-go rp-button-small" data-tip="tip.applyRoute" disabled={applying}
                   onClick={() => void applyProposal()} type="button">
-                  {applying ? "Aplicando…" : "Aplicar ruta"}
+                  {applying ? t("courier.applying") : t("courier.applyRoute")}
                 </button>
               </div>
             ) : null}
@@ -797,7 +804,7 @@ export default function RepartidorPage() {
 
             <ol aria-label="Paradas de tu ruta" className="rl-line is-route mt-5">
               {activeDeliveryPoints.length === 0 ? (
-                <li className="rl-empty">No tienes entregas pendientes en esta ruta.</li>
+                <li className="rl-empty">{t("courier.noStops")}</li>
               ) : activeDeliveryPoints.map((point, index) => {
                 const current = index === 0;
                 return (
@@ -812,17 +819,19 @@ export default function RepartidorPage() {
                         <span className="mt-2 flex gap-2">
                           <button
                             className={`rp-button ${current ? "rp-button-go" : "rp-button-quiet"} rp-button-small`}
+                            data-tip="tip.delivered"
                             onClick={() => void updateDeliveryStatus(point.id, "DELIVERED")}
                             type="button"
                           >
-                            Entregada
+                            {t("courier.delivered")}
                           </button>
                           <button
                             className="rp-button rp-button-danger rp-button-small"
+                            data-tip="tip.failed"
                             onClick={() => void updateDeliveryStatus(point.id, "FAILED")}
                             type="button"
                           >
-                            Fallida
+                            {t("courier.failed")}
                           </button>
                         </span>
                       ) : null}
@@ -845,7 +854,7 @@ export default function RepartidorPage() {
             {nearest.length > 0 ? (
               <section aria-label="Próximas paradas por tiempo estimado" className="mt-6">
                 <div className="rl-head">
-                  <h3>Más cercanas por tiempo estimado</h3>
+                  <h3>{t("courier.nearest")}</h3>
                 </div>
                 <ul className="rl-rows">
                   {nearest.map((eta) => (
@@ -864,7 +873,7 @@ export default function RepartidorPage() {
 
         {!assignedRoute && !loadingProfile && !error ? (
           <p className="rl-empty mt-6">
-            {loadingProfile ? "Cargando tus entregas…" : "El despacho todavía no te ha asignado una ruta."}
+            {loadingProfile ? "Cargando tus entregas…" : t("courier.noRoute")}
           </p>
         ) : null}
       </main>

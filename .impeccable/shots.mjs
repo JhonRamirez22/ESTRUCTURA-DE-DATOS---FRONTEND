@@ -68,6 +68,13 @@ const pages = [
   ['cliente', '/cliente?guia=RP-7F3A-9C21', 'mobile'],
   ['inicio', '/', 'desktop'],
   ['solicitar', '/solicitar', 'desktop'],
+  ['intro', '/', 'desktop'],
+  ['oscuro-dashboard', '/dashboard', 'desktop'],
+  ['oscuro-propuesta', '/dashboard', 'desktop'],
+  ['oscuro-repartidor', '/repartidor', 'mobile'],
+  ['oscuro-cliente', '/cliente?guia=RP-7F3A-9C21', 'mobile'],
+  ['en-dashboard', '/dashboard', 'desktop'],
+  ['tooltip', '/dashboard', 'desktop'],
   ['solicitar-ok', '/solicitar', 'desktop'],
   ['solicitar-movil', '/solicitar', 'mobile'],
 ].filter(([name]) => only.length === 0 || only.includes(name));
@@ -78,11 +85,14 @@ for (const [name, path, kind] of pages) {
     viewport: kind === 'mobile' ? { width: 390, height: 844 } : { width: 1440, height: 900 },
     deviceScaleFactor: 1,
     serviceWorkers: 'block',
-    reducedMotion: 'reduce',
+    reducedMotion: name === 'intro' ? 'no-preference' : 'reduce',
     permissions: ['geolocation'],
     geolocation: { latitude: 1.2142, longitude: -77.2804 },
   });
   const page = await context.newPage();
+  if (name.startsWith('oscuro')) await page.addInitScript(() => localStorage.setItem('rutas-pasto:theme', 'dark'));
+  else await page.addInitScript(() => localStorage.setItem('rutas-pasto:theme', 'light'));
+  if (name.startsWith('en-')) await page.addInitScript(() => localStorage.setItem('rutas-pasto:lang', 'en'));
   page.on('crash', () => console.log('CRASH', name));
   page.on('pageerror', (e) => console.log('PAGEERROR', name, e.message.slice(0, 160)));
   await page.route('**/api/v1/**', (r) => {
@@ -108,12 +118,22 @@ for (const [name, path, kind] of pages) {
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: 'Enviar solicitud' }).click();
   }
-  if (name === 'propuesta') {
+  if (name === 'intro') {
+    await page.waitForTimeout(1200);
+    await page.getByRole('button', { name: 'Cómo funciona' }).click();
+    await page.waitForTimeout(900);
+  }
+  if (name === 'tooltip') {
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: 'Analizar asignación' }).hover();
+    await page.waitForTimeout(700);
+  }
+  if (name === 'propuesta' || name === 'oscuro-propuesta') {
     await page.waitForTimeout(1500);
     await page.getByRole('button', { name: 'Analizar asignación' }).click();
   }
   await page.waitForTimeout(2500);
-  await page.screenshot({ path: `${out}/${name}.png`, fullPage: name !== 'propuesta' });
+  await page.screenshot({ path: `${out}/${name}.png`, fullPage: !['propuesta', 'oscuro-propuesta', 'intro', 'tooltip', 'en-dashboard'].includes(name) });
   console.log('shot', name);
   await context.close();
 }

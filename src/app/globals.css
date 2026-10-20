@@ -58,6 +58,10 @@
   --shadow: none;
   --shadow-md: none;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@theme {
+  /* Escala de colores como variables: el tema oscuro las redefine. */
   --color-slate-50: #fffcf7;
   --color-slate-100: #f6f1e9;
   --color-slate-200: #e7ded2;
@@ -1066,6 +1070,11 @@ a {
   --danger: #8e2635;
   --danger-band: #f8e4e6;
   --ok-band: #e6f2ea;
+  --action: #32261f;
+  --action-hover: #4a3429;
+  --action-ink: #fffcf7;
+  --danger-ink: #5e1a24;
+  --warn-ink: #4c330c;
 }
 
 /* Barra de paradero */
@@ -1145,14 +1154,15 @@ a {
 }
 .rp-button-primary,
 .ui-button-primary {
-  background: var(--board);
-  border-color: var(--board);
-  color: var(--board-ink);
+  background: var(--action);
+  border-color: var(--action);
+  color: var(--action-ink);
 }
 .rp-button-primary:hover:not(:disabled),
 .ui-button-primary:hover:not(:disabled) {
-  background: #4a3429;
-  border-color: #4a3429;
+  background: var(--action-hover);
+  border-color: var(--action-hover);
+  color: var(--action-ink);
 }
 .rp-button-secondary,
 .ui-button-secondary {
@@ -1446,12 +1456,12 @@ input[type='checkbox'] {
 .rl-notice.is-warn {
   --mark: #c08a2c;
   background: var(--warn-band);
-  color: #4c330c;
+  color: var(--warn-ink);
 }
 .rl-notice.is-error {
   --mark: var(--danger);
   background: var(--danger-band);
-  color: #5e1a24;
+  color: var(--danger-ink);
 }
 .rl-notice + .rl-notice {
   margin-top: 8px;
@@ -1510,6 +1520,9 @@ input[type='checkbox'] {
 }
 .rl-stop.is-done .rl-stop-label {
   color: var(--ink-soft);
+}
+/* Solo se tacha el nombre de la parada cumplida; su descripción sigue legible. */
+.rl-stop.is-done .rl-stop-text {
   text-decoration: line-through;
   text-decoration-thickness: 1px;
 }
@@ -1842,5 +1855,513 @@ input[type='checkbox'] {
   }
   .rp-service-area {
     display: none;
+  }
+}
+
+/* ============================================================
+   Tema oscuro: la misma familia cálida a baja luz. La barra de
+   paradero y las franjas de decisión quedan un paso por encima
+   del fondo; el verde del recorrido sube de luminosidad.
+   ============================================================ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #1a1411;
+  --foreground: #f1e8dc;
+  --surface: #241c17;
+  --surface-muted: #2c231d;
+  --line: #3a2f27;
+  --accent: #c49a7e;
+  --accent-strong: #dcb79c;
+  --ink-soft: #b8a796;
+  --primary: #c49a7e;
+  --primary-foreground: #1a1411;
+  --secondary: #2c231d;
+  --secondary-foreground: #f1e8dc;
+  --muted: #2c231d;
+  --muted-foreground: #b8a796;
+  --input: #5a4a3e;
+  --ring: #dcb79c;
+  --board: #0f0b09;
+  --board-ink: #f6efe6;
+  --board-soft: #b8a796;
+  --band: #2c231d;
+  --line-strong: #5a4a3e;
+  --route: #52b884;
+  --route-ink: #8fd8ae;
+  --warn: #e3b866;
+  --warn-band: #3a2e1a;
+  --warn-ink: #f3dca8;
+  --danger: #f0909d;
+  --danger-band: #3c1e23;
+  --danger-ink: #f7c3ca;
+  --ok-band: #1c3326;
+  --action: #f1e8dc;
+  --action-hover: #ffffff;
+  --action-ink: #1a1411;
+
+  --color-slate-50: #241c17;
+  --color-slate-100: #2c231d;
+  --color-slate-200: #3a2f27;
+  --color-slate-300: #5a4a3e;
+  --color-slate-400: #8a7868;
+  --color-slate-500: #a89785;
+  --color-slate-600: #c1b2a2;
+  --color-slate-700: #d6c9bb;
+  --color-slate-800: #ece2d6;
+  --color-slate-900: #f4ece2;
+  --color-slate-950: #fbf6ef;
+  --color-emerald-50: #1c3326;
+  --color-emerald-100: #234030;
+  --color-emerald-200: #2f5a42;
+  --color-emerald-300: #4f8f6a;
+  --color-emerald-700: #9ad9b3;
+  --color-emerald-800: #b4e5c7;
+  --color-emerald-900: #cdeedb;
+  --color-emerald-950: #e2f6ea;
+  --color-amber-50: #3a2e1a;
+  --color-amber-100: #4a3a1f;
+  --color-amber-200: #6b5326;
+  --color-amber-700: #e8c47e;
+  --color-amber-800: #f0d397;
+  --color-amber-900: #f3dca8;
+  --color-amber-950: #f8e8c4;
+  --color-rose-50: #3c1e23;
+  --color-rose-100: #4c252b;
+  --color-rose-200: #6e343d;
+  --color-rose-700: #f0909d;
+  --color-rose-800: #f7c3ca;
+  --color-sky-50: #1b2b33;
+  --color-sky-700: #9fcfe6;
+  --color-teal-50: #1b302c;
+  --color-teal-900: #c3e6de;
+}
+:root[data-theme='dark'] ::selection {
+  background: #5a4a3e;
+  color: #f6efe6;
+}
+:root[data-theme='dark'] .rp-shell-header {
+  background: var(--board);
+  box-shadow: inset 0 -1px 0 #2c231d;
+}
+:root[data-theme='dark'] .rl-board {
+  background: #2c231d;
+}
+:root[data-theme='dark'] .rl-board .rl-dot {
+  background: #2c231d;
+}
+:root[data-theme='dark'] .ui-dock-panel {
+  background: var(--surface);
+}
+:root[data-theme='dark'] .ui-dock-item {
+  background: #2c231d;
+}
+:root[data-theme='dark'] .ui-dock-item.is-active {
+  background: #3a2f27;
+}
+:root[data-theme='dark'] .rp-button-map {
+  background: #f6efe6;
+  border-color: #f6efe6;
+  color: #1a1411;
+}
+/* El cambio de tema funde los colores en lugar de saltar. */
+:root.theme-transition,
+:root.theme-transition * {
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease !important;
+}
+
+/* ============================================================
+   Controles globales: ayuda, tema e idioma.
+   ============================================================ */
+.rp-shell-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.rp-tool {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  grid-auto-flow: column;
+  gap: 4px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 8px;
+  border-radius: 4px;
+  color: var(--board-soft);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms var(--ease-out);
+}
+.rp-tool svg {
+  width: 18px;
+  height: 18px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .rp-tool:hover {
+    color: var(--board-ink);
+    background: rgb(255 252 247 / 10%);
+  }
+}
+.rp-tool:active {
+  transform: scale(0.94);
+}
+/* Sol y luna comparten lugar: uno sale girando y desenfocado mientras el otro entra. */
+.rp-tool-theme {
+  grid-template-areas: 'icon';
+}
+.rp-tool-theme svg {
+  grid-area: icon;
+  transition:
+    transform 260ms var(--ease-out),
+    opacity 200ms ease,
+    filter 200ms ease;
+}
+.rp-tool-moon {
+  opacity: 0;
+  transform: rotate(-70deg) scale(0.6);
+  filter: blur(2px);
+}
+:root[data-theme='dark'] .rp-tool-sun {
+  opacity: 0;
+  transform: rotate(70deg) scale(0.6);
+  filter: blur(2px);
+}
+:root[data-theme='dark'] .rp-tool-moon {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+/* Aviso de idioma: baja desde la barra, del mismo lado por donde se pidió. */
+.rl-lang-notice {
+  position: sticky;
+  top: 60px;
+  z-index: 25;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 32px;
+  background: var(--band);
+  border-bottom: 2px solid var(--line-strong);
+  font-size: 14px;
+  transition:
+    transform 240ms var(--ease-out),
+    opacity 200ms ease;
+}
+@starting-style {
+  .rl-lang-notice {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+.rl-lang-notice p {
+  max-width: 90ch;
+}
+
+/* ============================================================
+   Descripción al pasar el puntero: crece desde su botón.
+   ============================================================ */
+.rl-tooltip {
+  position: fixed;
+  z-index: 200;
+  max-width: 240px;
+  padding: 7px 10px;
+  border-radius: 4px;
+  background: var(--action);
+  color: var(--action-ink);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  transform-origin: 50% 100%;
+  box-shadow: 0 6px 18px rgb(26 20 17 / 18%);
+  transition:
+    opacity 140ms ease,
+    transform 140ms var(--ease-out);
+}
+.rl-tooltip.is-below {
+  transform: translate(-50%, 0);
+  transform-origin: 50% 0;
+}
+@starting-style {
+  .rl-tooltip {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(0.96);
+  }
+  .rl-tooltip.is-below {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.96);
+  }
+}
+/* Después del primero, los siguientes aparecen sin espera ni animación. */
+.rl-tooltip.is-instant {
+  transition-duration: 0ms;
+}
+@starting-style {
+  .rl-tooltip.is-instant {
+    opacity: 1;
+    transform: translate(-50%, -100%);
+  }
+  .rl-tooltip.is-instant.is-below {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* ============================================================
+   Introducción: modal centrado; la línea se dibuja parada a parada.
+   ============================================================ */
+.rl-intro {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 24px 60px rgb(26 20 17 / 28%);
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 240ms ease,
+    transform 280ms var(--ease-out),
+    overlay 280ms allow-discrete,
+    display 280ms allow-discrete;
+}
+.rl-intro:not([open]) {
+  opacity: 0;
+  transform: translateY(8px) scale(0.97);
+}
+@starting-style {
+  .rl-intro[open] {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+.rl-intro::backdrop {
+  background: rgb(26 20 17 / 0%);
+  transition:
+    background-color 280ms ease,
+    overlay 280ms allow-discrete,
+    display 280ms allow-discrete;
+}
+.rl-intro[open]::backdrop {
+  background: rgb(26 20 17 / 55%);
+}
+@starting-style {
+  .rl-intro[open]::backdrop {
+    background: rgb(26 20 17 / 0%);
+  }
+}
+.rl-intro-panel {
+  padding: 28px 28px 24px;
+}
+.rl-intro-kicker {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--route-ink);
+}
+.rl-intro h2 {
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.rl-intro-lead {
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.rl-intro-line {
+  margin-top: 20px;
+}
+.rl-intro-roles {
+  margin-top: 8px;
+  padding: 14px 16px;
+  background: var(--band);
+  font-size: 14px;
+}
+.rl-intro-roles ul {
+  margin-top: 6px;
+  display: grid;
+  gap: 4px;
+  color: var(--ink-soft);
+}
+.rl-intro-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+.rl-intro .rl-stop {
+  animation: rl-stop-in 320ms var(--ease-out) both;
+}
+.rl-intro .rl-stop:nth-child(1) { animation-delay: 120ms; }
+.rl-intro .rl-stop:nth-child(2) { animation-delay: 190ms; }
+.rl-intro .rl-stop:nth-child(3) { animation-delay: 260ms; }
+.rl-intro .rl-stop:nth-child(4) { animation-delay: 330ms; }
+
+/* ============================================================
+   Movimiento con propósito en las pantallas.
+   ============================================================ */
+@keyframes rl-stop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes rl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+/* La línea de ruta aparece de arriba hacia abajo: se lee el orden de las paradas. */
+.rl-line .rl-stop {
+  animation: rl-stop-in 260ms var(--ease-out) both;
+}
+.rl-line .rl-stop:nth-child(2) { animation-delay: 40ms; }
+.rl-line .rl-stop:nth-child(3) { animation-delay: 80ms; }
+.rl-line .rl-stop:nth-child(4) { animation-delay: 120ms; }
+.rl-line .rl-stop:nth-child(5) { animation-delay: 160ms; }
+.rl-line .rl-stop:nth-child(n + 6) { animation-delay: 200ms; }
+/* Al entrar a una pantalla, encabezado y secciones se asientan en cascada corta. */
+.rl-page > * {
+  animation: rl-rise 240ms var(--ease-out) both;
+}
+.rl-page > *:nth-child(2) { animation-delay: 40ms; }
+.rl-page > *:nth-child(3) { animation-delay: 80ms; }
+.rl-page > *:nth-child(n + 4) { animation-delay: 120ms; }
+/* Avisos de estado: entran deslizando 4px, sin saltar el contenido de alrededor. */
+.rl-notice {
+  transition:
+    opacity 200ms ease,
+    transform 220ms var(--ease-out);
+}
+@starting-style {
+  .rl-notice {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+/* Filas seleccionables: el cambio de selección se funde en lugar de saltar. */
+.rl-row {
+  transition: background-color 160ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  label.rl-row:hover,
+  .rl-row:has(> label):hover {
+    background: var(--band);
+  }
+}
+/* El contador de pasos (círculo del encabezado) se rellena cuando la sección tiene foco. */
+.rl-head h2::before,
+.rl-head h3::before {
+  transition: background-color 200ms ease;
+}
+.rl-section:focus-within > .rl-head h2::before,
+.rl-section:focus-within > .rl-head h3::before {
+  background: var(--board);
+}
+/* Botones: el texto de carga cambia con un desenfoque breve en vez de saltar. */
+.rp-button[disabled] {
+  transition:
+    opacity 180ms ease,
+    filter 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rl-page > *,
+  .rl-line .rl-stop,
+  .rl-intro .rl-stop {
+    animation: none;
+  }
+  .rl-intro,
+  .rl-intro::backdrop,
+  .rl-tooltip,
+  .rl-lang-notice,
+  .rl-notice {
+    transition: opacity 120ms ease;
+  }
+  .rl-intro:not([open]) {
+    transform: none;
+  }
+  .rp-tool-theme svg {
+    transition: opacity 120ms ease;
+  }
+  .rp-tool-moon,
+  :root[data-theme='dark'] .rp-tool-sun {
+    transform: none;
+    filter: none;
+  }
+}
+@media (max-width: 900px) {
+  .rl-lang-notice {
+    top: 104px;
+    padding: 10px 16px;
+  }
+  .rp-tool {
+    min-width: 36px;
+    padding: 0 6px;
+  }
+}
+
+/* En la introducción las paradas explican el proceso: nada se tacha. */
+.rl-intro .rl-stop.is-done .rl-stop-text {
+  text-decoration: none;
+}
+.rl-intro .rl-stop.is-done .rl-stop-label {
+  color: var(--foreground);
+}
+.rl-intro .rl-stop-meta {
+  font-size: 13px;
+}
+:root[data-theme='dark'] .rl-head h2::before,
+:root[data-theme='dark'] .rl-head h3::before {
+  border-color: var(--accent);
+}
+:root[data-theme='dark'] .rl-section:focus-within > .rl-head h2::before,
+:root[data-theme='dark'] .rl-section:focus-within > .rl-head h3::before {
+  background: var(--accent);
+}
+.rl-board .rl-stop.is-done .rl-stop-text,
+.rp-access-line .rl-stop.is-done .rl-stop-text {
+  text-decoration: none;
+}
+@media (max-width: 900px) {
+  .rp-navigation {
+    margin: 0;
+  }
+}
+/* Pantallas muy estrechas: «Salir» conserva su nombre accesible pero muestra solo el icono. */
+@media (max-width: 420px) {
+  .rp-logout-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .rp-logout {
+    padding: 8px;
+  }
+  .rp-shell-header-inner {
+    gap: 8px;
+  }
+  .rp-brand-name {
+    font-size: 16px;
   }
 }

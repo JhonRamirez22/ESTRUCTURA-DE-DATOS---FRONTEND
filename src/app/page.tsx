@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Tx } from '@/lib/preferences';
 import AppShell from '@/components/AppShell';
 import InterfaceIcon from '@/components/InterfaceIcon';
 
@@ -8,28 +9,27 @@ export default function Home() {
       <main className="rp-home">
         <section className="rp-home-intro">
           <div>
-            <h1>Del pedido pendiente a la puerta, sin perder el hilo.</h1>
+            <h1><Tx k="home.title" /></h1>
             <p className="rp-home-lead">
-              Registra pedidos, organiza las paradas y sigue el avance de cada entrega.
-              Las calles de Pasto conectan el recorrido; tu equipo lleva el control.
+              <Tx k="home.lead" />
             </p>
-            <div className="rp-access-meta"><InterfaceIcon name="locate" /><span>Servicio local en Pasto, Nariño</span></div>
+            <div className="rp-access-meta"><InterfaceIcon name="locate" /><span><Tx k="home.area" /></span></div>
           </div>
           <section className="rp-home-actions" aria-labelledby="home-actions-title">
-            <h2 id="home-actions-title">¿Qué necesitas hacer?</h2>
+            <h2 id="home-actions-title"><Tx k="home.question" /></h2>
             <Link className="rp-entry-link" href="/acceso">
               <InterfaceIcon name="route" />
-              <span><strong>Soy repartidor o despachador</strong><p>Acceso privado para reparto y despacho.</p></span>
+              <span><strong><Tx k="home.staff" /></strong><p><Tx k="home.staff.meta" /></p></span>
               <InterfaceIcon name="arrow" className="rp-entry-arrow" />
             </Link>
             <Link className="rp-entry-link" href="/solicitar">
               <InterfaceIcon name="route" />
-              <span><strong>Quiero enviar algo</strong><p>Solicita una entrega en Pasto; el despacho la confirma.</p></span>
+              <span><strong><Tx k="home.request" /></strong><p><Tx k="home.request.meta" /></p></span>
               <InterfaceIcon name="arrow" className="rp-entry-arrow" />
             </Link>
             <Link className="rp-entry-link" href="/cliente">
               <InterfaceIcon name="package" />
-              <span><strong>Soy cliente</strong><p>Consulta el avance de tu envío con la guía.</p></span>
+              <span><strong><Tx k="home.client" /></strong><p><Tx k="home.client.meta" /></p></span>
               <InterfaceIcon name="arrow" className="rp-entry-arrow" />
             </Link>
           </section>

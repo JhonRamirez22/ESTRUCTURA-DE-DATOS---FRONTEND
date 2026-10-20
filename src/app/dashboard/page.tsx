@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import AppShell from '@/components/AppShell';
+import { usePreferences, useT } from '@/lib/preferences';
 import { isCourierLocationFresh } from '@/lib/courierLocation';
 import { isRoadGeometryProvider } from '@/lib/roadGeometry';
 import { formatNotificationMessage, formatOrderReference } from '@/lib/formatOrderReference';
@@ -141,6 +142,7 @@ const EMPTY_DASHBOARD_DATA: DashboardData = {
 };
 
 export default function DashboardPage() {
+  const { t, lang } = usePreferences();
   const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD_DATA);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
@@ -570,16 +572,16 @@ export default function DashboardPage() {
       isCourierLocationFresh(courier.lastLocationAt ? new Date(courier.lastLocationAt) : null)
   ).length;
   const summaryMetrics: Array<{ label: string; value: number; warning: boolean }> = [
-    { label: 'Repartidores conectados', value: connectedCourierCount, warning: false },
-    { label: 'Rutas activas', value: activeRoutes.length, warning: false },
-    { label: 'Paradas activas', value: pendingStops, warning: false },
+    { label: t('dash.fig.connected'), value: connectedCourierCount, warning: false },
+    { label: t('dash.fig.routes'), value: activeRoutes.length, warning: false },
+    { label: t('dash.fig.stops'), value: pendingStops, warning: false },
     {
-      label: data.metrics.timeSavedMinutes >= 0 ? 'Minutos ahorrados' : 'Minutos extra',
+      label: data.metrics.timeSavedMinutes >= 0 ? t('dash.fig.savedMin') : t('dash.fig.extraMin'),
       value: Math.round(Math.abs(data.metrics.timeSavedMinutes)),
       warning: data.metrics.timeSavedMinutes < 0,
     },
     {
-      label: data.metrics.distanceSavedMeters >= 0 ? 'Km ahorrados' : 'Km extra',
+      label: data.metrics.distanceSavedMeters >= 0 ? t('dash.fig.savedKm') : t('dash.fig.extraKm'),
       value: Math.round(Math.abs(data.metrics.distanceSavedMeters) / 100) / 10,
       warning: data.metrics.distanceSavedMeters < 0,
     },
@@ -592,17 +594,17 @@ export default function DashboardPage() {
         <div className="rl-page">
           <header className="rl-page-head">
             <div>
-              <h1>Despacho</h1>
+              <h1>{t('dash.title')}</h1>
               <p className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
                   className={`h-2 w-2 shrink-0 rounded-full ${loading ? 'bg-amber-500' : 'bg-[var(--route)]'}`}
                 />
                 {loading
-                  ? 'Sincronizando operación…'
+                  ? t('dash.syncing')
                   : lastUpdatedAt
-                    ? `Actualizado ${lastUpdatedAt.toLocaleTimeString('es-CO')}`
-                    : 'Actualización automática activa'}
+                    ? t('dash.updated', { time: lastUpdatedAt.toLocaleTimeString(lang === 'en' ? 'en-US' : 'es-CO') })
+                    : t('dash.autoRefresh')}
               </p>
             </div>
             <dl aria-label="Resumen operativo" className="rl-figures">
@@ -615,11 +617,12 @@ export default function DashboardPage() {
             </dl>
             <button
               className="rp-button rp-button-quiet w-full sm:w-auto"
+              data-tip="tip.refresh"
               disabled={loading}
               onClick={() => void loadDashboard()}
               type="button"
             >
-              {loading ? 'Actualizando…' : 'Actualizar datos'}
+              {loading ? t('dash.refreshing') : t('dash.refresh')}
             </button>
           </header>
 
@@ -681,13 +684,13 @@ export default function DashboardPage() {
 
           <section aria-label="Despachar pedidos" className="rl-section scroll-mt-24" id="dispatch-orders">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold">Nuevo despacho</h2>
+              <h2 className="text-xl font-semibold">{t('dash.new')}</h2>
               <div className="flex flex-wrap items-center gap-4 text-sm">
                 <Link className="font-semibold underline-offset-4 hover:underline" href="/personal">
-                  ¿Falta un repartidor? Agrégalo en Personal
+                  {t('dash.missingCourier')}
                 </Link>
-                <Link className="rp-button rp-button-secondary rp-button-small shrink-0" href="/pedidos">
-                  + Registrar pedido
+                <Link className="rp-button rp-button-secondary rp-button-small shrink-0" data-tip="tip.registerOrder" href="/pedidos">
+                  {t('dash.registerOrder')}
                 </Link>
               </div>
             </div>
@@ -696,13 +699,14 @@ export default function DashboardPage() {
               <div className="min-w-0">
                 <div className="rl-head">
                   <h3>
-                    1. Pedidos pendientes{' '}
+                    {t('dash.step1')}{' '}
                     <small>
-                      {selectedPendingIds.length} de {data.pendingPoints.length} seleccionados
+                      {t('dash.selected', { n: selectedPendingIds.length, total: data.pendingPoints.length })}
                     </small>
                   </h3>
                   <button
                     className="text-sm font-semibold underline-offset-4 hover:underline"
+                    data-tip="tip.selectAll"
                     onClick={() =>
                       setSelectedPendingIds(
                         selectedPendingIds.length === data.pendingPoints.length
@@ -714,12 +718,12 @@ export default function DashboardPage() {
                   >
                     {selectedPendingIds.length === data.pendingPoints.length &&
                     data.pendingPoints.length > 0
-                      ? 'Quitar todos'
-                      : 'Seleccionar todos'}
+                      ? t('dash.clearAll')
+                      : t('dash.selectAll')}
                   </button>
                 </div>
                 {data.pendingPoints.length === 0 ? (
-                  <p className="rl-empty">No hay pedidos pendientes. Registra uno desde el módulo Pedidos.</p>
+                  <p className="rl-empty">{t('dash.noPending')}</p>
                 ) : (
                   <ul className="rl-rows max-h-[420px] overflow-y-auto">
                     {data.pendingPoints.map((point) => {
@@ -742,11 +746,12 @@ export default function DashboardPage() {
                             />
                             <span className="rl-row-main">
                               <strong className="truncate">{point.address}</strong>
-                              <span className="rl-ref">{reference} · Pendiente</span>
+                              <span className="rl-ref">{reference} · {t('dash.pendingTag')}</span>
                             </span>
                           </label>
                           <button
                             aria-label={`Eliminar pedido ${reference}`}
+                            data-tip="tip.deleteOrder"
                             className="ui-button ui-button-ghost ui-button-icon ml-2 !h-10 !min-h-10 !w-10 !p-2 text-[var(--danger)] hover:bg-[var(--danger-band)]"
                             disabled={deletingOrderId === point.id || dispatching}
                             onClick={() => void deletePendingOrder(point)}
@@ -765,11 +770,11 @@ export default function DashboardPage() {
               <div className="min-w-0">
                 <div className="rl-head">
                   <h3>
-                    2. Repartidores disponibles <small>con GPS reciente</small>
+                    {t('dash.step2')} <small>{t('dash.recentGps')}</small>
                   </h3>
                 </div>
                 {availableCouriers.length === 0 ? (
-                  <p className="rl-empty">No hay repartidores con GPS disponible. Registra uno o inicia su PWA.</p>
+                  <p className="rl-empty">{t('dash.noCouriers')}</p>
                 ) : (
                   <ul className="rl-rows">
                     {availableCouriers.map((courier) => {
@@ -791,9 +796,9 @@ export default function DashboardPage() {
                             />
                             <span className="rl-row-main">
                               <strong>{courier.name}</strong>
-                              <span className="tabular-nums">GPS activo · {courier.phone}</span>
+                              <span className="tabular-nums">{t('dash.gpsActive')} · {courier.phone}</span>
                             </span>
-                            <span className="rl-state is-route">Libre</span>
+                            <span className="rl-state is-route">{t('dash.free')}</span>
                           </label>
                         </li>
                       );
@@ -801,15 +806,16 @@ export default function DashboardPage() {
                   </ul>
                 )}
                 <p className="mt-3 text-xs text-[var(--ink-soft)]">
-                  Puedes seleccionar más de uno para balancear la carga.
+                  {t('dash.multi')}
                 </p>
                 <button
                   className="rp-button rp-button-primary rp-button-block mt-4"
+                  data-tip="tip.analyze"
                   disabled={analyzing || selectedPendingIds.length === 0 || selectedCourierIds.length === 0}
                   onClick={() => void analyzeAssignments()}
                   type="button"
                 >
-                  {analyzing ? 'Analizando cercanía…' : 'Analizar asignación'}
+                  {analyzing ? t('dash.analyzing') : t('dash.analyze')}
                 </button>
               </div>
 
@@ -817,17 +823,17 @@ export default function DashboardPage() {
                 <aside aria-label="Propuesta" className="rl-board route-proposal min-w-0">
                   <div className="rl-head">
                     <h3>
-                      {assignmentPreview.length > 0 ? '3. Propuesta lista para despachar' : 'Pedidos pendientes de asignar'}
+                      {assignmentPreview.length > 0 ? t('dash.step3.ready') : t('dash.step3.unassigned')}
                     </h3>
                   </div>
                   <p className="mt-3 text-sm">
                     {assignmentPreview.length > 0
-                      ? 'Revisa la distribución antes de consultar OSRM y crear las rutas.'
-                      : 'No se asignaron pedidos en este análisis; siguen pendientes y no se despacharán.'}
+                      ? t('dash.step3.review')
+                      : t('dash.step3.none')}
                   </p>
                   {assignmentPreview.length > 0 && !assignmentPreviewIsCurrent ? (
                     <p className="mt-3 text-sm font-semibold !text-[#f3d9a4]" role="status">
-                      La selección cambió. Vuelve a analizar antes de despachar esta propuesta.
+                      {t('dash.stale')}
                     </p>
                   ) : null}
                   {assignmentPreview.length > 0 ? (
@@ -839,7 +845,7 @@ export default function DashboardPage() {
                             <p className="mb-2 flex items-baseline justify-between gap-3 text-sm font-semibold !text-[var(--board-ink)]">
                               {courier?.name ?? 'Repartidor'}
                               <span className="text-xs font-normal tabular-nums !text-[var(--board-soft)]">
-                                {assignment.deliveryPointIds.length} paradas
+                                {t('dash.stops', { n: assignment.deliveryPointIds.length })}
                               </span>
                             </p>
                             <RouteLine
@@ -911,22 +917,23 @@ export default function DashboardPage() {
                   {assignmentPreview.length > 0 ? (
                     <button
                       className="rp-button rp-button-go rp-button-block mt-5"
+                      data-tip="tip.dispatch"
                       disabled={dispatching || !assignmentPreviewIsCurrent}
                       onClick={() => void dispatchAssignments()}
                       type="button"
                     >
-                      {dispatching ? 'Calculando ruta y tráfico…' : 'Despachar rutas optimizadas'}
+                      {dispatching ? t('dash.dispatching') : t('dash.dispatchBtn')}
                     </button>
                   ) : null}
                 </aside>
               ) : (
                 <aside aria-label="Propuesta" className="rl-board min-w-0">
                   <div className="rl-head">
-                    <h3>3. Propuesta</h3>
+                    <h3>{t('dash.step3')}</h3>
                   </div>
-                  <p className="mt-3 text-sm">Elige pedidos y repartidores y pulsa «Analizar asignación».</p>
+                  <p className="mt-3 text-sm">{t('dash.step3.empty')}</p>
                   <p className="mt-4 text-xs leading-5">
-                    La IA propone el orden y Dijkstra lo verifica sobre la misma matriz antes de despachar.
+                    {t('dash.step3.note')}
                   </p>
                 </aside>
               )}
@@ -941,25 +948,25 @@ export default function DashboardPage() {
               <div className="rp-map-frame min-w-0">
                 <div className="rp-map-heading">
                   <div className="min-w-0">
-                    <h2>Mapa operativo</h2>
-                    <p className="mt-1 max-w-3xl">Ubicaciones del equipo y recorridos por calles de Pasto.</p>
+                    <h2>{t('dash.map')}</h2>
+                    <p className="mt-1 max-w-3xl">{t('dash.map.lead')}</p>
                   </div>
                   <div className="rp-map-legend">
                     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                       <span className="h-2 w-2 rounded-full bg-cyan-400" />
-                      Repartidor
+                      {t('dash.legend.courier')}
                     </span>
                     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                       <span className="h-2 w-2 rounded-full bg-amber-500" />
-                      Pendiente
+                      {t('dash.legend.pending')}
                     </span>
                     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                       <span className="h-2 w-2 rounded-full bg-sky-400" />
-                      En camino
+                      {t('dash.legend.onway')}
                     </span>
                     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                       <span className="h-2 w-2 rounded-full bg-green-500" />
-                      Entregada
+                      {t('dash.legend.delivered')}
                     </span>
                   </div>
                 </div>
@@ -974,7 +981,7 @@ export default function DashboardPage() {
               <aside className="rp-route-list min-w-0" id="active-routes">
                 <div className="rl-head">
                   <h2>
-                    Rutas activas <small aria-label={`${activeRoutes.length} rutas activas`}>{activeRoutes.length}</small>
+                    {t('dash.activeRoutes')} <small aria-label={`${activeRoutes.length} rutas activas`}>{activeRoutes.length}</small>
                   </h2>
                 </div>
                 <div>
@@ -984,9 +991,9 @@ export default function DashboardPage() {
                     </p>
                   ) : activeRoutes.length === 0 ? (
                     <div className="rl-empty">
-                      <p>No hay recorridos activos.</p>
+                      <p>{t('dash.noRoutes')}</p>
                       <Link className="mt-2 inline-flex font-semibold underline underline-offset-4" href="#dispatch-orders">
-                        Ir al despacho
+                        {t('dash.goDispatch')}
                       </Link>
                     </div>
                   ) : (
@@ -1006,7 +1013,7 @@ export default function DashboardPage() {
                 {historicalRoutes.length > 0 ? (
                   <details aria-label="Historial de rutas" className="mt-4">
                     <summary className="cursor-pointer py-2 text-sm font-semibold text-[var(--ink-soft)] hover:text-[var(--foreground)]">
-                      Historial de rutas <span className="ml-1">({historicalRoutes.length})</span>
+                      {t('dash.history')} <span className="ml-1">({historicalRoutes.length})</span>
                     </summary>
                     <div className="mt-2">
                       {historicalRoutes.map((route) => (
@@ -1032,7 +1039,7 @@ export default function DashboardPage() {
               <section aria-label="Avisos operativos" className="rl-section">
                 <div className="rl-head">
                   <h2>
-                    Actividad reciente <small>Avisos del equipo</small>
+                    {t('dash.activity')} <small>{t('dash.activity.meta')}</small>
                   </h2>
                 </div>
                 <ul className="rl-rows">
@@ -1102,11 +1109,12 @@ function RouteSummary({
   ) => Promise<void>;
   route: Route;
 }) {
+  const t = useT();
   const statusLabels = {
-    PLANNED: 'Planificada',
-    IN_PROGRESS: 'En progreso',
-    COMPLETED: 'Completada',
-    CANCELLED: 'Cancelada',
+    PLANNED: t('route.planned'),
+    IN_PROGRESS: t('route.inProgress'),
+    COMPLETED: t('route.completed'),
+    CANCELLED: t('route.cancelled'),
   } as const;
   const hasFreshCourierLocation =
     route.courier.currentLat !== null &&
@@ -1133,8 +1141,12 @@ function RouteSummary({
         <div className="min-w-0">
           <p className="font-semibold">{route.courier.name}</p>
           <p className="mt-0.5 text-xs tabular-nums text-[var(--ink-soft)]">
-            Ruta {route.id.slice(0, 8)} · {Math.round(route.estimatedDurationMinutes)} min ·{' '}
-            {delivered}/{route.deliveryPoints.length} entregadas
+            {t('route.meta', {
+              id: route.id.slice(0, 8),
+              min: Math.round(route.estimatedDurationMinutes),
+              done: delivered,
+              total: route.deliveryPoints.length,
+            })}
           </p>
         </div>
         <span className={`rl-state ${stateTone}`}>{statusLabels[route.status]}</span>
@@ -1147,7 +1159,7 @@ function RouteSummary({
               states={route.deliveryPoints.map((_, index) => stopState(index))}
             />
           </div>
-          <p className="mt-4 text-xs font-semibold text-[var(--ink-soft)]">Orden optimizado</p>
+          <p className="mt-4 text-xs font-semibold text-[var(--ink-soft)]">{t('route.order')}</p>
           <div className="mt-2">
             <RouteLine
               label={`Paradas de la ruta de ${route.courier.name}`}
@@ -1162,7 +1174,7 @@ function RouteSummary({
           </div>
         </>
       ) : (
-        <p className="mt-2 text-sm text-[var(--ink-soft)]">Sin paradas</p>
+        <p className="mt-2 text-sm text-[var(--ink-soft)]">{t('route.noStops')}</p>
       )}
       {canRecalculate && !isRoadGeometryProvider(route.geometryProvider) ? (
         <div className="rl-notice is-warn mt-3 !block text-sm" role="status">
@@ -1174,6 +1186,7 @@ function RouteSummary({
           {hasFreshCourierLocation ? (
             <button
               className="rp-button rp-button-primary rp-button-small mt-2"
+              data-tip="tip.recalculate"
               disabled={isRecalculating}
               onClick={() => void onRecalculate(route.id)}
               type="button"
@@ -1192,37 +1205,41 @@ function RouteSummary({
           {route.status === 'PLANNED' ? (
             <button
               className="rp-button rp-button-primary rp-button-small"
+              data-tip="tip.startRoute"
               onClick={() => void onStatusChange(route.id, 'IN_PROGRESS')}
               type="button"
             >
-              Iniciar ruta
+              {t('route.start')}
             </button>
           ) : (
             <button
               className="rp-button rp-button-primary rp-button-small"
+              data-tip="tip.completeRoute"
               onClick={() => void onStatusChange(route.id, 'COMPLETED')}
               type="button"
             >
-              Completar ruta
+              {t('route.complete')}
             </button>
           )}
           {route.canUndo ? (
             <button
               aria-label={`Deshacer último recálculo de la ruta de ${route.courier.name}`}
               className="rp-button rp-button-quiet rp-button-small"
+              data-tip="tip.undo"
               disabled={isUndoing || isRecalculating}
               onClick={() => void onUndo(route.id)}
               type="button"
             >
-              {isUndoing ? 'Restaurando…' : 'Deshacer último recálculo'}
+              {isUndoing ? 'Restaurando…' : t('route.undo')}
             </button>
           ) : null}
           <button
             className="rp-button rp-button-danger rp-button-small ml-auto"
+            data-tip="tip.cancelRoute"
             onClick={() => void onStatusChange(route.id, 'CANCELLED')}
             type="button"
           >
-            Cancelar
+            {t('route.cancel')}
           </button>
         </div>
       ) : null}

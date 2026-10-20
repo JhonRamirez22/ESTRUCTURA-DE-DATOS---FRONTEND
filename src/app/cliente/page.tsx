@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import { usePreferences, useT } from '@/lib/preferences';
 import CustomerOrderChat from "@/components/CustomerOrderChat";
 import { RouteLine, type LineStop } from "@/components/RouteLine";
 
@@ -53,6 +54,7 @@ interface TrackingData {
 }
 
 export default function ClientePage() {
+  const { t } = usePreferences();
   const [guide, setGuide] = useState("");
   const [tracking, setTracking] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -163,8 +165,8 @@ export default function ClientePage() {
         </Link>
         <header className="rl-page-head mt-2">
           <div>
-            <h1>Sigue tu pedido con la guía</h1>
-            <p>Escribe tu guía privada para ver el estado de tu pedido.</p>
+            <h1>{t("tracking.title")}</h1>
+            <p>{t("tracking.lead")}</p>
           </div>
         </header>
 
@@ -176,7 +178,7 @@ export default function ClientePage() {
           }}
         >
           <label className="rp-field-label flex-1" htmlFor="tracking-guide">
-            Número de guía
+            {t("tracking.guide")}
             <input
               aria-describedby="tracking-guide-help"
               autoCapitalize="none"
@@ -192,8 +194,8 @@ export default function ClientePage() {
               Es distinta al número de pedido. Si no la tienes, solicítala al comercio donde compraste.
             </span>
           </label>
-          <button className="rp-button rp-button-primary min-h-12 px-6 sm:mt-[25px]" disabled={loading} type="submit">
-            {loading ? "Buscando…" : "Buscar pedido"}
+          <button className="rp-button rp-button-primary min-h-12 px-6 sm:mt-[25px]" data-tip="tip.searchGuide" disabled={loading} type="submit">
+            {loading ? t("tracking.searching") : t("tracking.search")}
           </button>
         </form>
 
@@ -217,13 +219,13 @@ export default function ClientePage() {
                 <p className="mt-3 text-3xl font-semibold leading-tight !text-[var(--board-ink)]">
                   {tracking.route
                     ? tracking.route.estimatedMinutesFromNow === null
-                      ? "Ruta asignada"
-                      : `Aproximadamente ${Math.max(1, Math.round(tracking.route.estimatedMinutesFromNow))} min`
+                      ? t("tracking.assigned")
+                      : t("tracking.approx", { min: Math.max(1, Math.round(tracking.route.estimatedMinutesFromNow)) })
                     : formatStatus(tracking.status)}
                 </p>
                 <h2 className="mt-2 text-sm font-normal !text-[var(--board-soft)]">{tracking.address}</h2>
                 <div className="mt-5">
-                  <RouteLine label="Avance de tu pedido" selected stops={trackingStages(tracking)} />
+                  <RouteLine label={t("tracking.progress")} selected stops={trackingStages(tracking, t)} />
                 </div>
                 {lastUpdatedAt ? (
                   <p aria-live="polite" className="mt-2 text-xs leading-5">
@@ -238,10 +240,10 @@ export default function ClientePage() {
               {tracking.route ? (
                 <>
                   <dl className="mt-5 text-sm">
-                    <InfoRow label="Entrega" value="En camino" />
-                    <InfoRow label="Distancia aproximada" value={formatDistance(tracking.route.distanceFromCourierMeters)} />
-                    <InfoRow label="Última señal GPS" value={formatLastLocation(tracking.route.courier.lastLocationAt)} />
-                    <InfoRow label="Estado de ruta" value={formatRouteStatus(tracking.route.status)} />
+                    <InfoRow label={t("tracking.delivery")} value={t("tracking.onWay")} />
+                    <InfoRow label={t("tracking.distance")} value={formatDistance(tracking.route.distanceFromCourierMeters)} />
+                    <InfoRow label={t("tracking.lastGps")} value={formatLastLocation(tracking.route.courier.lastLocationAt)} />
+                    <InfoRow label={t("tracking.routeStatus")} value={formatRouteStatus(tracking.route.status)} />
                   </dl>
                   {tracking.route.liveTraffic ? (
                     <div
@@ -280,18 +282,19 @@ export default function ClientePage() {
               )}
               <button
                 className="rp-button rp-button-quiet mt-5 w-full"
+                data-tip="tip.refreshTracking"
                 disabled={loading}
                 onClick={() => void searchTracking(tracking.guide)}
                 type="button"
               >
-                {loading ? "Actualizando…" : "Actualizar ubicación"}
+                {loading ? t("tracking.refreshing") : t("tracking.refresh")}
               </button>
             </aside>
 
             <div className="min-w-0 space-y-8">
               <div className="rp-map-frame">
                 <div className="rp-map-heading">
-                  <h2>Recorrido de tu pedido</h2>
+                  <h2>{t("tracking.map")}</h2>
                   <span className="rl-state text-[var(--board-soft)]">{formatStatus(tracking.status)}</span>
                 </div>
                 <TrackingMap
@@ -322,7 +325,7 @@ export default function ClientePage() {
 }
 
 /** Cuatro paradas del pedido: dónde va, sin datos de otros envíos. */
-function trackingStages(tracking: TrackingData): LineStop[] {
+function trackingStages(tracking: TrackingData, t: ReturnType<typeof useT>): LineStop[] {
   const delivered = tracking.status === "DELIVERED";
   const failed = tracking.status === "FAILED";
   const enRoute = tracking.status === "EN_ROUTE";
@@ -331,19 +334,19 @@ function trackingStages(tracking: TrackingData): LineStop[] {
   return [
     {
       id: "recibido",
-      label: inReview ? "Solicitud en revisión" : "Pedido recibido",
-      meta: inReview ? "El despacho confirma la dirección" : undefined,
+      label: inReview ? t("tracking.stage.review") : t("tracking.stage.received"),
+      meta: inReview ? t("tracking.stage.review.meta") : undefined,
       state: inReview ? "current" : "done",
     },
     {
       id: "asignado",
-      label: "Asignado a un repartidor",
+      label: t("tracking.stage.assigned"),
       state: inReview ? "pending" : assigned || delivered || failed ? "done" : "current",
     },
-    { id: "camino", label: "En camino", state: enRoute ? "current" : delivered || failed ? "done" : "pending" },
+    { id: "camino", label: t("tracking.stage.onWay"), state: enRoute ? "current" : delivered || failed ? "done" : "pending" },
     {
       id: "entregado",
-      label: failed ? "Incidencia en la entrega" : "Entregado",
+      label: failed ? t("tracking.stage.failed") : t("tracking.stage.delivered"),
       state: delivered || failed ? "current" : "pending",
     },
   ];

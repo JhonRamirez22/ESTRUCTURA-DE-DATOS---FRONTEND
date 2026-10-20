@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import AppShell from '@/components/AppShell';
+import { usePreferences } from '@/lib/preferences';
 import { SessionChangeNotice } from '@/components/SessionChangeNotice';
 import { apiFetch, apiJson, ApiRequestError } from '@/lib/apiClient';
 import { isCourierLocationFresh } from '@/lib/courierLocation';
@@ -36,6 +37,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /** Personal: alta y baja de repartidores con su acceso, y cambio de credenciales del equipo. */
 export default function StaffPage() {
+  const { t } = usePreferences();
   const [couriers, setCouriers] = useState<Courier[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -176,16 +178,16 @@ export default function StaffPage() {
       <main className="rl-page">
         <header className="rl-page-head">
           <div>
-            <h1>Personal</h1>
-            <p>Registra repartidores y administra su acceso a la aplicación.</p>
+            <h1>{t('staff.title')}</h1>
+            <p>{t('staff.lead')}</p>
           </div>
           <dl className="rl-figures">
             <div>
-              <dt>en el equipo</dt>
+              <dt>{t('staff.team')}</dt>
               <dd>{couriers.length}</dd>
             </div>
             <div>
-              <dt>con GPS reciente</dt>
+              <dt>{t('staff.gps')}</dt>
               <dd className="is-route">{connected}</dd>
             </div>
           </dl>
@@ -206,7 +208,7 @@ export default function StaffPage() {
             className="rl-section"
           >
             <div className="rl-head">
-              <h2 id="team-heading">Repartidores</h2>
+              <h2 id="team-heading">{t('staff.couriers')}</h2>
             </div>
             {loading ? (
               <p className="rl-empty" role="status">
@@ -251,6 +253,7 @@ export default function StaffPage() {
                           <button
                             aria-expanded={editing}
                             className="rp-button rp-button-quiet rp-button-small"
+                            data-tip="tip.changeAccess"
                             onClick={() => {
                               setAccessError(null);
                               setConfirmingDeleteId(null);
@@ -258,13 +261,14 @@ export default function StaffPage() {
                             }}
                             type="button"
                           >
-                            {editing ? 'Cancelar' : 'Cambiar acceso'}
+                            {editing ? t('staff.cancel') : t('staff.changeAccess')}
                           </button>
                           {/* La acción destructiva queda separada y pide una segunda confirmación. */}
                           <button
                             aria-expanded={confirming}
                             aria-label={`Eliminar a ${courier.name}`}
                             className="rp-button rp-button-danger rp-button-small ml-3"
+                            data-tip="tip.deleteCourier"
                             disabled={deletingId !== null}
                             onClick={() => {
                               setDeleteError(null);
@@ -273,7 +277,7 @@ export default function StaffPage() {
                             }}
                             type="button"
                           >
-                            Eliminar
+                            {t('staff.delete')}
                           </button>
                         </div>
                       </div>
@@ -283,7 +287,7 @@ export default function StaffPage() {
                           role="group"
                           aria-label={`Confirmar eliminación de ${courier.name}`}
                         >
-                          <p className="text-sm text-[#5e1a24]">
+                          <p className="text-sm text-[var(--danger-ink)]">
                             ¿Eliminar a <strong>{courier.name}</strong>? Se borra también su cuenta de acceso. No se
                             puede deshacer.
                           </p>
@@ -294,7 +298,7 @@ export default function StaffPage() {
                               onClick={() => setConfirmingDeleteId(null)}
                               type="button"
                             >
-                              Conservar
+                              {t('staff.keep')}
                             </button>
                             <button
                               className="rp-button rp-button-small !border-[var(--danger)] !bg-[var(--danger)] !text-white"
@@ -302,7 +306,7 @@ export default function StaffPage() {
                               onClick={() => void deleteCourier(courier)}
                               type="button"
                             >
-                              {deletingId === courier.id ? 'Eliminando…' : 'Sí, eliminar'}
+                              {deletingId === courier.id ? 'Eliminando…' : t('staff.confirmDelete')}
                             </button>
                           </div>
                         </div>
@@ -363,14 +367,14 @@ export default function StaffPage() {
             className="rl-section lg:sticky lg:top-20"
           >
             <div className="rl-head">
-              <h2 id="new-courier-heading">Agregar repartidor</h2>
+              <h2 id="new-courier-heading">{t('staff.add')}</h2>
             </div>
             <p className="mt-3 text-sm text-[var(--ink-soft)]">
-              Se crea su cuenta: entra desde la página de acceso con este correo y contraseña.
+              {t('staff.accountNote')}
             </p>
             <form className="mt-5 grid gap-5" noValidate onSubmit={(event) => void createCourier(event)}>
               <label className="rp-field-label">
-                Nombre completo
+                {t('staff.name')}
                 <input
                   autoComplete="off"
                   className="rp-input mt-1"
@@ -381,7 +385,7 @@ export default function StaffPage() {
                 />
               </label>
               <label className="rp-field-label">
-                Teléfono
+                {t('staff.phone')}
                 <input
                   autoComplete="off"
                   className="rp-input mt-1"
@@ -394,7 +398,7 @@ export default function StaffPage() {
                 />
               </label>
               <label className="rp-field-label">
-                Correo electrónico
+                {t('staff.email')}
                 <input
                   autoComplete="off"
                   className="rp-input mt-1"
@@ -406,7 +410,7 @@ export default function StaffPage() {
                 />
               </label>
               <label className="rp-field-label">
-                Contraseña
+                {t('staff.password')}
                 <input
                   aria-describedby="new-courier-password-help"
                   autoComplete="new-password"
@@ -417,7 +421,7 @@ export default function StaffPage() {
                   value={draft.password}
                 />
                 <span className="rp-field-help" id="new-courier-password-help">
-                  Mínimo {MIN_PASSWORD} caracteres. Entrégasela al repartidor en persona.
+                  {t('staff.passwordHelp', { n: MIN_PASSWORD })}
                 </span>
               </label>
               {formError ? (
@@ -425,8 +429,8 @@ export default function StaffPage() {
                   {formError}
                 </p>
               ) : null}
-              <button className="rp-button rp-button-primary rp-button-block mt-1" disabled={creating} type="submit">
-                {creating ? 'Registrando…' : 'Registrar repartidor'}
+              <button className="rp-button rp-button-primary rp-button-block mt-1" data-tip="tip.registerCourier" disabled={creating} type="submit">
+                {creating ? 'Registrando…' : t('staff.register')}
               </button>
             </form>
           </section>

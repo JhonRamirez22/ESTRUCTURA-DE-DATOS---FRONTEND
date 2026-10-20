@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import AppShell from '@/components/AppShell';
+import { usePreferences } from '@/lib/preferences';
 import { RouteLine } from '@/components/RouteLine';
 import { apiFetch } from '@/lib/apiClient';
 import { containsForeignCityReference, isWithinPastoServiceArea } from '@/lib/pastoArea';
@@ -25,6 +26,7 @@ interface CreatedRequest {
 
 /** Solicitud pública de envío: queda en revisión hasta que despacho la acepta. */
 export default function RequestDeliveryPage() {
+  const { t } = usePreferences();
   const [address, setAddress] = useState('');
   const [point, setPoint] = useState<[number, number] | null>(null);
   const [sending, setSending] = useState(false);
@@ -82,8 +84,8 @@ export default function RequestDeliveryPage() {
       <main className="rl-page">
         <header className="rl-page-head">
           <div>
-            <h1>Solicitar un envío</h1>
-            <p>Indica a dónde llevarlo en Pasto. El despacho revisa tu solicitud antes de asignarla.</p>
+            <h1>{t('request.title')}</h1>
+            <p>{t('request.lead')}</p>
           </div>
         </header>
 
@@ -91,31 +93,31 @@ export default function RequestDeliveryPage() {
           <section aria-labelledby="request-done" className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_380px]">
             <div className="rl-board route-proposal">
               <h2 className="text-2xl font-semibold !text-[var(--board-ink)]" id="request-done">
-                Solicitud recibida
+                {t('request.done')}
               </h2>
               <p className="mt-2 text-sm">
                 Referencia <span className="font-semibold tabular-nums !text-[var(--board-ink)]">{created.reference}</span>.
                 Guarda tu guía: es la única forma de consultar el estado.
               </p>
-              <p className="mt-5 text-xs font-semibold">Tu guía privada</p>
+              <p className="mt-5 text-xs font-semibold">{t('request.guide')}</p>
               <p className="mt-1 break-all text-lg font-semibold tabular-nums !text-[var(--board-ink)]">
                 {created.trackingGuide}
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
-                <button className="rp-button rp-button-primary" onClick={() => void copyGuide()} type="button">
-                  {copied ? 'Guía copiada' : 'Copiar guía'}
+                <button className="rp-button rp-button-primary" data-tip="tip.copyGuide" onClick={() => void copyGuide()} type="button">
+                  {copied ? t('request.copied') : t('request.copy')}
                 </button>
                 <Link
                   className="rp-button rp-button-quiet"
                   href={`/cliente?guia=${encodeURIComponent(created.trackingGuide)}`}
                 >
-                  Seguir mi pedido
+                  {t('request.follow')}
                 </Link>
               </div>
             </div>
             <div>
               <div className="rl-head">
-                <h2>Qué sigue</h2>
+                <h2>{t('request.next')}</h2>
               </div>
               <div className="mt-4">
                 <RouteLine
@@ -135,10 +137,10 @@ export default function RequestDeliveryPage() {
           <section className="grid items-start gap-8 lg:grid-cols-[400px_minmax(0,1fr)]">
             <form className="rl-section space-y-5" noValidate onSubmit={(event) => void submit(event)}>
               <div className="rl-head">
-                <h2>Datos de entrega</h2>
+                <h2>{t('request.form')}</h2>
               </div>
               <label className="rp-field-label">
-                Dirección de entrega
+                {t('request.address')}
                 <input
                   aria-describedby="request-address-help"
                   autoComplete="street-address"
@@ -149,13 +151,13 @@ export default function RequestDeliveryPage() {
                   value={address}
                 />
                 <span className="rp-field-help" id="request-address-help">
-                  Incluye barrio o referencia. No pedimos nombre, correo ni teléfono.
+                  {t('request.address.help')}
                 </span>
               </label>
               <div className="text-sm">
-                <span className="font-semibold">Punto en el mapa</span>
+                <span className="font-semibold">{t('request.point')}</span>
                 <p className={`mt-1 tabular-nums ${point ? 'text-[var(--route-ink)]' : 'text-[var(--ink-soft)]'}`}>
-                  {point ? `${point[0].toFixed(6)}, ${point[1].toFixed(6)}` : 'Toca el mapa donde se entrega'}
+                  {point ? `${point[0].toFixed(6)}, ${point[1].toFixed(6)}` : t('request.point.empty')}
                 </p>
               </div>
               {error ? (
@@ -163,20 +165,20 @@ export default function RequestDeliveryPage() {
                   {error}
                 </p>
               ) : null}
-              <button className="rp-button rp-button-go rp-button-block" disabled={sending} type="submit">
-                {sending ? 'Enviando…' : 'Enviar solicitud'}
+              <button className="rp-button rp-button-go rp-button-block" data-tip="tip.sendRequest" disabled={sending} type="submit">
+                {sending ? t('request.sending') : t('request.send')}
               </button>
               <p className="text-xs leading-5 text-[var(--ink-soft)]">
-                ¿Ya tienes una guía?{' '}
+                {t('request.haveGuide')}{' '}
                 <Link className="font-semibold underline underline-offset-4" href="/cliente">
-                  Sigue tu pedido
+                  {t('request.track')}
                 </Link>
               </p>
             </form>
             <div className="rp-map-frame order-first lg:order-none">
               <div className="rp-map-heading">
-                <h2>Toca el punto de entrega</h2>
-                <span className="rl-state text-[var(--board-soft)]">Solo Pasto</span>
+                <h2>{t('request.mapTitle')}</h2>
+                <span className="rl-state text-[var(--board-soft)]">{t('request.onlyPasto')}</span>
               </div>
               <div className="h-[360px] lg:h-[480px]">
                 <RequestMap

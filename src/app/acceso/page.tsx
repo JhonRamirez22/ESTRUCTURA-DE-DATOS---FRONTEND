@@ -1,6 +1,7 @@
 'use client';
 
 import { apiFetch } from '@/lib/apiClient';
+import { usePreferences } from '@/lib/preferences';
 
 import Link from 'next/link';
 import { ArrowLeft, MapPin } from 'lucide-react';
@@ -9,6 +10,7 @@ import AppShell from '@/components/AppShell';
 import { InteractiveLogin, type LoginCredentials } from '@/components/ui/interactive-login';
 
 export default function AccessPage() {
+  const { t } = usePreferences();
   const signIn = async ({ email, password }: LoginCredentials): Promise<void> => {
     const requested = new URLSearchParams(window.location.search).get('retorno');
     const response = await apiFetch('/api/auth/login', {
@@ -34,32 +36,31 @@ export default function AccessPage() {
         <div className="rp-access-story">
           <Link className="ui-back-link" href="/">
             <ArrowLeft size={16} aria-hidden="true" />
-            Inicio
+            {t('access.back')}
           </Link>
           <h2>
-            Una ciudad.
+            {t('access.title1')}
             <br />
-            Cada entrega en orden.
+            {t('access.title2')}
           </h2>
           <p>
-            Coordina los pedidos, encuentra la próxima parada y acompaña cada recorrido por las
-            calles de Pasto.
+            {t('access.lead')}
           </p>
           <div className="rp-access-line">
             <RouteLine
-              label="Cómo viaja un pedido"
+              label={t('access.line')}
               selected
               stops={[
-                { id: 'registro', label: 'Pedido registrado', meta: 'Dirección validada en Pasto', state: 'done' },
-                { id: 'despacho', label: 'Despacho', meta: 'La IA propone el orden y Dijkstra lo verifica', state: 'done' },
-                { id: 'ruta', label: 'En ruta', meta: 'GPS del repartidor y recorrido por calles', state: 'current' },
-                { id: 'puerta', label: 'En la puerta', meta: 'El cliente lo sigue con su guía', state: 'pending' },
+                { id: 'registro', label: t('access.line.1'), meta: t('access.line.1.meta'), state: 'done' },
+                { id: 'despacho', label: t('access.line.2'), meta: t('access.line.2.meta'), state: 'done' },
+                { id: 'ruta', label: t('access.line.3'), meta: t('access.line.3.meta'), state: 'current' },
+                { id: 'puerta', label: t('access.line.4'), meta: t('access.line.4.meta'), state: 'pending' },
               ]}
             />
           </div>
           <div className="rp-access-meta">
             <MapPin size={16} aria-hidden="true" />
-            <span>Pasto, Nariño</span>
+            <span>{t('shell.area')}</span>
           </div>
         </div>
         <InteractiveLogin onSubmit={signIn} />

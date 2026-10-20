@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { usePreferences } from '@/lib/preferences';
 
 export interface LoginCredentials {
   email: string;
@@ -30,14 +31,15 @@ export function InteractiveLogin({
   const [error, setError] = useState<string | null>(null);
   const submitting = useRef(false);
   const reducedMotion = useReducedMotion();
+  const { t } = usePreferences();
 
   return (
     <motion.section className="ui-login-panel" layout={reducedMotion ? false : 'position'}>
       <div className="ui-login-mark">
         <Route size={26} aria-hidden="true" />
       </div>
-      <h1>Ingresar al sistema</h1>
-      <p className="ui-login-intro">Tu cuenta de trabajo. Tus entregas, en orden.</p>
+      <h1>{t('login.title')}</h1>
+      <p className="ui-login-intro">{t('login.intro')}</p>
       <form
         aria-busy={loading}
         aria-describedby={error ? 'login-error' : undefined}
@@ -61,7 +63,7 @@ export function InteractiveLogin({
           }
         }}
       >
-        <label htmlFor="email">Correo electrónico</label>
+        <label htmlFor="email">{t('login.email')}</label>
         <input
           id="email"
           name="email"
@@ -74,7 +76,7 @@ export function InteractiveLogin({
           disabled={loading}
           onChange={(event) => setEmail(event.target.value)}
         />
-        <label htmlFor="password">Contraseña</label>
+        <label htmlFor="password">{t('login.password')}</label>
         <div className="ui-password-field">
           <input
             id="password"
@@ -92,7 +94,8 @@ export function InteractiveLogin({
             variant="ghost"
             size="icon"
             className="ui-password-toggle"
-            aria-label={visiblePassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            aria-label={visiblePassword ? t('login.hide') : t('login.show')}
+            data-tip="tip.showPassword"
             aria-pressed={visiblePassword}
             onClick={() => setVisiblePassword(!visiblePassword)}
             disabled={loading}
@@ -119,19 +122,19 @@ export function InteractiveLogin({
             </motion.p>
           ) : null}
         </AnimatePresence>
-        <Button type="submit" className="ui-login-submit" disabled={loading}>
+        <Button type="submit" className="ui-login-submit" data-tip="tip.login" disabled={loading}>
           {loading ? (
             <LoaderCircle className="ui-loading-icon" size={17} aria-hidden="true" />
           ) : (
             <LockKeyhole size={17} aria-hidden="true" />
           )}
-          {loading ? 'Verificando…' : 'Ingresar'}
+          {loading ? t('login.verifying') : t('login.submit')}
           {!loading ? <ArrowRight size={17} aria-hidden="true" /> : null}
         </Button>
       </form>
       <div className="ui-login-privacy">
         <ShieldCheck size={16} aria-hidden="true" />
-        <span>Acceso privado. El rol lo verifica el servidor.</span>
+        <span>{t('login.privacy')}</span>
       </div>
     </motion.section>
   );

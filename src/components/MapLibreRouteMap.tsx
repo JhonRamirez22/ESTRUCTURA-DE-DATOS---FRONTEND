@@ -8,6 +8,7 @@ import { getPastoMapCenter } from '@/lib/mapCenter';
 import { getPastoMinimumZoom } from '@/lib/mapViewport';
 import TrafficOverlay from './TrafficOverlay';
 import { isRoadGeometryProvider } from '@/lib/roadGeometry';
+import { useT } from '@/lib/preferences';
 import {
   isMapStyleAuthorizationError,
   KEYLESS_DARK_MAP_STYLE_URL,
@@ -100,6 +101,7 @@ export default function MapLibreRouteMap({
   showTraffic = false,
   trafficMarks = [],
 }: MapLibreRouteMapProps) {
+  const t = useT();
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const selectedRoute = routes.find((route) => route.id === selectedRouteId) ?? routes[0] ?? null;
@@ -297,6 +299,7 @@ export default function MapLibreRouteMap({
       ) : null}
       <button
         className="rp-button rp-button-map absolute left-3 top-3 z-10"
+        data-tip="tip.centerMap"
         onClick={() => {
           const map = mapRef.current;
           if (!map?.isStyleLoaded()) return;
@@ -305,7 +308,7 @@ export default function MapLibreRouteMap({
         }}
         type="button"
       >
-        Centrar entregas
+        {t('map.center')}
       </button>
       {mapStatus !== 'ready' ? (
         <div

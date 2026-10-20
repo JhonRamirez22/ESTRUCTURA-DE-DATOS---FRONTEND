@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useT } from '@/lib/preferences';
 import { apiFetch } from '@/lib/apiClient';
 
 const REFRESH_MS = 5_000;
@@ -38,6 +39,7 @@ interface FeedPayload {
 
 /** Panel en vivo: muestra lo que el sistema propone y aplica, sin cambiar ninguna ruta. */
 export default function OptimizationFeed() {
+  const t = useT();
   const [feed, setFeed] = useState<FeedPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
@@ -107,24 +109,25 @@ export default function OptimizationFeed() {
     <section aria-label="Optimizaciones en vivo" className="rp-feed rl-section mb-10">
       <div className="rl-head flex-wrap">
         <h2>
-          Optimizaciones en vivo
+          {t('feed.title')}
           <span
             aria-hidden="true"
             className={`h-2.5 w-2.5 rounded-full ${paused ? 'bg-[var(--line-strong)]' : 'feed-pulse bg-[var(--route)]'}`}
           />
-          <small>{paused ? 'En pausa' : 'Cada 5 s'}</small>
+          <small>{paused ? t('feed.paused') : t('feed.every')}</small>
         </h2>
         <div className="flex flex-wrap gap-2">
-          <button className="rp-button rp-button-quiet rp-button-small" onClick={() => setPaused((value) => !value)} type="button">
-            {paused ? 'Reanudar' : 'Pausar'}
+          <button className="rp-button rp-button-quiet rp-button-small" data-tip="tip.pauseFeed" onClick={() => setPaused((value) => !value)} type="button">
+            {paused ? t('feed.resume') : t('feed.pause')}
           </button>
           <button
             className="rp-button rp-button-primary rp-button-small"
+            data-tip="tip.summary"
             disabled={summarizing || cooldown > 0 || events.length === 0}
             onClick={() => void requestSummary()}
             type="button"
           >
-            {summarizing ? 'Generando…' : cooldown > 0 ? `Resumen IA en ${cooldown} s` : 'Resumen con IA'}
+            {summarizing ? 'Generando…' : cooldown > 0 ? `Resumen IA en ${cooldown} s` : t('feed.summary')}
           </button>
         </div>
       </div>
@@ -132,10 +135,10 @@ export default function OptimizationFeed() {
       <div className="mt-4 grid gap-x-10 gap-y-4 lg:grid-cols-[260px_minmax(0,1fr)]">
         {stats ? (
           <dl className="grid grid-cols-2 content-start gap-x-6 gap-y-4">
-            <Stat label="Propuestas calculadas" value={stats.proposals} />
-            <Stat label="Respuestas desde caché" value={stats.cacheHits} />
-            <Stat label="Rutas aplicadas" value={stats.applied} />
-            <Stat label="Ahorro propuesto (min)" value={stats.savedMinutes} />
+            <Stat label={t('feed.proposals')} value={stats.proposals} />
+            <Stat label={t('feed.cache')} value={stats.cacheHits} />
+            <Stat label={t('feed.applied')} value={stats.applied} />
+            <Stat label={t('feed.saved')} value={stats.savedMinutes} />
           </dl>
         ) : <div />}
 
@@ -151,7 +154,7 @@ export default function OptimizationFeed() {
 
           <ol className="rl-rows max-h-72 overflow-y-auto" aria-live="polite">
             {events.length === 0 ? (
-              <li className="rl-empty">Aún no hay optimizaciones. Aparecerán aquí cuando un repartidor tenga ruta activa.</li>
+              <li className="rl-empty">{t('feed.empty')}</li>
             ) : null}
             {events.map((event) => (
               <li key={`${event.at}-${event.routeAlias}-${event.kind}`} className="rl-row feed-enter flex-wrap !gap-x-3 !gap-y-1 text-sm">
@@ -159,7 +162,7 @@ export default function OptimizationFeed() {
                   {new Date(event.at).toLocaleTimeString('es-CO')}
                 </time>
                 <span className={`rl-state w-20 ${event.kind === 'aplicada' ? 'is-route' : 'is-muted'}`}>
-                  {event.kind === 'aplicada' ? 'Aplicada' : 'Propuesta'}
+                  {event.kind === 'aplicada' ? t('feed.kind.applied') : t('feed.kind.proposal')}
                 </span>
                 <span className="font-semibold">Ruta {event.routeAlias}</span>
                 <span className="text-[var(--ink-soft)]">{describe(event)}</span>
@@ -182,7 +185,7 @@ export default function OptimizationFeed() {
             </p>
           ) : null}
           <p className="mt-3 text-xs text-[var(--ink-soft)]">
-            Las propuestas no cambian la ruta. Solo “Aplicada” guarda un nuevo orden. El historial vive en el servidor y se reinicia al reiniciarlo.
+            {t('feed.footer')}
           </p>
         </div>
       </div>

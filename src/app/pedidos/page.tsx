@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/apiClient';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AppShell from '@/components/AppShell';
+import { usePreferences } from '@/lib/preferences';
 import { formatOrderReference } from '@/lib/formatOrderReference';
 import { isWithinPastoServiceArea, normalizePastoAddress } from '@/lib/pastoArea';
 import type { MapDeliveryPoint } from '@/components/MapLibreRouteMap';
@@ -44,6 +45,7 @@ interface AddressCandidate {
 }
 
 export default function OrdersPage() {
+  const { t } = usePreferences();
   const [draft, setDraft] = useState<OrderDraft>({
     address: '',
     orderId: '',
@@ -308,12 +310,12 @@ export default function OrdersPage() {
       <main className="rp-orders rl-page">
         <header className="rl-page-head">
           <div>
-            <h1>Registrar un pedido</h1>
-            <p>Escribe la dirección, confirma la ubicación en Pasto y queda lista para el despacho.</p>
+            <h1>{t('orders.title')}</h1>
+            <p>{t('orders.lead')}</p>
           </div>
           <dl className="rl-figures">
             <div>
-              <dt>pendientes</dt>
+              <dt>{t('orders.pending')}</dt>
               <dd>{pendingPoints.length}</dd>
             </div>
           </dl>
@@ -335,8 +337,8 @@ export default function OrdersPage() {
           <div className="min-w-0 lg:order-2">
             <div className="rp-map-frame">
               <div className="rp-map-heading">
-                <h2>Pasto · selecciona una ubicación</h2>
-                <span className="rl-state text-[var(--board-soft)]">Solo Pasto</span>
+                <h2>{t('orders.map')}</h2>
+                <span className="rl-state text-[var(--board-soft)]">{t('orders.onlyPasto')}</span>
               </div>
               <div className="h-[560px]">
                 <OrderMap
@@ -357,7 +359,7 @@ export default function OrdersPage() {
               <section aria-label="Solicitudes de clientes" className="rl-section">
                 <div className="rl-head">
                   <h2>
-                    Solicitudes de clientes <small>{requests.length} en revisión</small>
+                    {t('orders.requests')} <small>{t('orders.inReview', { n: requests.length })}</small>
                   </h2>
                 </div>
                 {requestError ? (
@@ -375,26 +377,28 @@ export default function OrdersPage() {
                         type="button"
                       >
                         <strong className="truncate">{request.address}</strong>
-                        <span className="rl-ref">{formatOrderReference(request.orderId)} · ver en el mapa</span>
+                        <span className="rl-ref">{formatOrderReference(request.orderId)} · {t('orders.viewOnMap')}</span>
                       </button>
                       <span className="flex gap-2">
                         <button
                           aria-label={`Rechazar solicitud ${formatOrderReference(request.orderId)}`}
                           className="rp-button rp-button-danger rp-button-small"
+                          data-tip="tip.rejectRequest"
                           disabled={resolvingId !== null}
                           onClick={() => void resolveRequest(request, 'rechazar')}
                           type="button"
                         >
-                          Rechazar
+                          {t('orders.reject')}
                         </button>
                         <button
                           aria-label={`Aceptar solicitud ${formatOrderReference(request.orderId)}`}
                           className="rp-button rp-button-go rp-button-small"
+                          data-tip="tip.acceptRequest"
                           disabled={resolvingId !== null}
                           onClick={() => void resolveRequest(request, 'aceptar')}
                           type="button"
                         >
-                          {resolvingId === request.id ? 'Guardando…' : 'Aceptar'}
+                          {resolvingId === request.id ? 'Guardando…' : t('orders.accept')}
                         </button>
                       </span>
                     </li>
@@ -405,11 +409,11 @@ export default function OrdersPage() {
 
             <section className="rl-section">
               <div className="rl-head">
-                <h2>Datos del pedido</h2>
+                <h2>{t('orders.form')}</h2>
               </div>
               <div className="mt-5 space-y-5">
                 <label className="rp-field-label">
-                  Dirección
+                  {t('orders.address')}
                   <input
                     className="rp-input mt-1.5 px-3 text-[15px] font-normal"
                     onChange={(event) => {
@@ -460,7 +464,7 @@ export default function OrdersPage() {
                   ) : null}
                 </div>
                 <label className="rp-field-label">
-                  Referencia interna del pedido (opcional)
+                  {t('orders.reference')}
                   <input
                     className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
                     onChange={(event) =>
@@ -471,19 +475,20 @@ export default function OrdersPage() {
                   />
                 </label>
                 <div className="text-sm">
-                  <span className="font-semibold">Coordenadas seleccionadas</span>
+                  <span className="font-semibold">{t('orders.coords')}</span>
                   <p className={`mt-1 tabular-nums ${draft.lat && draft.lng ? 'text-[var(--route-ink)]' : 'text-[var(--ink-soft)]'}`}>
                     {draft.lat && draft.lng ? `${draft.lat}, ${draft.lng}` : selectedCoordinate
-                      ? 'Sugerida · pendiente de confirmación' : 'Confirma una sugerencia o usa el mapa'}
+                      ? 'Sugerida · pendiente de confirmación' : t('orders.coords.empty')}
                   </p>
                 </div>
                 <button
                   className="rp-button rp-button-primary rp-button-block"
+                  data-tip="tip.saveOrder"
                   disabled={saving}
                   onClick={() => void createOrder()}
                   type="button"
                 >
-                  {saving ? 'Registrando…' : 'Registrar pedido pendiente'}
+                  {saving ? 'Registrando…' : t('orders.save')}
                 </button>
               </div>
             </section>
@@ -491,7 +496,7 @@ export default function OrdersPage() {
             <section className="rl-section">
               <div className="rl-head">
                 <h2>
-                  Últimos pendientes <small>Aparecerán en el centro de despacho.</small>
+                  {t('orders.latest')} <small>{t('orders.latest.meta')}</small>
                 </h2>
                 {loading ? <span className="text-xs text-[var(--ink-soft)]">Cargando…</span> : null}
               </div>
