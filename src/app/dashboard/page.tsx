@@ -1241,3 +1241,116 @@ export default function DashboardPage() {
                           ? 'TomTom Traffic Flow priorizado'
                           : assignmentAiStatus.source === 'external-ai' && assignmentAiStatus.applied
                             ? 'Factor de congestión sugerido por IA aplicado'
+                            : 'Asignación determinista'}
+                        .
+                      </span>{' '}
+                      {assignmentAiStatus.warning ?? 'La propuesta se calculó con cercanía y balanceo.'}
+                    </p>
+                  ) : null}
+
+                </aside>
+              ) : (
+                <aside aria-label="Propuesta" className="rl-board order-last min-w-0">
+                  <div className="rl-head">
+                    <h3>{t('dash.step3')}</h3>
+                  </div>
+                  <p className="mt-3 text-sm">{t('dash.step3.empty')}</p>
+                  <p className="mt-4 text-xs leading-5">
+                    {t('dash.step3.note')}
+                  </p>
+                </aside>
+              )}
+                    </div>
+                  </section>
+                ) : null}
+                {sheetTab === 'rutas' ? (
+                  <div className="rp-route-list min-w-0" id="active-routes">
+                <div className="rl-head">
+                  <h2>
+                    {t('dash.activeRoutes')} <small aria-label={`${activeRoutes.length} rutas activas`}>{activeRoutes.length}</small>
+                  </h2>
+                </div>
+                <div>
+                  {loading && data.routes.length === 0 ? (
+                    <p aria-live="polite" className="rl-empty" role="status">
+                      Cargando rutas activas…
+                    </p>
+                  ) : activeRoutes.length === 0 ? (
+                    <div className="rl-empty">
+                      <p>{t('dash.noRoutes')}</p>
+                      <Link className="mt-2 inline-flex font-semibold underline underline-offset-4" href="#dispatch-orders">
+                        {t('dash.goDispatch')}
+                      </Link>
+                    </div>
+                  ) : (
+                    activeRoutes.map((route) => (
+                      <RouteSummary
+                        key={route.id}
+                        isRecalculating={recalculatingRouteId === route.id}
+                        isUndoing={undoingRouteId === route.id}
+                        onRecalculate={recalculateRouteGeometry}
+                        onUndo={undoRouteRecalculation}
+                        onStatusChange={updateRouteStatus}
+                        route={route}
+                        color={routeColors[route.id]}
+                        liveRoute={liveByRoute.get(route.id)}
+                        onLiveApply={applyLiveRoute}
+                        applyingLive={applyingLive}
+                      />
+                    ))
+                  )}
+                </div>
+                {historicalRoutes.length > 0 ? (
+                  <details aria-label="Historial de rutas" className="mt-4">
+                    <summary className="cursor-pointer py-2 text-sm font-semibold text-[var(--ink-soft)] hover:text-[var(--foreground)]">
+                      {t('dash.history')} <span className="ml-1">({historicalRoutes.length})</span>
+                    </summary>
+                    <div className="mt-2">
+                      {historicalRoutes.map((route) => (
+                        <RouteSummary
+                          key={route.id}
+                          isRecalculating={false}
+                          isUndoing={false}
+                          onRecalculate={recalculateRouteGeometry}
+                          onUndo={undoRouteRecalculation}
+                          onStatusChange={updateRouteStatus}
+                          route={route}
+                        />
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
+                  </div>
+                ) : null}
+                {sheetTab === 'actividad' ? (
+                  <>
+                    <DispatchSuggestions
+                      endpoint="/api/inteligencia/resumen-turno"
+                      onSelect={() => undefined}
+                      refreshKey={data.routes.length}
+                      titleKey="shift.title"
+                    />
+                    <OptimizationFeed />
+            {data.notifications.length > 0 ? (
+              <section aria-label="Avisos operativos" className="rl-section">
+                <div className="rl-head">
+                  <h2>
+                    {t('dash.activity')} <small>{t('dash.activity.meta')}</small>
+                  </h2>
+                </div>
+                <ul className="rl-rows">
+                  {data.notifications.map((notification) => {
+                    const isFailure = notification.kind === 'ROUTE_RECALCULATION_FAILED';
+                    return (
+                      <li className="rl-row items-start" key={notification.id}>
+                        <span className={`rl-state mt-1 ${isFailure ? 'is-warn' : 'is-muted'}`} aria-hidden="true" />
+                        <span className="rl-row-main">
+                          <strong className={isFailure ? 'text-[var(--warn)]' : undefined}>{notification.title}</strong>
+                          <span>{formatNotificationMessage(notification.message)}</span>
+                        </span>
+                        <time className="shrink-0 text-xs tabular-nums text-[var(--ink-soft)]">
+                          {new Date(notification.createdAt).toLocaleString('es-CO')}
+                        </time>
+                      </li>
+                    );
+                  })}
