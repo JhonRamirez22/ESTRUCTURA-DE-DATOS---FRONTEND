@@ -5,10 +5,34 @@ let csrfProof: string | null = null;
 export class ApiRequestError extends Error {
   constructor(
     message: string,
-    readonly requestId: string
+    readonly requestId: string,
+    readonly status?: number
   ) {
     super(message);
     this.name = 'ApiRequestError';
+  }
+}
+
+/** No expone HTML de proxies ni detalles internos de excepciones del servidor. */
+export async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await apiFetch(path, init);
+  const requestId = response.headers.get('X-Request-ID') ?? crypto.randomUUID();
+  if (!response.ok) {
+    const message = response.status === 401
+      ? 'La sesión expiró. Vuelve a ingresar.'
+      : response.status === 403
+        ? 'No tienes permiso para esta operación.'
+        : response.status === 409
+          ? 'Los datos cambiaron. Actualiza antes de continuar.'
+          : response.status === 429
+            ? 'Se alcanzó el límite de consultas. Espera antes de reintentar.'
+            : 'El servicio no está disponible temporalmente.';
+    throw new ApiRequestError(message, requestId, response.status);
+  }
+  try {
+    return await response.json() as T;
+  } catch {
+    throw new ApiRequestError('El servicio devolvió una respuesta inválida.', requestId, response.status);
   }
 }
 
@@ -55,7 +79,7 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
           error: 'El servicio de acceso no respondió correctamente. Intenta nuevamente.',
           requestId: response.headers.get('X-Request-ID') ?? requestId,
         },
-        { status: response.status }
+        { status: response.status, headers: { 'X-Request-ID': response.headers.get('X-Request-ID') ?? requestId } }
       );
     }
     return response;

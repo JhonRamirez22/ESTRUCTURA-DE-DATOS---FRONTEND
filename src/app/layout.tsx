@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { headers } from 'next/headers';
 import "./globals.css";
 
 // La tipografía se sirve desde /public/fonts; compilar no requiere descargar fuentes.
@@ -13,7 +14,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // El nonce CSP se genera por petición; no puede hidratar un documento precompilado/cacheado.
+  await headers();
   return (
     <html
       lang="es"

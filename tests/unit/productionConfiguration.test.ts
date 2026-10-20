@@ -1,23 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { getProductionAuthConfigurationErrors } from "@/lib/auth/productionConfiguration";
+import { getProductionBackendConfigurationErrors } from "@/lib/auth/productionConfiguration";
 
-describe("getProductionAuthConfigurationErrors", () => {
-  it("acepta secretos privados de al menos 32 caracteres", () => {
+describe("getProductionBackendConfigurationErrors", () => {
+  it("acepta el origen HTTPS de AWS sin secretos de autenticación en frontend", () => {
     expect(
-      getProductionAuthConfigurationErrors({
-        AUTH_SECRET: "a".repeat(48),
-        DISPATCHER_ACCESS_CODE: "b".repeat(48),
+      getProductionBackendConfigurationErrors({
+        PYTHON_API_URL: "https://api.example.com",
       }),
     ).toEqual([]);
   });
 
-  it("rechaza valores faltantes, cortos y placeholders sin exponer su contenido", () => {
-    expect(
-      getProductionAuthConfigurationErrors({
-        AUTH_SECRET: "short",
-        DISPATCHER_ACCESS_CODE:
-          "generate-a-unique-random-access-code-of-at-least-32-characters",
-      }),
-    ).toEqual(["AUTH_SECRET"]);
+  it.each([undefined, "", "invalid", "http://api.example.com", "https://api.example.com/api", "https://api.example.com?key=private", "https://api.example.com/#route", "https://user:private@api.example.com"])("rechaza un origen inválido sin exponerlo (%s)", (value) => {
+    expect(getProductionBackendConfigurationErrors({ PYTHON_API_URL: value }))
+      .toEqual(["PYTHON_API_URL"]);
   });
 });

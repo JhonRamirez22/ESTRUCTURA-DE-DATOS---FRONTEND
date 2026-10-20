@@ -1,6 +1,7 @@
 const CACHE_PREFIX = 'rutas-pasto-shell-';
-const CACHE_NAME = `${CACHE_PREFIX}v3`;
-const SHELL_ASSETS = ['/'];
+const CACHE_NAME = `${CACHE_PREFIX}v4`;
+// No guardar HTML dinámico con nonces CSP ni datos de una sesión anterior.
+const SHELL_ASSETS = ['/offline.html'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -32,9 +33,22 @@ self.addEventListener('fetch', (event) => {
 
   const requestUrl = new URL(event.request.url);
 
-  if (requestUrl.pathname.startsWith('/api/')) {
+  if (
+    requestUrl.origin !== self.location.origin ||
+    requestUrl.pathname.startsWith('/api/') ||
+    requestUrl.pathname.startsWith('/_next/')
+  ) {
     return;
   }
 
-  event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+  event.respondWith(
+    fetch(event.request).catch(async () => {
+      const cachedResponse = event.request.mode === 'navigate'
+        ? await caches.match('/offline.html') : undefined;
+      return cachedResponse ?? new Response('Sin conexión disponible.', {
+        status: 503,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      });
+    })
+  );
 });
