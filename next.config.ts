@@ -38,6 +38,8 @@ if (isVercelProductionBuild) {
 }
 
 const nextConfig: NextConfig = {
+  // No anunciar el framework en cada respuesta.
+  poweredByHeader: false,
   // ECS sirve la interfaz en un contenedor Node; el ALB reenvía /api/* a FastAPI.
   output: 'standalone',
   // Permite validar un build aislado sin borrar los artefactos del `next dev` abierto.
