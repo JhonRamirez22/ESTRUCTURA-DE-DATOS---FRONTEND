@@ -1467,3 +1467,116 @@ function RouteSummary({
       </div>
       {route.deliveryPoints.length > 0 ? (
         <>
+          <div className="mt-3">
+            <RouteStrip
+              label={`Progreso de la ruta de ${route.courier.name}`}
+              states={route.deliveryPoints.map((_, index) => stopState(index))}
+            />
+          </div>
+          <p className="mt-4 text-xs font-semibold text-[var(--ink-soft)]">{t('route.order')}</p>
+          <div className="mt-2">
+            <RouteLine
+              label={`Paradas de la ruta de ${route.courier.name}`}
+              stops={route.deliveryPoints.map((point, index) => ({
+                id: point.id,
+                label: point.address,
+                meta: point.status === 'FAILED' ? 'No entregada' : undefined,
+                aside: index + 1,
+                state: stopState(index),
+              }))}
+            />
+          </div>
+        </>
+      ) : (
+        <p className="mt-2 text-sm text-[var(--ink-soft)]">{t('route.noStops')}</p>
+      )}
+      {canRecalculate ? (
+        route.optimization ? (
+          <OptimizationLadder optimization={route.optimization} routeId={route.id} />
+        ) : (
+          <p className="mt-3 text-xs text-[var(--ink-soft)]">{t('opt.unavailable')}</p>
+        )
+      ) : null}
+      {canRecalculate && !isRoadGeometryProvider(route.geometryProvider) ? (
+        <div className="rl-notice is-warn mt-3 !block text-sm" role="status">
+          <p className="font-semibold">Trazado antiguo sin verificar</p>
+          <p className="mt-1 leading-5">
+            No se mostrará como si siguiera calles. Recalcula la ruta para confirmar su geometría
+            con OSRM.
+          </p>
+          {hasFreshCourierLocation ? (
+            <button
+              className="rp-button rp-button-primary rp-button-small mt-2"
+              data-tip="tip.recalculate"
+              disabled={isRecalculating}
+              onClick={() => void onRecalculate(route.id)}
+              type="button"
+            >
+              {isRecalculating ? 'Consultando OSRM…' : 'Recalcular por calles'}
+            </button>
+          ) : (
+            <p className="mt-2 leading-5">
+              El repartidor debe compartir una ubicación GPS reciente antes de recalcular.
+            </p>
+          )}
+        </div>
+      ) : null}
+      {liveRoute && canRecalculate ? (
+        <LiveRouteSuggestion
+          applying={applyingLive}
+          onApply={() => void onLiveApply?.(route.id)}
+          proposal={liveRoute}
+        />
+      ) : (
+        <RouteImprovementCheck
+          canCheck={canRecalculate && hasFreshCourierLocation}
+          onApply={onRecalculate}
+          routeId={route.id}
+        />
+      )}
+      {route.status === 'PLANNED' || route.status === 'IN_PROGRESS' ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {route.status === 'PLANNED' ? (
+            <button
+              className="rp-button rp-button-primary rp-button-small"
+              data-tip="tip.startRoute"
+              onClick={() => void onStatusChange(route.id, 'IN_PROGRESS')}
+              type="button"
+            >
+              {t('route.start')}
+            </button>
+          ) : (
+            <button
+              className="rp-button rp-button-primary rp-button-small"
+              data-tip="tip.completeRoute"
+              onClick={() => void onStatusChange(route.id, 'COMPLETED')}
+              type="button"
+            >
+              {t('route.complete')}
+            </button>
+          )}
+          {route.canUndo ? (
+            <button
+              aria-label={`Deshacer último recálculo de la ruta de ${route.courier.name}`}
+              className="rp-button rp-button-quiet rp-button-small"
+              data-tip="tip.undo"
+              disabled={isUndoing || isRecalculating}
+              onClick={() => void onUndo(route.id)}
+              type="button"
+            >
+              {isUndoing ? 'Restaurando…' : t('route.undo')}
+            </button>
+          ) : null}
+          <button
+            className="rp-button rp-button-danger rp-button-small ml-auto"
+            data-tip="tip.cancelRoute"
+            onClick={() => void onStatusChange(route.id, 'CANCELLED')}
+            type="button"
+          >
+            {t('route.cancel')}
+          </button>
+        </div>
+      ) : null}
+    </article>
+  );
+}
