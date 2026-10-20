@@ -1,10 +1,11 @@
 'use client';
 
-import { apiFetch } from '@/lib/apiClient';
+import { apiFetch, apiJson, ApiRequestError } from '@/lib/apiClient';
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import AppShell from '@/components/AppShell';
 import { isCourierLocationFresh } from '@/lib/courierLocation';
 import { isRoadGeometryProvider } from '@/lib/roadGeometry';
@@ -140,8 +141,7 @@ interface CourierAccountDraft {
   password: string;
 }
 
-export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData>({
+const EMPTY_DASHBOARD_DATA: DashboardData = {
     couriers: [],
     notifications: [],
     notificationsWarning: null,
@@ -156,7 +156,10 @@ export default function DashboardPage() {
       distanceSavedMeters: 0,
       routesWithBaseline: 0,
     },
-  });
+};
+
+export default function DashboardPage() {
+  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD_DATA);
   const [loading, setLoading] = useState(true);
   const [creatingCourier, setCreatingCourier] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -166,6 +169,8 @@ export default function DashboardPage() {
   const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
   const [selectedCourierIds, setSelectedCourierIds] = useState<string[]>([]);
   const [assignmentPreview, setAssignmentPreview] = useState<AssignmentProposal[]>([]);
+  const [assignmentPreviewSelectionKey, setAssignmentPreviewSelectionKey] = useState<string | null>(null);
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   const [unassignedDeliveryPointIds, setUnassignedDeliveryPointIds] = useState<string[]>([]);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [courierDraft, setCourierDraft] = useState({
@@ -177,6 +182,9 @@ export default function DashboardPage() {
   const [accountDraft, setAccountDraft] = useState<CourierAccountDraft | null>(null);
   const [savingAccount, setSavingAccount] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dashboardWarning, setDashboardWarning] = useState<string | null>(null);
+  const [operationalReady, setOperationalReady] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [routeActionNotice, setRouteActionNotice] = useState<string | null>(null);
   const [assignmentAiStatus, setAssignmentAiStatus] = useState<AssignmentAiStatus | null>(null);
   const [liveTrafficNotice, setLiveTrafficNotice] = useState<string | null>(null);
@@ -187,67 +195,81 @@ export default function DashboardPage() {
   const [customerNotificationOperationsUnavailable, setCustomerNotificationOperationsUnavailable] =
     useState(false);
   const dashboardRequestId = useRef(0);
+  const dashboardController = useRef<AbortController | null>(null);
+  const selectionInitialized = useRef(false);
+  const assignmentSelectionKey = JSON.stringify([
+    [...selectedCourierIds].sort(),
+    [...selectedPendingIds].sort(),
+  ]);
+  const assignmentPreviewIsCurrent = assignmentPreviewSelectionKey === assignmentSelectionKey;
 
-  const loadDashboard = useCallback(async () => {
+  const loadDashboard = useCallback(async (background = false) => {
+    if (background && (dashboardController.current || document.visibilityState === 'hidden')) return;
+    dashboardController.current?.abort();
+    const controller = new AbortController();
+    dashboardController.current = controller;
     const requestId = ++dashboardRequestId.current;
     setLoading(true);
     setError(null);
 
     try {
-      const [
-        couriersResponse,
-        notificationsResponse,
-        ordersResponse,
-        routesResponse,
-        analyticsResponse,
-        customerNotificationStatusResponse,
-      ] = await Promise.all([
-        apiFetch('/api/repartidores', { cache: 'no-store' }),
-        apiFetch('/api/notificaciones?recipientId=dispatcher&limit=5', {
-          cache: 'no-store',
-        }),
-        apiFetch('/api/pedidos?status=PENDING', { cache: 'no-store' }),
-        apiFetch('/api/rutas', { cache: 'no-store' }),
-        apiFetch('/api/analitica', { cache: 'no-store' }),
-        apiFetch('/api/notificaciones/clientes/estado', { cache: 'no-store' }).catch(() => null),
+      const options = { signal: controller.signal };
+      const results = await Promise.allSettled([
+        apiJson<{ couriers: Courier[] }>('/api/repartidores', options),
+        apiJson<{ deliveryPoints: DeliveryPoint[] }>('/api/pedidos?status=PENDING', options),
+        apiJson<{ routes: Route[] }>('/api/rutas', options),
+        apiJson<{ notifications: Notification[]; warning?: string }>('/api/notificaciones?recipientId=dispatcher&limit=5', options),
+        apiJson<{ metrics: FleetMetrics }>('/api/analitica', options),
+        apiJson<unknown>('/api/notificaciones/clientes/estado', options),
       ]);
-
-      if (
-        !couriersResponse.ok ||
-        !routesResponse.ok ||
-        !ordersResponse.ok ||
-        !notificationsResponse.ok ||
-        !analyticsResponse.ok
-      ) {
-        throw new Error('No se pudieron cargar los datos operativos.');
+      if (controller.signal.aborted || requestId !== dashboardRequestId.current) return;
+      const names = ['Repartidores', 'Pedidos', 'Rutas', 'Avisos', 'Analítica', 'Estado de avisos'];
+      const describeFailure = (index: number) => {
+        const result = results[index];
+        if (result.status !== 'rejected') return '';
+        const cause: unknown = result.reason;
+        return `${names[index]}: ${cause instanceof Error ? cause.message : 'No disponible.'}${cause instanceof ApiRequestError ? ` Referencia: ${cause.requestId}.` : ''}`;
+      };
+      const denied = results.findIndex((result) => result.status === 'rejected' &&
+        result.reason instanceof ApiRequestError && [401, 403].includes(result.reason.status ?? 0));
+      if (denied !== -1) {
+        setOperationalReady(false);
+        setSessionExpired(results[denied].status === 'rejected' && results[denied].reason.status === 401);
+        setData(EMPTY_DASHBOARD_DATA);
+        setLastUpdatedAt(null);
+        setDashboardWarning(null);
+        setCustomerNotificationOperationsStatus(null);
+        setSelectedCourierIds([]);
+        setSelectedPendingIds([]);
+        setAssignmentPreview([]);
+        setAssignmentPreviewSelectionKey(null);
+        setUnassignedDeliveryPointIds([]);
+        setCourierDraft({ name: '', phone: '', email: '', password: '' });
+        setAccountDraft(null);
+        setCustomerNotificationSummary(null);
+        setRouteActionNotice(null);
+        setAssignmentAiStatus(null);
+        setLiveTrafficNotice(null);
+        throw new Error(describeFailure(denied));
       }
-
-      const couriersPayload = (await couriersResponse.json()) as {
-        couriers: Courier[];
-      };
-      const routesPayload = (await routesResponse.json()) as {
-        routes: Route[];
-      };
-      const ordersPayload = (await ordersResponse.json()) as {
-        deliveryPoints: DeliveryPoint[];
-      };
-      const notificationsPayload = (await notificationsResponse.json()) as {
-        notifications: Notification[];
-        warning?: string;
-      };
-      const analyticsPayload = (await analyticsResponse.json()) as {
-        metrics: FleetMetrics;
-      };
-      let customerNotificationStatusPayload: unknown = null;
-      if (customerNotificationStatusResponse?.ok) {
-        try {
-          customerNotificationStatusPayload = await customerNotificationStatusResponse.json();
-        } catch {
-          customerNotificationStatusPayload = null;
-        }
+      const [couriers, orders, routes, notifications, analytics, notificationStatus] = results;
+      setDashboardWarning(results.slice(3).map((result, index) => result.status === 'rejected'
+        ? describeFailure(index + 3) : '').filter(Boolean).join(' ') || null);
+      if (couriers.status !== 'fulfilled' || orders.status !== 'fulfilled' || routes.status !== 'fulfilled') {
+        setOperationalReady(false);
+        throw new Error(results.slice(0, 3).map((result, index) => result.status === 'rejected'
+          ? describeFailure(index) : '').filter(Boolean).join(' '));
       }
-
-      if (requestId !== dashboardRequestId.current) return;
+      const couriersPayload = couriers.value;
+      const ordersPayload = orders.value;
+      const routesPayload = routes.value;
+      if (!Array.isArray(couriersPayload?.couriers) || !Array.isArray(ordersPayload?.deliveryPoints) ||
+          !Array.isArray(routesPayload?.routes)) {
+        setOperationalReady(false);
+        throw new Error('Los datos operativos tienen un formato inválido. Reintenta la actualización.');
+      }
+      const customerNotificationStatusPayload = notificationStatus.status === 'fulfilled'
+        ? notificationStatus.value : null;
 
       if (isCustomerNotificationOperationsStatus(customerNotificationStatusPayload)) {
         setCustomerNotificationOperationsStatus(customerNotificationStatusPayload);
@@ -256,56 +278,66 @@ export default function DashboardPage() {
         setCustomerNotificationOperationsUnavailable(true);
       }
 
-      setData({
+      const availableCourierIds = couriersPayload.couriers
+        .filter(
+          (courier) =>
+            courier.status === 'AVAILABLE' &&
+            courier.currentLat !== null &&
+            courier.currentLng !== null &&
+            isCourierLocationFresh(
+              courier.lastLocationAt ? new Date(courier.lastLocationAt) : null
+            )
+        )
+        .map((courier) => courier.id);
+
+      if (!selectionInitialized.current) {
+        setSelectedCourierIds(availableCourierIds.slice(0, 1));
+        setSelectedPendingIds(ordersPayload.deliveryPoints.map((point) => point.id));
+        selectionInitialized.current = true;
+      } else {
+        setSelectedCourierIds((current) =>
+          current.filter((id) => availableCourierIds.includes(id))
+        );
+        setSelectedPendingIds((current) =>
+          current.filter((id) => ordersPayload.deliveryPoints.some((point) => point.id === id))
+        );
+      }
+
+      setData((previous) => ({
         couriers: couriersPayload.couriers,
-        notifications: notificationsPayload.notifications,
-        notificationsWarning: notificationsPayload.warning ?? null,
+        notifications: notifications.status === 'fulfilled' && Array.isArray(notifications.value?.notifications)
+          ? notifications.value.notifications : previous.notifications,
+        notificationsWarning: notifications.status === 'fulfilled' ? notifications.value?.warning ?? null : 'Avisos anteriores; no se pudieron actualizar.',
         pendingPoints: ordersPayload.deliveryPoints,
         routes: routesPayload.routes,
-        metrics: analyticsPayload.metrics,
-      });
+        metrics: analytics.status === 'fulfilled' && analytics.value?.metrics
+          ? analytics.value.metrics : previous.metrics,
+      }));
+      setOperationalReady(true);
+      setSessionExpired(false);
       setLastUpdatedAt(new Date());
     } catch (loadError) {
-      if (requestId !== dashboardRequestId.current) return;
-      setError(loadError instanceof Error ? loadError.message : 'Error desconocido.');
+      if (controller.signal.aborted || requestId !== dashboardRequestId.current) return;
+      setOperationalReady(false);
+      setError(loadError instanceof TypeError || loadError instanceof SyntaxError
+        ? 'La respuesta operativa tiene un formato inválido. Actualiza antes de continuar.'
+        : loadError instanceof Error ? loadError.message : 'No se pudo actualizar la operación.');
     } finally {
-      if (requestId === dashboardRequestId.current) setLoading(false);
+      if (requestId === dashboardRequestId.current) {
+        dashboardController.current = null;
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    const availableCourierIds = data.couriers
-      .filter(
-        (courier) =>
-          courier.status === 'AVAILABLE' &&
-          courier.currentLat !== null &&
-          courier.currentLng !== null &&
-          isCourierLocationFresh(courier.lastLocationAt ? new Date(courier.lastLocationAt) : null)
-      )
-      .map((courier) => courier.id);
-
-    setSelectedCourierIds((current) => {
-      const valid = current.filter((id) => availableCourierIds.includes(id));
-      return valid.length > 0 ? valid : availableCourierIds.slice(0, 1);
-    });
-  }, [data.couriers]);
-
-  useEffect(() => {
-    setSelectedPendingIds((current) => {
-      const valid = current.filter((id) => data.pendingPoints.some((point) => point.id === id));
-      return valid.length > 0 || data.pendingPoints.length === 0
-        ? valid
-        : data.pendingPoints.map((point) => point.id);
-    });
-  }, [data.pendingPoints]);
-
-  useEffect(() => {
     void loadDashboard();
+    return () => dashboardController.current?.abort();
   }, [loadDashboard]);
 
   useEffect(() => {
     const refreshInterval = window.setInterval(() => {
-      void loadDashboard();
+      void loadDashboard(true);
     }, 10_000);
 
     return () => window.clearInterval(refreshInterval);
@@ -433,7 +465,9 @@ export default function DashboardPage() {
     setError(null);
     setLiveTrafficNotice(null);
     setAssignmentPreview([]);
+    setAssignmentPreviewSelectionKey(null);
     setUnassignedDeliveryPointIds([]);
+    const analyzedSelectionKey = assignmentSelectionKey;
 
     try {
       const assignmentResponse = await apiFetch('/api/asignaciones', {
@@ -466,6 +500,7 @@ export default function DashboardPage() {
       }
 
       setAssignmentPreview(assignments);
+      setAssignmentPreviewSelectionKey(analyzedSelectionKey);
     } catch (analysisError) {
       setError(
         analysisError instanceof Error
@@ -478,8 +513,12 @@ export default function DashboardPage() {
   };
 
   const dispatchAssignments = async (): Promise<void> => {
-    if (assignmentPreview.length === 0) {
-      setError('Primero analiza una asignación para generar la propuesta de ruta.');
+    if (assignmentPreview.length === 0 || !assignmentPreviewIsCurrent) {
+      setError(
+        assignmentPreview.length > 0
+          ? 'La selección cambió. Vuelve a analizar antes de despachar.'
+          : 'Primero analiza una asignación para generar la propuesta de ruta.'
+      );
       return;
     }
 
@@ -524,6 +563,7 @@ export default function DashboardPage() {
       }
 
       setAssignmentPreview([]);
+      setAssignmentPreviewSelectionKey(null);
       setUnassignedDeliveryPointIds([]);
       setSelectedPendingIds([]);
       await loadDashboard();
@@ -533,6 +573,42 @@ export default function DashboardPage() {
       );
     } finally {
       setDispatching(false);
+    }
+  };
+
+  const deletePendingOrder = async (point: DeliveryPoint): Promise<void> => {
+    if (
+      !window.confirm(
+        `¿Eliminar el pedido ${formatOrderReference(point.orderId)}? Esta acción no se puede deshacer.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingOrderId(point.id);
+    setError(null);
+    try {
+      const response = await apiFetch(`/api/pedidos/${encodeURIComponent(point.id)}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response, 'No se pudo eliminar el pedido.'));
+      }
+
+      setSelectedPendingIds((current) => current.filter((id) => id !== point.id));
+      setAssignmentPreview([]);
+      setAssignmentPreviewSelectionKey(null);
+      setUnassignedDeliveryPointIds([]);
+      await loadDashboard();
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'No se pudo eliminar el pedido. Si ya fue asignado, conserva su historial.'
+      );
+      await loadDashboard();
+    } finally {
+      setDeletingOrderId(null);
     }
   };
 
@@ -676,6 +752,11 @@ export default function DashboardPage() {
               role="alert"
             >
               {error}
+              {sessionExpired ? (
+                <Link href="/acceso?retorno=%2Fdashboard" className="ml-2 font-semibold underline">
+                  Volver a ingresar
+                </Link>
+              ) : null}
             </div>
           ) : null}
 
@@ -703,6 +784,19 @@ export default function DashboardPage() {
               {data.notificationsWarning}
             </p>
           ) : null}
+
+          {dashboardWarning ? (
+            <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-950" role="status">
+              {dashboardWarning} Los datos secundarios pueden estar desactualizados.
+            </p>
+          ) : null}
+          {!operationalReady && lastUpdatedAt ? (
+            <p className="mb-4 text-sm text-amber-950" role="status">
+              Datos anteriores. Actualiza los servicios esenciales antes de modificar o despachar.
+            </p>
+          ) : null}
+
+          <fieldset disabled={!operationalReady} aria-label="Operación de despacho" className="min-w-0 border-0 p-0">
 
           {accountDraft ? (
             <section
@@ -806,7 +900,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <RouteMap
-                showTraffic
+                showTraffic={activeRoutes.length > 0}
                 couriers={data.couriers}
                 pendingPoints={data.pendingPoints}
                 routes={activeRoutes}
@@ -839,8 +933,8 @@ export default function DashboardPage() {
                 ) : activeRoutes.length === 0 ? (
                   <div className="rounded-2xl bg-slate-50 px-4 py-5">
                     <p className="text-sm leading-6 text-slate-600">
-                      No hay recorridos activos. El historial queda disponible aquí, sin mezclarse
-                      con la operación del día.
+                      No hay recorridos activos. Al despachar pedidos se consultarán TomTom e IA
+                      para optimizar la ruta asignada; el historial no se recalcula.
                     </p>
                     <Link
                       className="mt-3 inline-flex text-xs font-bold text-emerald-800 underline decoration-emerald-300 underline-offset-4 hover:text-emerald-950"
@@ -1072,37 +1166,52 @@ export default function DashboardPage() {
                     <div className="space-y-2">
                       {data.pendingPoints.map((point) => {
                         const checked = selectedPendingIds.includes(point.id);
+                        const reference = formatOrderReference(point.orderId);
                         return (
-                          <label
-                            className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 transition ${checked ? 'border-emerald-300 bg-emerald-50' : 'border-slate-100 hover:border-slate-300'}`}
+                          <article
+                            className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 transition ${checked ? 'border-emerald-300 bg-emerald-50' : 'border-slate-100 hover:border-slate-300'}`}
                             key={point.id}
                           >
-                            <input
-                              checked={checked}
-                              className="mt-1 h-4 w-4 accent-emerald-700"
-                              onChange={() =>
-                                setSelectedPendingIds((current) =>
-                                  checked
-                                    ? current.filter((id) => id !== point.id)
-                                    : [...current, point.id]
-                                )
-                              }
-                              type="checkbox"
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="flex items-center justify-between gap-3">
-                                <span className="font-mono text-xs font-bold text-slate-800">
-                                  {formatOrderReference(point.orderId)}
+                            <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                              <input
+                                checked={checked}
+                                className="mt-1 h-4 w-4 accent-emerald-700"
+                                onChange={() =>
+                                  setSelectedPendingIds((current) =>
+                                    checked
+                                      ? current.filter((id) => id !== point.id)
+                                      : [...current, point.id]
+                                  )
+                                }
+                                type="checkbox"
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-center justify-between gap-3">
+                                  <span className="font-mono text-xs font-bold text-slate-800">
+                                    {reference}
+                                  </span>
+                                  <span className="text-[10px] font-semibold text-amber-700">
+                                    Pendiente
+                                  </span>
                                 </span>
-                                <span className="text-[10px] font-semibold text-amber-700">
-                                  Pendiente
+                                <span className="mt-1 block truncate text-xs text-slate-500">
+                                  {point.address}
                                 </span>
                               </span>
-                              <span className="mt-1 block truncate text-xs text-slate-500">
-                                {point.address}
-                              </span>
-                            </span>
-                          </label>
+                            </label>
+                            <button
+                              aria-label={`Eliminar pedido ${reference}`}
+                              className="ui-button ui-button-ghost ui-button-icon !h-9 !min-h-9 !w-9 !p-2 text-rose-700 hover:bg-rose-50"
+                              disabled={deletingOrderId === point.id || dispatching}
+                              onClick={() => void deletePendingOrder(point)}
+                              type="button"
+                            >
+                              {deletingOrderId === point.id ? (
+                                <span className="sr-only">Eliminando…</span>
+                              ) : null}
+                              <Trash2 aria-hidden="true" className="h-4 w-4" />
+                            </button>
+                          </article>
                         );
                       })}
                     </div>
@@ -1192,7 +1301,7 @@ export default function DashboardPage() {
                   {assignmentPreview.length > 0 ? (
                     <button
                       className="rp-button rp-button-primary disabled:opacity-50"
-                      disabled={dispatching}
+                      disabled={dispatching || !assignmentPreviewIsCurrent}
                       onClick={() => void dispatchAssignments()}
                       type="button"
                     >
@@ -1200,6 +1309,11 @@ export default function DashboardPage() {
                     </button>
                   ) : null}
                 </div>
+                {assignmentPreview.length > 0 && !assignmentPreviewIsCurrent ? (
+                  <p className="mt-3 text-sm font-medium text-amber-900" role="status">
+                    La selección cambió. Vuelve a analizar antes de despachar esta propuesta.
+                  </p>
+                ) : null}
                 {assignmentPreview.length > 0 ? (
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     {assignmentPreview.map((assignment) => {
@@ -1419,6 +1533,7 @@ export default function DashboardPage() {
               </div>
             ) : null}
           </section>
+          </fieldset>
         </div>
       </main>
     </AppShell>

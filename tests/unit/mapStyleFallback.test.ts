@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { isMapStyleAuthorizationError } from "@/components/mapStyleFallback";
+import {
+  isMapStyleAuthorizationError,
+  KEYLESS_DARK_MAP_STYLE_URL,
+} from "@/components/mapStyleFallback";
 
 describe("isMapStyleAuthorizationError", () => {
   it.each([401, 403])("detects HTTP %i tile authorization failures", (status) => {
@@ -16,5 +19,11 @@ describe("isMapStyleAuthorizationError", () => {
     expect(isMapStyleAuthorizationError({ error: new Error("tile timed out") })).toBe(false);
     expect(isMapStyleAuthorizationError({ message: "forbidden" })).toBe(false);
     expect(isMapStyleAuthorizationError(null)).toBe(false);
+  });
+
+  it("uses a keyless dark fallback and never points at CARTO", () => {
+    expect(KEYLESS_DARK_MAP_STYLE_URL).toBe("https://tiles.openfreemap.org/styles/dark");
+    expect(KEYLESS_DARK_MAP_STYLE_URL).not.toContain("carto");
+    expect(KEYLESS_DARK_MAP_STYLE_URL).not.toContain("api_key");
   });
 });

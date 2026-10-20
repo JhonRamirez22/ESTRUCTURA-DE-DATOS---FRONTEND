@@ -1,21 +1,22 @@
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MapLibreRouteMap from "@/components/MapLibreRouteMap";
 
-const { map, listeners, resizeObservers } = vi.hoisted(() => {
-  const listeners = new Map<string, () => void>();
+const { map, listeners, resizeObservers, setWorkerUrl } = vi.hoisted(() => {
+  const listeners = new Map<string, (event?: unknown) => void>();
   const source = { setData: vi.fn() };
   return {
     listeners,
     resizeObservers: [] as Array<() => void>,
+    setWorkerUrl: vi.fn(),
     map: {
       addControl: vi.fn(),
       addSource: vi.fn(),
       addLayer: vi.fn(),
-      getSource: vi.fn(() => source),
+      getSource: vi.fn((id: string): typeof source | null => id ? source : null),
       isStyleLoaded: vi.fn(() => true),
-      once: vi.fn((event: string, callback: () => void) => listeners.set(event, callback)),
-      on: vi.fn((event: string, callback: () => void) => listeners.set(event, callback)),
+      once: vi.fn((event: string, callback: (event?: unknown) => void) => listeners.set(event, callback)),
+      on: vi.fn((event: string, callback: (event?: unknown) => void) => listeners.set(event, callback)),
       off: vi.fn(),
       remove: vi.fn(),
       resize: vi.fn(),
@@ -36,8 +37,11 @@ vi.mock("maplibre-gl", () => ({
   LngLatBounds: function () {
     return { extend: vi.fn() };
   },
+  setWorkerUrl,
 }));
-vi.mock("@maplibre/maplibre-gl-directions", () => ({ layersFactory: () => [] }));
+vi.mock("@maplibre/maplibre-gl-directions", () => ({
+  layersFactory: () => [{ id: 'plugin-alternative', type: 'line' }],
+}));
 
 const courier = { id: "courier-1", name: "Repartidor", currentLat: 1.22, currentLng: -77.28 };
 const point = { id: "point-1", address: "Calle 20", lat: 1.23, lng: -77.29, sequenceIndex: null };
@@ -45,6 +49,8 @@ const point = { id: "point-1", address: "Calle 20", lat: 1.23, lng: -77.29, sequ
 describe("MapLibreRouteMap camera", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    map.getSource.mockReturnValue({ setData: vi.fn() });
+    map.isStyleLoaded.mockReturnValue(true);
     listeners.clear();
     resizeObservers.length = 0;
     vi.stubGlobal(
@@ -61,6 +67,75 @@ describe("MapLibreRouteMap camera", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('si el reintento también falla, permite reintentar de nuevo y no carga indefinidamente', () => {
+    vi.useFakeTimers();
+    map.isStyleLoaded.mockReturnValue(false);
+    render(<MapLibreRouteMap couriers={[]} routes={[]} />);
+    act(() => vi.advanceTimersByTime(30_000));
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar mapa' }));
+    act(() => vi.advanceTimersByTime(30_000));
+    expect(screen.getByRole('button', { name: 'Reintentar mapa' })).toBeTruthy();
+  });
+
+  it("configura el worker ESM de MapLibre como asset del bundler", () => {
+    render(<MapLibreRouteMap couriers={[]} routes={[]} />);
+    expect(setWorkerUrl).toHaveBeenCalledWith(
+      expect.stringContaining("maplibre-gl-worker.mjs"),
+    );
+  });
+
+  it("finaliza la carga aunque style.load llegue antes de cargar las teselas", () => {
+    map.isStyleLoaded.mockReturnValueOnce(false).mockReturnValue(true);
+    render(<MapLibreRouteMap couriers={[courier]} routes={[]} />);
+    act(() => listeners.get("style.load")?.());
+    act(() => listeners.get("idle")?.());
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("no pierde un idle emitido mientras instala las capas del estilo", () => {
+    map.getSource.mockReturnValue(null);
+    map.addLayer.mockImplementationOnce(() => listeners.get("idle")?.());
+    render(<MapLibreRouteMap couriers={[courier]} routes={[]} />);
+    act(() => listeners.get("style.load")?.());
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("instala las capas si el estilo terminó antes de registrar style.load", () => {
+    map.getSource.mockReturnValue(null);
+    map.addLayer.mockImplementationOnce(() => listeners.get("idle")?.());
+    render(<MapLibreRouteMap couriers={[courier]} routes={[]} />);
+    expect(map.addSource).toHaveBeenCalledWith(
+      'delivery-directions',
+      expect.objectContaining({ type: 'geojson' }),
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("quita el overlay en el primer render sin esperar al idle de todas las teselas", () => {
+    render(<MapLibreRouteMap couriers={[]} routes={[]} />);
+    act(() => listeners.get("style.load")?.());
+    expect(screen.getByRole("status")).toBeTruthy();
+    act(() => listeners.get("render")?.());
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("abandona un estilo principal no autorizado por el estilo oscuro sin clave", () => {
+    render(<MapLibreRouteMap couriers={[]} routes={[]} />);
+    act(() => listeners.get("error")?.({ error: { status: 403 } }));
+    expect(map.setStyle).toHaveBeenCalledWith("https://tiles.openfreemap.org/styles/dark");
+  });
+
+  it("muestra recuperación manual cuando no carga el estilo de respaldo", () => {
+    vi.useFakeTimers();
+    map.isStyleLoaded.mockReturnValue(false);
+    render(<MapLibreRouteMap couriers={[]} routes={[]} />);
+    act(() => vi.advanceTimersByTime(20_000));
+    const retry = screen.getByRole("button", { name: "Reintentar mapa" });
+    act(() => retry.click());
+    expect(map.setStyle).toHaveBeenCalledWith("https://tiles.openfreemap.org/styles/fiord");
   });
 
   it("preserva el zoom manual cuando el polling o el GPS actualizan los mismos puntos", () => {
@@ -105,5 +180,28 @@ describe("MapLibreRouteMap camera", () => {
     expect(map.fitBounds).not.toHaveBeenCalled();
     act(() => resizeObservers[0]?.());
     expect(map.resize).toHaveBeenCalled();
+  });
+
+  it('muestra un solo recorrido verde y permite cambiarlo sin alternativas ni tráfico raster', () => {
+    const sources = new Map<string, NonNullable<ReturnType<typeof map.getSource>>>();
+    map.getSource.mockImplementation((id: string) => sources.get(id) ?? null);
+    map.addSource.mockImplementation((id: string) => sources.set(id, { setData: vi.fn() }));
+    const first = {
+      id: 'first', courier, deliveryPoints: [point], geometryProvider: 'OSRM' as const,
+      geometry: { type: 'LineString' as const, coordinates: [[-77.28, 1.22], [-77.285, 1.225], [-77.29, 1.23]] as [number, number][] },
+    };
+    const second = { ...first, id: 'second', courier: { ...courier, name: 'Otro repartidor' },
+      geometry: { ...first.geometry, coordinates: [[-77.28, 1.22], [-77.27, 1.23]] as [number, number][] } };
+    render(<MapLibreRouteMap couriers={[courier]} routes={[first, second]} />);
+    const lines = map.addLayer.mock.calls.map(([layer]) => layer).filter((layer) => layer.type === 'line');
+    expect(lines.map((layer) => layer.id)).toEqual(['delivery-route-highlight-casing', 'delivery-route-highlight']);
+    expect(lines[1].paint['line-color']).toBe('#55f26b');
+    const data = () => sources.get('delivery-directions')!.setData.mock.lastCall![0];
+    expect(data().features).toHaveLength(1);
+    expect(data().features[0].geometry.coordinates).toEqual(first.geometry.coordinates);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Recorrido mostrado' }), { target: { value: 'second' } });
+    expect(data().features).toHaveLength(1);
+    expect(data().features[0].geometry.coordinates).toEqual(second.geometry.coordinates);
+    expect(map.addSource.mock.calls.some(([, source]) => source.type === 'raster')).toBe(false);
   });
 });

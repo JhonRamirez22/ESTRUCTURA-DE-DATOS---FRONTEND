@@ -1,6 +1,5 @@
 'use client';
 
-import { layersFactory } from '@maplibre/maplibre-gl-directions';
 import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
@@ -9,7 +8,10 @@ import { getPastoMapCenter } from '@/lib/mapCenter';
 import { getPastoMinimumZoom } from '@/lib/mapViewport';
 import TrafficOverlay from './TrafficOverlay';
 import { isRoadGeometryProvider } from '@/lib/roadGeometry';
-import { isMapStyleAuthorizationError } from './mapStyleFallback';
+import {
+  isMapStyleAuthorizationError,
+  KEYLESS_DARK_MAP_STYLE_URL,
+} from './mapStyleFallback';
 
 export interface MapCourier {
   id: string;
@@ -54,16 +56,17 @@ type MapStatus = 'loading' | 'slow' | 'unavailable' | 'ready';
 interface MapProperties {
   color?: string;
   label?: string;
-  route?: 'SELECTED' | 'ALT';
-  congestion?: number;
-  profile?: 'driving';
+  route?: 'SELECTED';
 }
 
-type MapFeature = GeoJSON.Feature<GeoJSON.Point | GeoJSON.LineString, MapProperties>;
-type MapFeatureCollection = GeoJSON.FeatureCollection<
-  GeoJSON.Point | GeoJSON.LineString,
-  MapProperties
->;
+type MapFeature = {
+  type: 'Feature';
+  geometry:
+    | { type: 'Point'; coordinates: [number, number] }
+    | { type: 'LineString'; coordinates: Array<[number, number]> };
+  properties: MapProperties;
+};
+type MapFeatureCollection = { type: 'FeatureCollection'; features: MapFeature[] };
 
 const PASTO_CENTER = getPastoMapCenter(
   process.env.NEXT_PUBLIC_MAP_DEFAULT_LAT,
@@ -78,31 +81,6 @@ const MAP_STYLE_URL = process.env.NEXT_PUBLIC_MAP_STYLE_URL?.trim();
 // Fiord conserva el ambiente oscuro, pero mejora la lectura de calles y
 // etiquetas frente al preset dark. OpenFreeMap no exige una API key.
 const DEFAULT_STYLE_URL = 'https://tiles.openfreemap.org/styles/fiord';
-// El fallback usa teselas oscuras para que una caída del estilo vectorial no
-// cambie bruscamente la lectura operativa del mapa ni oculte las rutas verdes.
-const FALLBACK_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    cartoDark: {
-      type: 'raster',
-      tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors © CARTO',
-    },
-  },
-  layers: [
-    {
-      id: 'carto-dark',
-      type: 'raster',
-      source: 'cartoDark',
-      paint: {
-        'raster-saturation': -0.1,
-        'raster-contrast': 0.08,
-      },
-    },
-  ],
-};
-
 export default function MapLibreRouteMap({
   ariaLabel = 'Mapa de rutas',
   className = 'h-[min(68vh,680px)] min-h-[400px] w-full',
@@ -114,17 +92,26 @@ export default function MapLibreRouteMap({
   showTraffic = false,
 }: MapLibreRouteMapProps) {
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const selectedRoute = routes.find((route) => route.id === selectedRouteId) ?? routes[0] ?? null;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const retryMapRef = useRef<(() => void) | null>(null);
   const cameraKeyRef = useRef<string | null>(null);
   const dataRef = useRef({ couriers, pendingPoints, routes, selectedCoordinate });
-  dataRef.current = { couriers, pendingPoints, routes, selectedCoordinate };
+  dataRef.current = {
+    couriers, pendingPoints, routes: selectedRoute ? [selectedRoute] : [], selectedCoordinate,
+  };
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) {
       return;
     }
+
+    // Next debe emitir el worker como asset; import.meta.url del bundle apunta a la ruta de la página.
+    maplibregl.setWorkerUrl(
+      new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).toString(),
+    );
 
     const map = new maplibregl.Map({
       container: containerRef.current,
@@ -145,18 +132,31 @@ export default function MapLibreRouteMap({
     mapRef.current = map;
     let fallbackApplied = false;
     let fallbackTimer = 0;
-    const slowTimer = window.setTimeout(() => setMapStatus('slow'), 7000);
-    const unavailableTimer = window.setTimeout(() => setMapStatus('unavailable'), 20000);
+    let slowTimer = 0;
+    let unavailableTimer = 0;
+    const armLoadingTimers = () => {
+      window.clearTimeout(slowTimer);
+      window.clearTimeout(unavailableTimer);
+      slowTimer = window.setTimeout(() => setMapStatus('slow'), 7000);
+      unavailableTimer = window.setTimeout(() => setMapStatus('unavailable'), 20000);
+    };
+    armLoadingTimers();
+    let styleInitialized = false;
     const markMapReady = () => {
+      if (!styleInitialized) return;
       window.clearTimeout(slowTimer);
       window.clearTimeout(unavailableTimer);
       setMapStatus('ready');
     };
     const renderData = () => {
-      if (!map.isStyleLoaded()) return;
+      // style.load permite añadir capas aunque las teselas sigan pendientes.
+      styleInitialized = true;
+      map.once('render', markMapReady);
       addMapLayers(map);
       updateMapData(map, dataRef.current, cameraKeyRef);
-      map.once('idle', markMapReady);
+    };
+    const restoreData = () => {
+      if (map.isStyleLoaded()) renderData();
     };
     const applyFallbackStyle = () => {
       if (fallbackApplied) {
@@ -165,11 +165,18 @@ export default function MapLibreRouteMap({
 
       fallbackApplied = true;
       window.clearTimeout(fallbackTimer);
-      map.setStyle(FALLBACK_STYLE);
+      if (styleInitialized) {
+        setMapStatus('loading');
+        armLoadingTimers();
+      }
+      styleInitialized = false;
+      map.setStyle(KEYLESS_DARK_MAP_STYLE_URL);
     };
     retryMapRef.current = () => {
       window.clearTimeout(fallbackTimer);
       setMapStatus('loading');
+      styleInitialized = false;
+      armLoadingTimers();
       fallbackApplied = false;
       map.setStyle(MAP_STYLE_URL || DEFAULT_STYLE_URL);
       fallbackTimer = window.setTimeout(() => {
@@ -184,6 +191,7 @@ export default function MapLibreRouteMap({
       }
     };
     map.on('error', handleMapError);
+    map.on('idle', markMapReady);
     fallbackTimer = window.setTimeout(() => {
       if (!map.isStyleLoaded() && !fallbackApplied) {
         applyFallbackStyle();
@@ -191,7 +199,8 @@ export default function MapLibreRouteMap({
     }, 5000);
 
     map.on('style.load', renderData);
-    map.on('webglcontextrestored', renderData);
+    if (map.isStyleLoaded()) renderData();
+    map.on('webglcontextrestored', restoreData);
     const resizeTimer = window.setTimeout(() => map.resize(), 0);
     const resizeObserver = new ResizeObserver(() => {
       map.resize();
@@ -209,8 +218,9 @@ export default function MapLibreRouteMap({
       window.clearTimeout(unavailableTimer);
       resizeObserver.disconnect();
       map.off('error', handleMapError);
+      map.off('idle', markMapReady);
       map.off('style.load', renderData);
-      map.off('webglcontextrestored', renderData);
+      map.off('webglcontextrestored', restoreData);
       map.remove();
       mapRef.current = null;
       retryMapRef.current = null;
@@ -225,8 +235,8 @@ export default function MapLibreRouteMap({
       return;
     }
 
-    updateMapData(map, { couriers, pendingPoints, routes, selectedCoordinate }, cameraKeyRef);
-  }, [couriers, pendingPoints, routes, selectedCoordinate]);
+    updateMapData(map, dataRef.current, cameraKeyRef);
+  }, [couriers, pendingPoints, routes, selectedCoordinate, selectedRouteId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -259,8 +269,22 @@ export default function MapLibreRouteMap({
         className="absolute inset-0 h-full w-full"
         style={{ height: '100%', width: '100%' }}
       />
-      {showTraffic && mapStatus === 'ready' && mapRef.current ? (
-        <TrafficOverlay map={mapRef.current} />
+      {showTraffic && mapStatus === 'ready' && selectedRoute ? (
+        <TrafficOverlay key={selectedRoute.id} routeId={selectedRoute.id} />
+      ) : null}
+      {routes.length > 1 && selectedRoute ? (
+        <select
+          aria-label="Recorrido mostrado"
+          className="rp-button rp-button-secondary absolute right-3 top-3 z-10 max-w-[45%] text-xs"
+          value={selectedRoute.id}
+          onChange={(event) => setSelectedRouteId(event.target.value)}
+        >
+          {routes.map((route) => (
+            <option key={route.id} value={route.id}>
+              {route.courier.name} · {route.deliveryPoints.length} paradas
+            </option>
+          ))}
+        </select>
       ) : null}
       <button
         className="rp-button rp-button-secondary absolute left-3 top-3 z-10"
@@ -276,6 +300,7 @@ export default function MapLibreRouteMap({
       </button>
       {mapStatus !== 'ready' ? (
         <div
+          aria-label="Carga del mapa"
           aria-live="polite"
           className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-[#0b1518]/35 px-4 text-center backdrop-blur-[2px]"
           role="status"
@@ -324,14 +349,7 @@ function addMapLayers(map: MapLibreMap): void {
       data: emptyFeatureCollection(),
     });
 
-    // Capas oficiales del plugin: casing, rutas alternativas, ruta seleccionada
-    // y colores de congestión de verde a rojo.
-    for (const layer of layersFactory(1.2, 1.25, 'delivery-directions')) {
-      map.addLayer(layer);
-    }
-
-    // Línea operativa superior: garantiza que el trayecto seleccionado siga
-    // siendo visible aunque todavía no exista un factor de tráfico histórico.
+    // Un único recorrido verde; el borde oscuro solo mejora su lectura sobre las calles.
     map.addLayer({
       id: 'delivery-route-highlight-casing',
       type: 'line',
@@ -502,12 +520,13 @@ function updateMapData(
     }
 
     const coordinate: [number, number] = [courier.currentLng, courier.currentLat];
-    focusCoordinates.push(coordinate);
+    if (data.routes.length === 0 || data.routes[0]?.courier.id === courier.id)
+      focusCoordinates.push(coordinate);
     courierFeatures.push(pointFeature(coordinate, '#06b6d4', courier.name));
     labelFeatures.push(pointFeature(coordinate, '#06b6d4', courier.name));
   }
 
-  for (const [routeIndex, route] of data.routes.entries()) {
+  for (const route of data.routes) {
     const currentCourier =
       data.couriers.find((courier) => courier.id === route.courier.id) ?? route.courier;
 
@@ -532,15 +551,12 @@ function updateMapData(
     // Sin geometría vial de OSRM no dibujamos conexiones rectas que aparenten
     // ser calles: los marcadores siguen visibles y la navegación puede reintentarse.
     if (hasValidGeometry && geometryCoordinates) {
+      focusCoordinates.push(...geometryCoordinates);
       directionFeatures.push({
         type: 'Feature',
         geometry: { type: 'LineString', coordinates: geometryCoordinates },
         properties: {
-          route: routeIndex === 0 ? 'SELECTED' : 'ALT',
-          // OSRM público no entrega tráfico en tiempo real; 1 representa una
-          // ruta libre y deja la capa lista para un factor histórico futuro.
-          congestion: 1,
-          profile: 'driving',
+          route: 'SELECTED',
         },
       });
     }
@@ -560,7 +576,7 @@ function updateMapData(
       continue;
     }
     const coordinate: [number, number] = [point.lng, point.lat];
-    focusCoordinates.push(coordinate);
+    if (data.routes.length === 0) focusCoordinates.push(coordinate);
     deliveryFeatures.push(pointFeature(coordinate, '#f59e0b', 'Pendiente'));
     labelFeatures.push(pointFeature(coordinate, '#f59e0b', 'Pendiente'));
   }

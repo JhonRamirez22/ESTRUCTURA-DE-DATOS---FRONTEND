@@ -9,25 +9,25 @@
 }
 
 :root {
-  color-scheme: dark;
-  --background: #08090b;
-  --foreground: #f0f1f3;
-  --surface: #121316;
-  --surface-muted: #191b20;
-  --line: #2a2c34;
-  --accent: #c6c4f8;
-  --accent-strong: #e2e0ff;
-  --ink-soft: #a4a7b1;
-  --primary: #c6c4f8;
-  --primary-foreground: #161421;
-  --secondary: #24262d;
-  --secondary-foreground: #f0f1f3;
-  --muted: #191b20;
-  --muted-foreground: #a4a7b1;
-  --destructive: #efa4b1;
-  --destructive-foreground: #1d1014;
-  --input: #343640;
-  --ring: #b9b6f5;
+  color-scheme: light;
+  --background: #f6f1e9;
+  --foreground: #32261f;
+  --surface: #fffcf7;
+  --surface-muted: #eee5d9;
+  --line: #ded2c4;
+  --accent: #6b4f3f;
+  --accent-strong: #5a4033;
+  --ink-soft: #65564c;
+  --primary: #6b4f3f;
+  --primary-foreground: #fffcf7;
+  --secondary: #ede3d6;
+  --secondary-foreground: #32261f;
+  --muted: #efe8de;
+  --muted-foreground: #66594f;
+  --destructive: #9b2c3b;
+  --destructive-foreground: #ffffff;
+  --input: #c9b9a8;
+  --ring: #8c654d;
   --radius: 0.75rem;
 }
 
@@ -46,52 +46,52 @@
   --color-ring: var(--ring);
   --font-sans: 'Public Sans', ui-sans-serif, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  --color-slate-50: #191b20;
-  --color-slate-100: #24262d;
-  --color-slate-200: #343640;
-  --color-slate-300: #60636f;
-  --color-slate-400: #999da8;
-  --color-slate-500: #b0b3bc;
-  --color-slate-600: #c1c4cb;
-  --color-slate-700: #d2d5db;
-  --color-slate-800: #e2e4e9;
-  --color-slate-900: #edeff2;
-  --color-slate-950: #f5f6f8;
-  --color-emerald-50: #10291f;
-  --color-emerald-100: #183729;
-  --color-emerald-200: #2c5840;
-  --color-emerald-300: #58a679;
-  --color-emerald-400: #72c894;
-  --color-emerald-500: #65bd88;
-  --color-emerald-600: #76d69c;
-  --color-emerald-700: #95e0b2;
-  --color-emerald-800: #b9ebca;
-  --color-emerald-900: #cbf1d8;
-  --color-emerald-950: #d9f4e3;
-  --color-teal-50: #112727;
-  --color-teal-100: #193838;
-  --color-teal-200: #2d5454;
-  --color-teal-600: #85c8c3;
-  --color-teal-700: #9bdfd8;
-  --color-teal-900: #c6ece7;
-  --color-sky-50: #15252f;
-  --color-sky-100: #213746;
-  --color-sky-200: #33556a;
-  --color-sky-600: #87bfdd;
-  --color-sky-700: #a3d4ee;
-  --color-amber-50: #2b2418;
-  --color-amber-100: #3a2e1c;
-  --color-amber-200: #67522e;
-  --color-amber-300: #977647;
-  --color-amber-700: #e5c492;
-  --color-amber-800: #eed3aa;
-  --color-amber-900: #f3ddb8;
-  --color-amber-950: #f8e9cd;
-  --color-rose-50: #2d1920;
-  --color-rose-100: #3b242d;
-  --color-rose-200: #673a48;
-  --color-rose-700: #efa4b1;
-  --color-rose-800: #f4bac3;
+  --color-slate-50: #fffcf7;
+  --color-slate-100: #f6f1e9;
+  --color-slate-200: #e7ded2;
+  --color-slate-300: #d3c6b7;
+  --color-slate-400: #9a8877;
+  --color-slate-500: #6e5e50;
+  --color-slate-600: #55463b;
+  --color-slate-700: #43352c;
+  --color-slate-800: #32261f;
+  --color-slate-900: #281d17;
+  --color-slate-950: #1f1712;
+  --color-emerald-50: #e8f5ed;
+  --color-emerald-100: #d1ead8;
+  --color-emerald-200: #b4dcc2;
+  --color-emerald-300: #7dbd91;
+  --color-emerald-400: #41935f;
+  --color-emerald-500: #247b49;
+  --color-emerald-600: #1f6b3e;
+  --color-emerald-700: #185635;
+  --color-emerald-800: #15432d;
+  --color-emerald-900: #123823;
+  --color-emerald-950: #0c2919;
+  --color-teal-50: #e5f2ef;
+  --color-teal-100: #cde7e0;
+  --color-teal-200: #abd5ca;
+  --color-teal-600: #28685e;
+  --color-teal-700: #20554d;
+  --color-teal-900: #153d38;
+  --color-sky-50: #e8f3f8;
+  --color-sky-100: #d3eaf4;
+  --color-sky-200: #afd6e6;
+  --color-sky-600: #296b8a;
+  --color-sky-700: #205772;
+  --color-amber-50: #faf1dc;
+  --color-amber-100: #f3e1b8;
+  --color-amber-200: #e3c77e;
+  --color-amber-300: #bd943e;
+  --color-amber-700: #755012;
+  --color-amber-800: #5e400f;
+  --color-amber-900: #4c330c;
+  --color-amber-950: #3d280a;
+  --color-rose-50: #fcebec;
+  --color-rose-100: #f7d5d8;
+  --color-rose-200: #ebaeb5;
+  --color-rose-700: #9b2c3b;
+  --color-rose-800: #79212d;
 }
 
 *,
@@ -102,7 +102,7 @@
 html {
   background: var(--background);
   scroll-behavior: smooth;
-  scrollbar-color: #444751 #101114;
+  scrollbar-color: #b09b86 #eee5d9;
 }
 body {
   margin: 0;
@@ -125,8 +125,8 @@ textarea {
   -webkit-tap-highlight-color: transparent;
 }
 ::selection {
-  background: #43415c;
-  color: white;
+  background: #d9c5af;
+  color: #32261f;
 }
 :focus-visible {
   outline: 2px solid var(--ring);
@@ -162,7 +162,7 @@ a {
   top: 0;
   z-index: 30;
   border-bottom: 1px solid var(--line);
-  background: #0c0d10;
+  background: var(--surface);
 }
 .rp-shell-header-inner {
   min-height: 72px;
@@ -196,7 +196,7 @@ a {
 .rp-brand-name span {
   display: inline;
   margin-left: 5px;
-  color: #afb2bd;
+  color: var(--ink-soft);
   font-weight: 400;
 }
 .rp-navigation {
@@ -211,7 +211,7 @@ a {
   min-height: 44px;
   padding: 9px 14px;
   border-radius: 7px;
-  color: #afb2bd;
+  color: var(--ink-soft);
   font-size: 13px;
   transition:
     color 160ms,
@@ -226,8 +226,8 @@ a {
 }
 .rp-nav-item:hover,
 .rp-nav-item.is-active {
-  color: #f0f1f3;
-  background: #23252c;
+  color: var(--foreground);
+  background: var(--secondary);
 }
 .rp-shell-account {
   display: flex;
@@ -239,7 +239,7 @@ a {
   gap: 6px;
   align-items: center;
   font-size: 12px;
-  color: #afb2bd;
+  color: var(--ink-soft);
 }
 .rp-service-area svg,
 .rp-logout svg {
@@ -253,12 +253,12 @@ a {
   min-height: 44px;
   padding: 8px 12px;
   border-radius: 7px;
-  color: #afb2bd;
+  color: var(--ink-soft);
   font-size: 13px;
 }
 .rp-logout:hover {
-  color: white;
-  background: #23252c;
+  color: var(--foreground);
+  background: var(--secondary);
 }
 .rp-workspace-bar {
   max-width: 1600px;
@@ -266,11 +266,11 @@ a {
   padding: 20px 32px 0;
   display: flex;
   justify-content: space-between;
-  color: #a4a7b1;
+  color: var(--ink-soft);
   font-size: 12px;
 }
 .rp-workspace-bar > span:first-child {
-  color: #d2d5db;
+  color: var(--foreground);
 }
 .rp-dashboard > div {
   padding: 28px 32px;
@@ -381,7 +381,7 @@ a {
 }
 .rp-button-primary,
 .ui-button-primary {
-  color: #161421;
+  color: var(--primary-foreground);
   background: var(--primary);
   border-color: var(--primary);
 }
@@ -389,47 +389,48 @@ a {
 .ui-button-primary:hover:not(:disabled) {
   background: var(--accent-strong);
   border-color: var(--accent-strong);
+  color: #ffffff;
 }
 .rp-button-secondary,
 .ui-button-secondary {
-  color: #edf0f4;
-  background: #24262d;
-  border-color: #343640;
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  border-color: var(--line);
 }
 .rp-button-secondary:hover:not(:disabled),
 .ui-button-secondary:hover:not(:disabled) {
-  background: #30333c;
+  background: #e2d5c7;
 }
 .rp-button-quiet,
 .ui-button-outline {
   background: transparent;
-  color: #d2d5db;
-  border-color: #343640;
+  color: var(--foreground);
+  border-color: var(--line);
 }
 .rp-button-quiet:hover:not(:disabled),
 .ui-button-outline:hover:not(:disabled) {
-  background: #24262d;
+  background: var(--secondary);
 }
 .rp-button-danger,
 .ui-button-destructive {
-  color: #efa4b1;
-  background: #2d1920;
-  border-color: #673a48;
+  color: #8e2635;
+  background: #fcebec;
+  border-color: #e8b8bf;
 }
 .rp-button-danger:hover:not(:disabled),
 .ui-button-destructive:hover:not(:disabled) {
-  background: #43232c;
+  background: #f7d5d8;
 }
 .ui-button-ghost {
   background: transparent;
-  color: #afb2bd;
+  color: var(--ink-soft);
 }
 .ui-button-ghost:hover:not(:disabled) {
-  background: #24262d;
-  color: white;
+  background: var(--secondary);
+  color: var(--foreground);
 }
 .ui-button-link {
-  color: var(--accent);
+  color: var(--accent-strong);
   padding: 4px;
   background: transparent;
 }
@@ -455,14 +456,14 @@ a {
   width: 100%;
   min-height: 46px;
   padding: 12px;
-  background: #0c0d10;
+  background: var(--surface);
   color: var(--foreground);
-  border: 1px solid #343640;
+  border: 1px solid var(--input);
   border-radius: 8px;
   transition: border-color 160ms;
 }
 .rp-input::placeholder {
-  color: #a4a7b1;
+  color: #6e5e50;
 }
 .rp-input:focus {
   outline: 2px solid var(--ring);
@@ -524,7 +525,7 @@ a {
 .rp-entry-link > svg {
   width: 20px;
   height: 20px;
-  color: #afb2bd;
+  color: var(--ink-soft);
   flex-shrink: 0;
 }
 .rp-entry-link strong {
@@ -664,7 +665,7 @@ a {
 }
 .ui-login-panel label {
   font-size: 12px;
-  color: #c1c4cb;
+  color: var(--ink-soft);
 }
 .ui-login-panel label:not(:first-child) {
   margin-top: 8px;
@@ -688,8 +689,8 @@ a {
   margin-left: auto;
 }
 .ui-login-error {
-  color: #f4bac3;
-  background: #2d1920;
+  color: #79212d;
+  background: #fcebec;
   padding: 12px;
   border-radius: 8px;
   font-size: 12px;
@@ -732,10 +733,10 @@ a {
   max-width: 100%;
   margin: auto;
   padding: 8px 12px;
-  border: 1px solid #393b46;
+  border: 1px solid var(--line);
   border-radius: 18px;
-  background: #202127;
-  box-shadow: 0 12px 32px #0006;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgb(50 38 31 / 14%);
 }
 .ui-dock-item {
   position: relative;
@@ -744,11 +745,11 @@ a {
   align-items: center;
   justify-content: center;
   border-radius: 11px;
-  background: #2b2d35;
+  background: var(--secondary);
   flex-shrink: 0;
 }
 .ui-dock-item.is-active {
-  background: #444158;
+  background: #e4d5c5;
 }
 .ui-dock-action {
   display: flex;
@@ -759,11 +760,11 @@ a {
   align-items: center;
   justify-content: center;
   border-radius: inherit;
-  color: #d7dae2;
+  color: var(--foreground);
 }
 .ui-dock-action:hover {
-  color: white;
-  background: #ffffff0a;
+  color: var(--accent-strong);
+  background: #f2e9df;
 }
 .ui-dock-icon {
   display: flex;
@@ -782,9 +783,9 @@ a {
   white-space: nowrap;
   font-size: 11px;
   padding: 5px 9px;
-  background: #282a32;
-  color: #f0f1f3;
-  border: 1px solid #41444e;
+  background: var(--foreground);
+  color: var(--surface);
+  border: 1px solid var(--foreground);
   border-radius: 6px;
   pointer-events: none;
 }
@@ -857,7 +858,7 @@ a {
     border: 1px solid var(--line);
     border-radius: 8px;
     font-size: 12px;
-    color: #d2d5db;
+    color: var(--foreground);
   }
   .rp-map-heading {
     align-items: flex-start;
