@@ -17,8 +17,15 @@ interface FeedEvent {
   aiOrderSavingMinutes?: number;
 }
 
+interface Incident {
+  at: string;
+  provider: string;
+  kind: string;
+}
+
 interface FeedPayload {
   events: FeedEvent[];
+  incidents?: Incident[];
   stats: {
     proposals: number;
     cacheHits: number;
@@ -161,6 +168,11 @@ export default function OptimizationFeed() {
             </li>
           ))}
         </ol>
+        {feed?.incidents && feed.incidents.length > 0 ? (
+          <p className="mt-3 text-xs text-amber-900" role="status">
+            Incidencias de proveedores recientes: {feed.incidents.slice(0, 3).map((item) => `${item.provider} (${item.kind})`).join(', ')}. El sistema reintentó y conservó el orden del algoritmo.
+          </p>
+        ) : null}
         <p className="mt-3 text-xs text-stone-500">
           Las propuestas no cambian la ruta. Solo “Aplicada” guarda un nuevo orden. El historial vive en el servidor y se reinicia al reiniciarlo.
         </p>
