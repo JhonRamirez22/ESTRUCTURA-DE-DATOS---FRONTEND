@@ -25,7 +25,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('no optimiza al abrir ni navegar; solo recalcula la ruta asignada al pulsar y actualiza mapa/lista', async () => {
+it('propone la ruta cada 5 s sin cambiarla; solo Aplicar recalcula y actualiza mapa/lista', async () => {
   request.mockReset();
   vi.stubGlobal('localStorage', { removeItem: vi.fn() });
   const points = ['first', 'second'].map((id, sequenceIndex) => ({
@@ -59,9 +59,19 @@ it('no optimiza al abrir ni navegar; solo recalcula la ruta asignada al pulsar y
             .reverse()
             .map((point, sequenceIndex) => ({ ...point, sequenceIndex })),
         },
-        trafficAi: { source: 'external-ai', applied: true },
-        liveTraffic: { applied: true, usedMeasuredSegments: 1 },
       });
+    if (url.endsWith('/propuesta'))
+      return Response.json({
+        orderedDeliveryPointIds: ['second', 'first'],
+        currentDeliveryPointIds: ['first', 'second'],
+        changed: true,
+        estimatedDurationMinutes: 12,
+        improvementMinutes: 3.2,
+        computedAt: new Date().toISOString(),
+        cached: false,
+      });
+    if (url.endsWith('/trafico-vivo'))
+      return Response.json({ observations: [] });
     if (url.endsWith('/navegacion')) return Response.json({ navigation: null });
     if (url === '/api/rutas') return Response.json({ routes: [route] });
     return Response.json({
@@ -74,18 +84,22 @@ it('no optimiza al abrir ni navegar; solo recalcula la ruta asignada al pulsar y
     });
   });
   await act(async () => render(<RepartidorPage />));
+  expect(request).toHaveBeenCalledWith(
+    '/api/rutas/assigned/propuesta',
+    expect.objectContaining({ method: 'POST', body: '{}' })
+  );
   expect(request.mock.calls.some(([url]) => String(url).endsWith('/recalcular'))).toBe(false);
   expect(screen.getByTestId('courier-map').textContent).toBe('first,second');
-  await act(async () =>
-    fireEvent.click(screen.getByRole('button', { name: 'Optimizar con tráfico e IA' }))
-  );
+  expect(screen.queryByRole('button', { name: 'Optimizar con tráfico e IA' })).toBeNull();
+  expect(screen.getByText(/Ahorras unos 3 min/)).toBeTruthy();
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Aplicar ruta' })));
   expect(request).toHaveBeenCalledWith(
     '/api/rutas/assigned/recalcular',
     expect.objectContaining({ method: 'POST', body: '{}' })
   );
   expect(screen.getByTestId('courier-map').textContent).toBe('second,first');
   expect(screen.getAllByRole('listitem')[0].textContent).toContain('Dirección second');
-  expect(screen.getByText(/TomTom: 1 tramos/)).toBeTruthy();
+  expect(screen.getByText(/Ruta optimizada aplicada/)).toBeTruthy();
 });
 
 it('sin ruta asignada no ofrece optimización ni crea recorridos', async () => {

@@ -49,6 +49,14 @@ interface MapLibreRouteMapProps {
   className?: string;
   ariaLabel?: string;
   showTraffic?: boolean;
+  trafficMarks?: MapTrafficMark[];
+}
+
+/** Muestras de TomTom sobre la geometría de la ruta; se pintan encima de la línea verde. */
+export interface MapTrafficMark {
+  coordinates: [number, number];
+  trafficLevel: string;
+  roadClosure: boolean;
 }
 
 type MapStatus = 'loading' | 'slow' | 'unavailable' | 'ready';
@@ -90,6 +98,7 @@ export default function MapLibreRouteMap({
   routes,
   selectedCoordinate = null,
   showTraffic = false,
+  trafficMarks = [],
 }: MapLibreRouteMapProps) {
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
@@ -98,9 +107,9 @@ export default function MapLibreRouteMap({
   const mapRef = useRef<MapLibreMap | null>(null);
   const retryMapRef = useRef<(() => void) | null>(null);
   const cameraKeyRef = useRef<string | null>(null);
-  const dataRef = useRef({ couriers, pendingPoints, routes, selectedCoordinate });
+  const dataRef = useRef({ couriers, pendingPoints, routes, selectedCoordinate, trafficMarks });
   dataRef.current = {
-    couriers, pendingPoints, routes: selectedRoute ? [selectedRoute] : [], selectedCoordinate,
+    couriers, pendingPoints, routes: selectedRoute ? [selectedRoute] : [], selectedCoordinate, trafficMarks,
   };
 
   useEffect(() => {
@@ -236,7 +245,7 @@ export default function MapLibreRouteMap({
     }
 
     updateMapData(map, dataRef.current, cameraKeyRef);
-  }, [couriers, pendingPoints, routes, selectedCoordinate, selectedRouteId]);
+  }, [couriers, pendingPoints, routes, selectedCoordinate, selectedRouteId, trafficMarks]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -494,6 +503,17 @@ function addClusters(map: MapLibreMap, source: string): void {
   });
 }
 
+function trafficColor(level: string, roadClosure: boolean): string {
+  if (roadClosure || level === 'CERRADO') return '#7f1d1d';
+  switch (level) {
+    case 'MUY_ALTO': return '#dc2626';
+    case 'ALTO': return '#ea580c';
+    case 'MODERADO': return '#f59e0b';
+    case 'FLUIDO': return '#0d9488';
+    default: return '#94a3b8';
+  }
+}
+
 function updateMapData(
   map: MapLibreMap,
   data: {
@@ -501,6 +521,7 @@ function updateMapData(
     pendingPoints: MapDeliveryPoint[];
     routes: MapRoute[];
     selectedCoordinate: [number, number] | null;
+    trafficMarks: MapTrafficMark[];
   },
   cameraKey: { current: string | null }
 ): void {
@@ -599,6 +620,29 @@ function updateMapData(
   labelsSource?.setData(featureCollection(labelFeatures));
   couriersSource?.setData(featureCollection(courierFeatures));
   deliveriesSource?.setData(featureCollection(deliveryFeatures));
+
+  // Tráfico visible sobre la línea verde: halos por nivel, sin recolorear la ruta.
+  if (!map.getSource('route-traffic')) {
+    map.addSource('route-traffic', { type: 'geojson', data: featureCollection([]) });
+    map.addLayer({
+      id: 'route-traffic-halo',
+      type: 'circle',
+      source: 'route-traffic',
+      paint: {
+        'circle-color': ['get', 'color'],
+        'circle-radius': 9,
+        'circle-stroke-color': '#FFFCF7',
+        'circle-stroke-width': 2,
+      },
+    });
+  }
+  const trafficFeatures: MapFeature[] = data.trafficMarks.map((mark) => ({
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: mark.coordinates },
+    properties: { color: trafficColor(mark.trafficLevel, mark.roadClosure) },
+  }));
+  const trafficSource = map.getSource('route-traffic') as GeoJSONSource | undefined;
+  trafficSource?.setData(featureCollection(trafficFeatures));
 
   // El polling y el GPS actualizan marcadores sin interrumpir el zoom manual.
   const nextCameraKey = JSON.stringify({

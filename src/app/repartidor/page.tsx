@@ -8,6 +8,7 @@ import AppShell from "@/components/AppShell";
 import { isCourierLocationFresh } from "@/lib/courierLocation";
 import { Queue } from "@/core/structures/Queue";
 import { SessionChangeNotice } from "@/components/SessionChangeNotice";
+import type { MapTrafficMark } from "@/components/MapLibreRouteMap";
 
 const CourierRouteMap = dynamic(() => import("./CourierRouteMap"), {
   ssr: false,
@@ -22,6 +23,9 @@ const MIN_UPDATE_INTERVAL_MS = 5_000;
 // Cola acotada: si la red se degrada, se descartan las posiciones más antiguas.
 const MAX_PENDING_LOCATIONS = 20;
 const NAVIGATION_REFRESH_INTERVAL_MS = 15_000;
+// Revisión automática: solo consulta tráfico y propone; no cambia el orden guardado.
+const PROPOSAL_REFRESH_INTERVAL_MS = 5_000;
+const CELEBRATION_MS = 3_200;
 
 interface LastLocation {
   lat: number;
@@ -67,11 +71,43 @@ interface AssignedRoute {
   }>;
 }
 
+interface RouteProposal {
+  orderedDeliveryPointIds: string[];
+  changed: boolean;
+  estimatedDurationMinutes: number;
+  improvementMinutes: number | null;
+  computedAt: string;
+  cached: boolean;
+  warning?: string | null;
+}
+
+interface TrafficObservation extends MapTrafficMark {
+  observedAt: string;
+}
+
 interface CourierProfile {
   status: "AVAILABLE" | "ON_ROUTE" | "OFFLINE";
   currentLat: number | null;
   currentLng: number | null;
   lastLocationAt: string | null;
+}
+
+/** Resume las mediciones de TomTom sin mezclar cobertura de toda la ciudad con la ruta. */
+function summarizeTraffic(marks: TrafficObservation[]): string {
+  const counts = { closed: 0, heavy: 0, moderate: 0, free: 0 };
+  for (const mark of marks) {
+    if (mark.roadClosure || mark.trafficLevel === "CERRADO") counts.closed += 1;
+    else if (mark.trafficLevel === "ALTO" || mark.trafficLevel === "MUY_ALTO") counts.heavy += 1;
+    else if (mark.trafficLevel === "MODERADO") counts.moderate += 1;
+    else if (mark.trafficLevel === "FLUIDO") counts.free += 1;
+  }
+  const parts = [
+    counts.closed ? `${counts.closed} cerrado` : "",
+    counts.heavy ? `${counts.heavy} con mucho tráfico` : "",
+    counts.moderate ? `${counts.moderate} moderado` : "",
+    counts.free ? `${counts.free} fluido` : "",
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : "sin mediciones claras";
 }
 
 export default function RepartidorPage() {
@@ -84,8 +120,13 @@ export default function RepartidorPage() {
   const [navigation, setNavigation] = useState<NavigationSnapshot | null>(null);
   const [navigationError, setNavigationError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [optimizing, setOptimizing] = useState(false);
-  const [optimizationNotice, setOptimizationNotice] = useState<string | null>(null);
+  const [proposal, setProposal] = useState<RouteProposal | null>(null);
+  const [proposalStatus, setProposalStatus] = useState<string | null>(null);
+  const [trafficMarks, setTrafficMarks] = useState<TrafficObservation[]>([]);
+  const [applying, setApplying] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+  const [appliedNotice, setAppliedNotice] = useState<string | null>(null);
+  const proposalInFlight = useRef(false);
   const routeGeneration = useRef(0);
   const watchId = useRef<number | null>(null);
   const lastSentAt = useRef(0);
@@ -207,36 +248,29 @@ export default function RepartidorPage() {
     }
   }, [refreshNavigation]);
 
-  const optimizeRoute = async (): Promise<void> => {
-    if (!assignedRoute || optimizing) return;
+  const applyProposal = async (): Promise<void> => {
+    if (!assignedRoute || applying) return;
     routeGeneration.current += 1;
-    setOptimizing(true);
+    setApplying(true);
     setError(null);
     try {
       const response = await apiFetch(`/api/rutas/${encodeURIComponent(assignedRoute.id)}/recalcular`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
       });
-      if (!response.ok) throw new Error(await readApiError(response, 'No se pudo optimizar tu ruta.'));
-      const result = (await response.json()) as {
-        route: AssignedRoute;
-        trafficAi: { source: string; applied: boolean; warning?: string };
-        liveTraffic: { applied: boolean; usedMeasuredSegments?: number; adjustedSegments?: number; warning?: string };
-      };
+      if (!response.ok) throw new Error(await readApiError(response, "No se pudo aplicar la ruta optimizada."));
+      const result = (await response.json()) as { route: AssignedRoute };
       setAssignedRoute(result.route);
       setNavigation(null);
       setNavigationError(null);
-      const traffic = result.liveTraffic.applied
-        ? `TomTom: ${result.liveTraffic.usedMeasuredSegments ?? result.liveTraffic.adjustedSegments ?? 0} tramos de la ruta con medición.`
-        : 'TomTom sin mediciones utilizables; se conservaron tiempos viales.';
-      const ai = result.trafficAi.source === 'external-ai'
-        ? result.trafficAi.applied ? 'IA consultada con ajustes validados.' : 'IA consultada, sin ajustes adicionales.'
-        : 'IA no disponible; optimización determinista aplicada.';
-      setOptimizationNotice(`${traffic} ${ai} ${result.liveTraffic.warning ?? ''} ${result.trafficAi.warning ?? ''}`.trim());
-    } catch (optimizationError) {
-      setError(optimizationError instanceof Error ? optimizationError.message : 'No se pudo optimizar tu ruta.');
+      setProposal(null);
+      setAppliedNotice("Ruta optimizada aplicada: el orden de tus paradas ya está actualizado.");
+      setCelebrating(true);
+      void refreshNavigation(result.route.id).catch(() => undefined);
+    } catch (applyError) {
+      setError(applyError instanceof Error ? applyError.message : "No se pudo aplicar la ruta optimizada.");
     } finally {
       routeGeneration.current += 1;
-      setOptimizing(false);
+      setApplying(false);
     }
   };
 
@@ -257,6 +291,65 @@ export default function RepartidorPage() {
       }
     };
   }, [loadAssignedRoute, loadCourierProfile]);
+
+  useEffect(() => {
+    if (!celebrating) return;
+    const timeout = window.setTimeout(() => setCelebrating(false), CELEBRATION_MS);
+    return () => window.clearTimeout(timeout);
+  }, [celebrating]);
+
+  // Cada 5 s revisa tráfico (TomTom) y propone la mejor ruta (IA); el backend cachea la propuesta.
+  useEffect(() => {
+    const routeId = assignedRoute?.id;
+    if (routeId === undefined) {
+      setProposal(null);
+      setTrafficMarks([]);
+      setProposalStatus(null);
+      return;
+    }
+    let disposed = false;
+    const review = async () => {
+      if (document.visibilityState === "hidden" || proposalInFlight.current) return;
+      proposalInFlight.current = true;
+      try {
+        const encodedId = encodeURIComponent(routeId);
+        const [proposalResponse, trafficResponse] = await Promise.all([
+          apiFetch(`/api/rutas/${encodedId}/propuesta`, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+          }),
+          apiFetch(`/api/rutas/${encodedId}/trafico-vivo`, { cache: "no-store" }),
+        ]);
+        if (disposed) return;
+        if (proposalResponse.ok) {
+          const payload = (await proposalResponse.json()) as RouteProposal;
+          setProposal(payload);
+          setProposalStatus(
+            payload.changed
+              ? null
+              : `Ruta revisada a las ${new Date(payload.computedAt).toLocaleTimeString("es-CO")}: el orden actual es el mejor con el tráfico de ahora.`,
+          );
+        } else {
+          setProposalStatus(await readApiError(proposalResponse, "No se pudo revisar la ruta con tráfico."));
+        }
+        if (trafficResponse.ok) {
+          const overlay = (await trafficResponse.json()) as { observations?: TrafficObservation[] };
+          setTrafficMarks(overlay.observations ?? []);
+        } else {
+          setTrafficMarks([]);
+        }
+      } catch {
+        if (!disposed) setProposalStatus("Sin conexión para revisar la ruta; se conserva la última propuesta.");
+      } finally {
+        proposalInFlight.current = false;
+      }
+    };
+    void review();
+    const interval = window.setInterval(() => void review(), PROPOSAL_REFRESH_INTERVAL_MS);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, [assignedRoute?.id]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -288,7 +381,7 @@ export default function RepartidorPage() {
       routeId !== undefined &&
       (assignedRoute?.status === "IN_PROGRESS" || isTracking);
 
-    if (!shouldRefresh || routeId === undefined || optimizing) {
+    if (!shouldRefresh || routeId === undefined || applying) {
       return;
     }
 
@@ -300,7 +393,7 @@ export default function RepartidorPage() {
     const interval = window.setInterval(refresh, NAVIGATION_REFRESH_INTERVAL_MS);
 
     return () => window.clearInterval(interval);
-  }, [assignedRoute?.id, assignedRoute?.status, isTracking, optimizing, refreshNavigation]);
+  }, [assignedRoute?.id, assignedRoute?.status, isTracking, applying, refreshNavigation]);
 
   const stopTracking = async () => {
     if (watchId.current !== null) {
@@ -577,14 +670,38 @@ export default function RepartidorPage() {
                 {assignedRoute.estimatedDurationMinutes !== undefined
                   ? ` · ${Math.ceil(assignedRoute.estimatedDurationMinutes)} min estimados` : ''}
               </p>
-              <button className="rp-button rp-button-primary rp-button-small" type="button"
-                aria-busy={optimizing} disabled={optimizing || activeDeliveryPoints.length === 0}
-                onClick={() => void optimizeRoute()}>
-                {optimizing ? 'Optimizando…' : 'Optimizar con tráfico e IA'}
-              </button>
             </div>
-            {optimizationNotice ? <p className="mb-3 rounded-xl border border-teal-200 bg-teal-50 p-3 text-xs leading-5 text-teal-950" role="status">{optimizationNotice}</p> : null}
-            <CourierRouteMap currentLocation={lastLocation} route={assignedRoute} />
+            {proposal?.changed && activeDeliveryPoints.length > 0 ? (
+              <div className="route-proposal mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-teal-300 bg-teal-50 p-4" role="status">
+                <div>
+                  <p className="text-sm font-semibold text-teal-950">Ruta optimizada disponible</p>
+                  <p className="text-xs leading-5 text-teal-900">
+                    {proposal.improvementMinutes !== null && proposal.improvementMinutes > 0
+                      ? `Ahorras unos ${Math.round(proposal.improvementMinutes)} min con el tráfico de ahora.`
+                      : "La IA encontró un orden distinto según el tráfico de ahora."}
+                  </p>
+                </div>
+                <button className="rp-button rp-button-primary rp-button-small" disabled={applying}
+                  onClick={() => void applyProposal()} type="button">
+                  {applying ? "Aplicando…" : "Aplicar ruta"}
+                </button>
+              </div>
+            ) : null}
+            {proposalStatus ? <p className="mb-2 text-xs text-slate-600" aria-live="polite">{proposalStatus}</p> : null}
+            {appliedNotice ? (
+              <p className={`mb-3 rounded-xl border border-teal-200 bg-teal-50 p-3 text-xs leading-5 text-teal-950 ${celebrating ? "route-celebrate" : ""}`} role="status">
+                {appliedNotice}
+              </p>
+            ) : null}
+            <div className={`rounded-2xl ${celebrating ? "route-celebrate" : ""}`}>
+              <CourierRouteMap currentLocation={lastLocation} route={assignedRoute} trafficMarks={trafficMarks} />
+            </div>
+            {trafficMarks.length > 0 ? (
+              <p className="mt-2 text-xs text-slate-600">
+                Tráfico sobre tu ruta: {summarizeTraffic(trafficMarks)}. Medido a las{" "}
+                {new Date(trafficMarks[0]!.observedAt).toLocaleTimeString("es-CO")}.
+              </p>
+            ) : null}
             {navigationError ? (
               <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900" role="status">
                 {navigationError}

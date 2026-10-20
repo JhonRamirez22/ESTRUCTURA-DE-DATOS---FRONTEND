@@ -3,6 +3,7 @@
 import MapLibreRouteMap, {
   type MapCourier,
   type MapRoute,
+  type MapTrafficMark,
 } from "@/components/MapLibreRouteMap";
 
 export interface CourierRouteMapData {
@@ -34,11 +35,13 @@ interface CurrentLocation {
 interface CourierRouteMapProps {
   currentLocation: CurrentLocation | null;
   route: CourierRouteMapData;
+  trafficMarks?: MapTrafficMark[];
 }
 
 export default function CourierRouteMap({
   currentLocation,
   route,
+  trafficMarks = [],
 }: CourierRouteMapProps) {
   const courier: MapCourier = {
     id: "current-courier",
@@ -57,6 +60,7 @@ export default function CourierRouteMap({
   return (
     <MapLibreRouteMap
       showTraffic
+      trafficMarks={trafficMarks}
       ariaLabel="Mapa de mi ruta"
       className="h-[340px] w-full"
       couriers={[courier]}
