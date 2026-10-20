@@ -153,8 +153,7 @@ export default function ClientePage() {
             Sigue tu pedido con la guía
           </h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            Consulta el estado, la ubicación aproximada del repartidor y un
-            tiempo estimado actualizado mientras la ruta está activa.
+            Escribe tu guía privada para ver el estado de tu pedido.
           </p>
         </div>
 
@@ -195,44 +194,6 @@ export default function ClientePage() {
           <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
             {error}
           </div>
-        ) : null}
-
-        {!tracking ? (
-          <section
-            aria-labelledby="tracking-first-value-title"
-            className="mt-8 border-y border-slate-200 py-6 sm:py-7"
-          >
-            <div className="grid gap-4 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] sm:gap-8">
-              <div>
-                <h2 className="text-lg font-semibold tracking-tight text-slate-950" id="tracking-first-value-title">
-                  Qué verás al consultar
-                </h2>
-                <p className="mt-2 max-w-[42ch] text-sm leading-6 text-slate-600">
-                  La guía privada abre el seguimiento de un solo pedido; no necesitas una cuenta.
-                </p>
-              </div>
-              <dl className="grid divide-y divide-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-                <div className="py-3 sm:px-4 sm:py-0 sm:first:pl-0">
-                  <dt className="text-sm font-semibold text-slate-900">Estado del envío</dt>
-                  <dd className="mt-1 text-sm leading-5 text-slate-600">
-                    Recibido, en camino o con resultado de entrega.
-                  </dd>
-                </div>
-                <div className="py-3 sm:px-4 sm:py-0">
-                  <dt className="text-sm font-semibold text-slate-900">Mapa de ruta</dt>
-                  <dd className="mt-1 text-sm leading-5 text-slate-600">
-                    La ruta por calles y la ubicación aproximada cuando haya repartidor asignado.
-                  </dd>
-                </div>
-                <div className="py-3 sm:pl-4 sm:pt-0">
-                  <dt className="text-sm font-semibold text-slate-900">Llegada orientativa</dt>
-                  <dd className="mt-1 text-sm leading-5 text-slate-600">
-                    Un ETA aproximado cuando existan datos viales y de ubicación suficientes.
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          </section>
         ) : null}
 
         {tracking ? (

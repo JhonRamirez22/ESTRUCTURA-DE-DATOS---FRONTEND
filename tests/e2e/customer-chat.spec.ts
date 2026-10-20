@@ -72,7 +72,6 @@ test('el cliente pregunta por su guía y el chat se adapta a móvil', async ({ p
   await page.goto('/cliente');
   await expect(page.getByPlaceholder('Pega aquí tu guía privada')).toBeVisible();
   await expect(page.getByText('Es distinta al número de pedido.')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Qué verás al consultar' })).toBeVisible();
   await page.getByRole('textbox', { name: 'Número de guía' }).fill(GUIDE);
   const workerResponsePromise = page.waitForResponse((response) =>
     response.url().includes('maplibre-gl-worker')
@@ -81,7 +80,6 @@ test('el cliente pregunta por su guía y el chat se adapta a móvil', async ({ p
   const workerResponse = await workerResponsePromise;
   expect(workerResponse.ok()).toBe(true);
   expect(workerResponse.headers()['content-type']).toMatch(/javascript/);
-  await expect(page.getByRole('heading', { name: 'Qué verás al consultar' })).toHaveCount(0);
   await expect(
     page.getByRole('heading', { name: '¿Tienes dudas sobre este pedido?' })
   ).toBeVisible();

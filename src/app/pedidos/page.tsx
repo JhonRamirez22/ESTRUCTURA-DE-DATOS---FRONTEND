@@ -263,10 +263,6 @@ export default function OrdersPage() {
             <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
               Registrar un pedido
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Cada pedido queda pendiente hasta que el despacho lo asigne a un repartidor.
-              Normalizamos abreviaturas locales y validamos el punto exacto en el mapa.
-            </p>
           </div>
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-right ">
             <p className="text-2xl font-bold tabular-nums text-emerald-800">
@@ -289,12 +285,12 @@ export default function OrdersPage() {
         ) : null}
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
-          <div className="rp-map-frame bg-slate-950">
-            <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
+          <div className="rp-map-frame self-start">
+            <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] px-5 py-4">
               <div>
-                <h2 className="font-semibold text-white">Pasto · selecciona una ubicación</h2>
+                <h2 className="font-semibold text-slate-900">Pasto · selecciona una ubicación</h2>
               </div>
-              <span className="rounded-full bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-300">
+              <span className="rounded-full bg-[var(--secondary)] px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-soft)]">
                 Solo Pasto
               </span>
             </div>
@@ -315,9 +311,6 @@ export default function OrdersPage() {
             <section className="rp-order-form bg-[var(--surface)] p-5">
               <div>
                 <h2 className="font-semibold text-slate-900">Datos del pedido</h2>
-                <p className="mt-1 text-xs text-slate-600">
-                  Normalizamos “num.”, “cra.” y otras abreviaturas locales de Pasto.
-                </p>
               </div>
               <div className="mt-5 space-y-4">
                 <label className="block text-xs font-semibold text-slate-600">

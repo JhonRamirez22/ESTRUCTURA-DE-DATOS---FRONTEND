@@ -73,7 +73,7 @@ export default function AppShell({ children, active }: AppShellProps) {
           <nav
             aria-label="Navegación principal"
             className="rp-navigation"
-            hidden={active === 'courier'}
+            hidden={active === 'courier' || active === 'tracking'}
           >
             {navigation.map((item) => {
               const isActive = active === item.key || (!active && pathname === item.href);
@@ -112,14 +112,6 @@ export default function AppShell({ children, active }: AppShellProps) {
         </div>
       </header>
       <div className="rp-shell-content" id="main-content" tabIndex={-1}>
-        {active === 'orders' ? (
-          <div className="rp-workspace-bar">
-            <span>
-              Gestión de pedidos
-            </span>
-            <span>Operación local · Pasto</span>
-          </div>
-        ) : null}
         {children}
       </div>
       {operational ? null : (
