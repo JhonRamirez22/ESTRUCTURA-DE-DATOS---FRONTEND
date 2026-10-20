@@ -1354,3 +1354,116 @@ export default function DashboardPage() {
                       </li>
                     );
                   })}
+                </ul>
+              </section>
+            ) : null}
+                  </>
+                ) : null}
+              </div>
+            </Sheet>
+          </section>
+          </fieldset>
+          {undoToast.node}
+        </div>
+      </main>
+    </AppShell>
+  );
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    return typeof payload.error === 'string' ? payload.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function summarizeLiveTraffic(statuses: LiveTrafficStatus[]): string {
+  const configured = statuses.some((status) => status.configured);
+  const routeSegments = statuses.reduce((total, status) => total + status.routeSegments, 0);
+  const sampledSegments = statuses.reduce((total, status) => total + status.sampledSegments, 0);
+  const adjustedSegments = statuses.reduce((total, status) => total + status.adjustedSegments, 0);
+  const closedSegments = statuses.reduce((total, status) => total + status.closedSegments, 0);
+  const warnings = [...new Set(statuses.map((status) => status.warning).filter(Boolean))];
+  const sourceSummary = configured
+    ? `TomTom midió ${sampledSegments} de ${routeSegments} tramos y ajustó ${adjustedSegments}${closedSegments > 0 ? `; marcó ${closedSegments} como cerrados` : ''}.`
+    : 'Sin tráfico en vivo; se usaron los tiempos de base.';
+  return [sourceSummary, ...warnings].join(' ');
+}
+
+function RouteSummary({
+  isUndoing,
+  isRecalculating,
+  onRecalculate,
+  onUndo,
+  onStatusChange,
+  route,
+  color,
+  liveRoute,
+  onLiveApply,
+  applyingLive = false,
+}: {
+  color?: string | undefined;
+  liveRoute?: LiveRouteProposal | undefined;
+  onLiveApply?: ((routeId: string) => Promise<void>) | undefined;
+  applyingLive?: boolean;
+  isRecalculating: boolean;
+  isUndoing: boolean;
+  onRecalculate: (routeId: string) => Promise<void>;
+  onUndo: (routeId: string) => Promise<void>;
+  onStatusChange: (
+    routeId: string,
+    status: 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  ) => Promise<void>;
+  route: Route;
+}) {
+  const t = useT();
+  const statusLabels = {
+    PLANNED: t('route.planned'),
+    IN_PROGRESS: t('route.inProgress'),
+    COMPLETED: t('route.completed'),
+    CANCELLED: t('route.cancelled'),
+  } as const;
+  const hasFreshCourierLocation =
+    route.courier.currentLat !== null &&
+    route.courier.currentLng !== null &&
+    isCourierLocationFresh(
+      route.courier.lastLocationAt ? new Date(route.courier.lastLocationAt) : null
+    );
+  const canRecalculate = route.status === 'PLANNED' || route.status === 'IN_PROGRESS';
+  const firstOpen = route.deliveryPoints.findIndex(
+    (point) => point.status !== 'DELIVERED' && point.status !== 'FAILED'
+  );
+  const stopState = (index: number): Exclude<StopState, 'terminal'> => {
+    const status = route.deliveryPoints[index]?.status;
+    if (status === 'DELIVERED' || status === 'FAILED') return 'done';
+    return index === firstOpen && route.status === 'IN_PROGRESS' ? 'current' : 'pending';
+  };
+  const delivered = route.deliveryPoints.filter((point) => point.status === 'DELIVERED').length;
+  const stateTone =
+    route.status === 'IN_PROGRESS' ? 'is-route' : route.status === 'PLANNED' ? '' : 'is-muted';
+
+  return (
+    <article className="rp-route-summary">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-semibold">
+            {color ? (
+              <span aria-hidden="true" className="rp-route-swatch" style={{ background: color }} />
+            ) : null}
+            {route.courier.name}
+          </p>
+          <p className="mt-0.5 text-xs tabular-nums text-[var(--ink-soft)]">
+            {t('route.meta', {
+              id: route.id.slice(0, 8),
+              min: Math.round(route.estimatedDurationMinutes),
+              done: delivered,
+              total: route.deliveryPoints.length,
+            })}
+          </p>
+        </div>
+        <span className={`rl-state ${stateTone}`}>{statusLabels[route.status]}</span>
+      </div>
+      {route.deliveryPoints.length > 0 ? (
+        <>
