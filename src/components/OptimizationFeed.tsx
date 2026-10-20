@@ -13,6 +13,8 @@ interface FeedEvent {
   improvementMinutes: number | null;
   trafficSegments: number;
   aiApplied: boolean;
+  aiOrderAccepted?: boolean;
+  aiOrderSavingMinutes?: number;
 }
 
 interface FeedPayload {
@@ -150,6 +152,11 @@ export default function OptimizationFeed() {
               <span className="font-medium text-stone-900">Ruta {event.routeAlias}</span>
               <span className="text-stone-700">{describe(event)}</span>
               {event.aiApplied ? <span className="text-xs text-violet-800">IA con ajustes validados</span> : null}
+              {event.aiOrderAccepted ? (
+                <span className="text-xs text-violet-800">
+                  IA ordenó · verificado con Dijkstra −{event.aiOrderSavingMinutes ?? 0} min
+                </span>
+              ) : null}
               {event.trafficSegments > 0 ? <span className="text-xs text-stone-600">{event.trafficSegments} tramos medidos</span> : null}
             </li>
           ))}

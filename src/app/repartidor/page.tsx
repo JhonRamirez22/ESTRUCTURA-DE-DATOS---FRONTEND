@@ -71,7 +71,16 @@ interface AssignedRoute {
   }>;
 }
 
+interface AiOrder {
+  proposed: boolean;
+  accepted: boolean;
+  savingMinutes?: number;
+  reason?: string;
+  verifiedWith?: string;
+}
+
 interface RouteProposal {
+  aiOrder?: AiOrder;
   orderedDeliveryPointIds: string[];
   changed: boolean;
   estimatedDurationMinutes: number;
@@ -680,6 +689,11 @@ export default function RepartidorPage() {
                       ? `Ahorras unos ${Math.round(proposal.improvementMinutes)} min con el tráfico de ahora.`
                       : "La IA encontró un orden distinto según el tráfico de ahora."}
                   </p>
+                  {proposal.aiOrder?.accepted ? (
+                    <p className="text-xs leading-5 text-violet-900">
+                      La IA propuso este orden y el algoritmo lo verificó con Dijkstra: ahorra {proposal.aiOrder.savingMinutes ?? 0} min.
+                    </p>
+                  ) : null}
                 </div>
                 <button className="rp-button rp-button-primary rp-button-small" disabled={applying}
                   onClick={() => void applyProposal()} type="button">

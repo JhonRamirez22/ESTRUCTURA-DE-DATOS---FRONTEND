@@ -22,6 +22,8 @@ it('muestra estadísticas y eventos por alias de ruta sin cambiar ninguna ruta',
           improvementMinutes: 2.4,
           trafficSegments: 3,
           aiApplied: true,
+          aiOrderAccepted: true,
+          aiOrderSavingMinutes: 1.8,
         },
         {
           at: '2026-10-19T21:59:00Z',
@@ -42,6 +44,7 @@ it('muestra estadísticas y eventos por alias de ruta sin cambiar ninguna ruta',
   expect(screen.getByText('Ruta R-AB12')).toBeTruthy();
   expect(screen.getByText(/ahorro ~2\.4 min/)).toBeTruthy();
   expect(screen.getByText('Ruta R-CD34')).toBeTruthy();
+  expect(screen.getByText(/verificado con Dijkstra −1\.8 min/)).toBeTruthy();
   expect(screen.getByText('7')).toBeTruthy();
   expect(screen.queryByText(/Dirección/)).toBeNull();
 });
