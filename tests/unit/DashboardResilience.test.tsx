@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest';
 import DashboardPage from '@/app/dashboard/page';
 
+vi.mock('@/components/OptimizationFeed', () => ({ default: () => null }));
 vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard' }));
 vi.mock('next/dynamic', () => ({ default: () => () => <div aria-label="Mapa operativo de prueba" /> }));
 
