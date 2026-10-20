@@ -995,3 +995,86 @@ function updateMapData(
   directionsSource?.setData(featureCollection(directionFeatures));
   labelsSource?.setData(featureCollection(labelFeatures));
   couriersSource?.setData(featureCollection(courierFeatures));
+  deliveriesSource?.setData(featureCollection(deliveryFeatures));
+  (map.getSource('route-stops') as GeoJSONSource | undefined)?.setData(featureCollection(routeStopFeatures));
+
+  const focusRoute = data.routes.find((item) => item.id === data.focusRouteId) ?? data.routes[0];
+  updateLiveLayers(map, data);
+  const optimization = focusRoute?.optimization ?? null;
+  const baseline = optimization?.baselineGeometry?.coordinates;
+  const baselineFeatures: MapFeature[] =
+    baseline && baseline.length > 1 && baseline.every(([lng, lat]) => isWithinPastoServiceArea(lat, lng))
+      ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: baseline }, properties: { route: 'BASELINE' } }]
+      : [];
+  (map.getSource('route-baseline') as GeoJSONSource | undefined)?.setData(featureCollection(baselineFeatures));
+
+  // Tráfico visible sobre la línea verde: halos por nivel, sin recolorear la ruta.
+  if (!map.getSource('route-traffic')) {
+    map.addSource('route-traffic', { type: 'geojson', data: featureCollection([]) });
+    map.addLayer({
+      id: 'route-traffic-halo',
+      type: 'circle',
+      source: 'route-traffic',
+      paint: {
+        'circle-color': ['get', 'color'],
+        'circle-radius': 8,
+        'circle-opacity': 0.35,
+        'circle-stroke-color': '#FFFCF7',
+        'circle-stroke-width': 1.5,
+        'circle-stroke-opacity': 0.35,
+      },
+    });
+  }
+  const trafficFeatures: MapFeature[] = data.trafficMarks
+    .filter((mark) => isSevereTraffic(mark.trafficLevel, mark.roadClosure))
+    .map((mark) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: mark.coordinates },
+      properties: { color: trafficColor(mark.trafficLevel, mark.roadClosure) },
+    }));
+  // Las mediciones que usó la optimización también se ven, aunque no haya consulta en vivo.
+  for (const item of optimization?.trafficPoints ?? []) {
+    if (!item.point || !isWithinPastoServiceArea(item.point[1], item.point[0])) continue;
+    if (!isSevereTraffic(item.level ?? '', item.closed)) continue;
+    trafficFeatures.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: item.point },
+      properties: { color: trafficColor(item.level ?? '', item.closed) },
+    });
+  }
+  const trafficSource = map.getSource('route-traffic') as GeoJSONSource | undefined;
+  trafficSource?.setData(featureCollection(trafficFeatures));
+
+  // Los tramos más lentos llevan su porcentaje encima (min-heap de tamaño 3).
+  if (!map.getSource('route-congestion')) {
+    map.addSource('route-congestion', { type: 'geojson', data: featureCollection([]) });
+    map.addLayer({
+      id: 'route-congestion',
+      type: 'symbol',
+      source: 'route-congestion',
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-size': 12,
+        'text-offset': [0, -1.5],
+        'text-anchor': 'bottom',
+        'text-allow-overlap': true,
+      },
+      paint: {
+        'text-color': '#fff7ed',
+        'text-halo-color': '#7c2d12',
+        'text-halo-width': 2,
+      },
+    });
+  }
+  const congestionFeatures: MapFeature[] = mostCongested(optimization?.trafficPoints ?? [], 3).map(
+    (item) => pointFeature(item.point, '#ea580c', congestionLabel(item, 'cerrado'))
+  );
+  (map.getSource('route-congestion') as GeoJSONSource | undefined)?.setData(
+    featureCollection(congestionFeatures)
+  );
+
+  // El polling y el GPS actualizan marcadores sin interrumpir el zoom manual.
+  const nextCameraKey = JSON.stringify({
+    routes: data.routes.map((route) => route.id).sort(),
+    selection: data.selectedCoordinate,
+    inset: data.inset,
