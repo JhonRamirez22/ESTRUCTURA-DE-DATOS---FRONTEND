@@ -1078,3 +1078,86 @@ function updateMapData(
     routes: data.routes.map((route) => route.id).sort(),
     selection: data.selectedCoordinate,
     inset: data.inset,
+  });
+  if (focusCoordinates.length === 0) return;
+  if (cameraKey.current === nextCameraKey) return;
+  cameraKey.current = nextCameraKey;
+
+  if (focusCoordinates.length === 1) {
+    map.setCenter(focusCoordinates[0]!);
+    map.setZoom(16);
+  } else if (focusCoordinates.length > 1) {
+    const bounds = new maplibregl.LngLatBounds(focusCoordinates[0], focusCoordinates[0]);
+
+    for (const coordinate of focusCoordinates.slice(1)) {
+      bounds.extend(coordinate);
+    }
+
+    const inset = data.inset;
+    map.fitBounds(bounds, {
+      maxZoom: 16,
+      padding: inset
+        ? {
+            top: Math.max(BASE_FIT_PADDING, inset.top),
+            right: Math.max(BASE_FIT_PADDING, inset.right),
+            bottom: Math.max(BASE_FIT_PADDING, inset.bottom),
+            left: Math.max(BASE_FIT_PADDING, inset.left),
+          }
+        : BASE_FIT_PADDING,
+      duration: 500,
+    });
+  }
+}
+
+function pointFeature(coordinate: [number, number], color: string, label: string): MapFeature {
+  return {
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: coordinate },
+    properties: { color, label },
+  };
+}
+
+function emptyFeatureCollection(): MapFeatureCollection {
+  return { type: 'FeatureCollection', features: [] };
+}
+
+function featureCollection(features: MapFeature[]): MapFeatureCollection {
+  return { type: 'FeatureCollection', features };
+}
+
+/** Sello sobre el mapa: ahorro frente al orden base y quién intervino. */
+function OptimizationBadge({ optimization }: { optimization: RouteOptimization }) {
+  const t = useT();
+  const saved = optimization.savedMinutes;
+  return (
+    <div className="rl-map-badge" role="note" aria-label={t('opt.badge')}>
+      <p className="rl-map-badge-title">
+        {saved !== null && saved > 0.05
+          ? t('opt.saved', { min: saved.toLocaleString('es-CO', { maximumFractionDigits: 1 }) })
+          : t('opt.already')}
+      </p>
+      <ul>
+        <li>
+          <span className="rl-map-key is-route" aria-hidden="true" />
+          {t('opt.legend.optimized')}
+        </li>
+        {optimization.baselineGeometry ? (
+          <li>
+            <span className="rl-map-key is-baseline" aria-hidden="true" />
+            {t('opt.legend.baseline')}
+          </li>
+        ) : null}
+        {optimization.tomtom.sampled > 0 ? (
+          <li>
+            <span className="rl-map-key is-traffic" aria-hidden="true" />
+            {t('opt.legend.tomtom', { n: optimization.tomtom.sampled })}
+          </li>
+        ) : null}
+        {optimization.groq.orderAccepted ? <li className="is-ai">{t('opt.legend.aiAccepted')}</li> : null}
+        {!optimization.groq.orderAccepted && optimization.groq.orderProposed ? (
+          <li className="is-ai">{t('opt.legend.aiRejected')}</li>
+        ) : null}
+      </ul>
+    </div>
+  );
+}
