@@ -1,3 +1,4 @@
+import { clearResolvedAddresses } from '@/lib/addressCache';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,6 +20,7 @@ const match = {
 
 describe('resolución de direcciones antes de seleccionar un pin', () => {
   beforeEach(() => {
+    clearResolvedAddresses();
     vi.useFakeTimers();
     request.mockReset();
     request.mockImplementation((path: string) =>
@@ -102,3 +104,4 @@ describe('resolución de direcciones antes de seleccionar un pin', () => {
     expect((screen.getByLabelText('Dirección') as HTMLInputElement).value).toBe('Carrera 25 num 3');
   });
 });
+

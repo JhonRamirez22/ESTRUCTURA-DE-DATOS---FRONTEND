@@ -9,6 +9,8 @@ import { isCourierLocationFresh } from "@/lib/courierLocation";
 import { Queue } from "@/core/structures/Queue";
 import { SessionChangeNotice } from "@/components/SessionChangeNotice";
 import type { MapTrafficMark } from "@/components/MapLibreRouteMap";
+import { nearestStopsByEta, type StopEta } from "@/lib/etaHeap";
+import { OfflineQueue } from "@/lib/offlineQueue";
 
 const CourierRouteMap = dynamic(() => import("./CourierRouteMap"), {
   ssr: false,
@@ -26,6 +28,13 @@ const NAVIGATION_REFRESH_INTERVAL_MS = 15_000;
 // Revisión automática: solo consulta tráfico y propone; no cambia el orden guardado.
 const PROPOSAL_REFRESH_INTERVAL_MS = 5_000;
 const CELEBRATION_MS = 3_200;
+const ETA_REFRESH_INTERVAL_MS = 15_000;
+const OFFLINE_RETRY_INTERVAL_MS = 10_000;
+
+interface DeliveryUpdate {
+  deliveryPointId: string;
+  status: "DELIVERED" | "FAILED";
+}
 
 interface LastLocation {
   lat: number;
@@ -136,6 +145,10 @@ export default function RepartidorPage() {
   const [celebrating, setCelebrating] = useState(false);
   const [appliedNotice, setAppliedNotice] = useState<string | null>(null);
   const proposalInFlight = useRef(false);
+  const [stopEtas, setStopEtas] = useState<StopEta[]>([]);
+  // Cola FIFO: las entregas marcadas sin conexión se reenvían en orden al recuperarla.
+  const [offlineUpdates] = useState(() => new OfflineQueue<DeliveryUpdate>());
+  const [pendingUpdates, setPendingUpdates] = useState(0);
   const routeGeneration = useRef(0);
   const watchId = useRef<number | null>(null);
   const lastSentAt = useRef(0);
@@ -257,6 +270,24 @@ export default function RepartidorPage() {
     }
   }, [refreshNavigation]);
 
+  const sendDeliveryStatus = useCallback(async ({ deliveryPointId, status }: DeliveryUpdate): Promise<void> => {
+    const response = await apiFetch(`/api/pedidos/${encodeURIComponent(deliveryPointId)}`, {
+      body: JSON.stringify({ status }),
+      headers: { "Content-Type": "application/json" },
+      method: "PATCH",
+    });
+    if (!response.ok) {
+      throw new Error(await readApiError(response, "No se pudo actualizar la entrega."));
+    }
+  }, []);
+
+  const flushOfflineUpdates = useCallback(async (): Promise<void> => {
+    if (offlineUpdates.size === 0) return;
+    const sent = await offlineUpdates.flush(sendDeliveryStatus);
+    setPendingUpdates(offlineUpdates.size);
+    if (sent > 0) await loadAssignedRoute();
+  }, [loadAssignedRoute, offlineUpdates, sendDeliveryStatus]);
+
   const applyProposal = async (): Promise<void> => {
     if (!assignedRoute || applying) return;
     routeGeneration.current += 1;
@@ -360,6 +391,44 @@ export default function RepartidorPage() {
     };
   }, [assignedRoute?.id]);
 
+  // Reintenta la cola de entregas pendientes al recuperar la red y cada 10 s mientras haya.
+  useEffect(() => {
+    const retry = () => void flushOfflineUpdates();
+    window.addEventListener("online", retry);
+    const interval = window.setInterval(retry, OFFLINE_RETRY_INTERVAL_MS);
+    return () => {
+      window.removeEventListener("online", retry);
+      window.clearInterval(interval);
+    };
+  }, [flushOfflineUpdates]);
+
+  // ETA por parada cada 15 s; el min-heap elige las más cercanas.
+  useEffect(() => {
+    const routeId = assignedRoute?.id;
+    if (routeId === undefined) {
+      setStopEtas([]);
+      return;
+    }
+    let disposed = false;
+    const loadEtas = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const response = await apiFetch(`/api/rutas/${encodeURIComponent(routeId)}/eta`, { cache: "no-store" });
+        if (!response.ok || disposed) return;
+        const payload = (await response.json()) as { etas?: StopEta[] };
+        if (!disposed) setStopEtas(payload.etas ?? []);
+      } catch {
+        // Se conserva el último cálculo válido.
+      }
+    };
+    void loadEtas();
+    const interval = window.setInterval(() => void loadEtas(), ETA_REFRESH_INTERVAL_MS);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, [assignedRoute?.id]);
+
   useEffect(() => {
     const handleOnline = () => {
       void loadCourierProfile();
@@ -451,20 +520,18 @@ export default function RepartidorPage() {
     status: "DELIVERED" | "FAILED",
   ) => {
     try {
-      const response = await apiFetch(`/api/pedidos/${encodeURIComponent(deliveryPointId)}`, {
-        body: JSON.stringify({ status }),
-        headers: { "Content-Type": "application/json" },
-        method: "PATCH",
-      });
-
-      if (!response.ok) {
-        throw new Error(await readApiError(response, "No se pudo actualizar la entrega."));
-      }
-
+      await sendDeliveryStatus({ deliveryPointId, status });
       setError(null);
       await loadAssignedRoute();
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "No se pudo actualizar la entrega.");
+      const message = updateError instanceof Error ? updateError.message : "";
+      if (!navigator.onLine || /conectar|tardó demasiado/.test(message)) {
+        offlineUpdates.enqueue({ deliveryPointId, status });
+        setPendingUpdates(offlineUpdates.size);
+        setError("Sin conexión: guardamos tu entrega y la enviaremos al recuperar la señal.");
+        return;
+      }
+      setError(message || "No se pudo actualizar la entrega.");
     }
   };
 
@@ -710,6 +777,24 @@ export default function RepartidorPage() {
             <div className={`rounded-2xl ${celebrating ? "route-celebrate" : ""}`}>
               <CourierRouteMap currentLocation={lastLocation} route={assignedRoute} trafficMarks={trafficMarks} />
             </div>
+            {pendingUpdates > 0 ? (
+              <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status">
+                {pendingUpdates} entrega{pendingUpdates === 1 ? "" : "s"} pendiente{pendingUpdates === 1 ? "" : "s"} de enviar; se reintentará sola.
+              </p>
+            ) : null}
+            {nearestStopsByEta(stopEtas, 3).length > 0 ? (
+              <section className="mt-3 rounded-2xl border border-stone-200 bg-white/70 p-3" aria-label="Próximas paradas por tiempo estimado">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-600">Más cercanas por tiempo estimado</h3>
+                <ol className="mt-1 space-y-1 text-sm">
+                  {nearestStopsByEta(stopEtas, 3).map((eta) => (
+                    <li key={eta.stopId} className="flex justify-between gap-3">
+                      <span>{assignedRoute.deliveryPoints.find((point) => point.id === eta.stopId)?.address ?? "Parada"}</span>
+                      <span className="tabular-nums text-stone-700">{Math.ceil(eta.estimatedMinutesFromNow)} min</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ) : null}
             {trafficMarks.length > 0 ? (
               <p className="mt-2 text-xs text-slate-600">
                 Tráfico sobre tu ruta: {summarizeTraffic(trafficMarks)}. Medido a las{" "}

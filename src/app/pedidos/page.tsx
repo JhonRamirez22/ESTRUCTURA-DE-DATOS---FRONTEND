@@ -10,6 +10,7 @@ import { buildCustomerEmailConsent } from '@/lib/customerEmailConsent';
 import { buildCustomerSmsConsent } from '@/lib/customerSmsConsent';
 import { isWithinPastoServiceArea, normalizePastoAddress } from '@/lib/pastoArea';
 import type { MapDeliveryPoint } from '@/components/MapLibreRouteMap';
+import { addressCacheKey, getResolvedAddress, rememberResolvedAddress } from '@/lib/addressCache';
 
 const OrderMap = dynamic(() => import('@/components/MapLibreRouteMap'), {
   ssr: false,
@@ -80,6 +81,16 @@ export default function OrdersPage() {
     if (draft.address.trim().length < 3) return;
     const timer = window.setTimeout(() => {
       if (sequence !== lookupSequence.current) return;
+      const cacheKey = addressCacheKey(draft.address);
+      const cached = getResolvedAddress<AddressCandidate>(cacheKey);
+      if (cached !== undefined) {
+        setCandidates(cached.candidates);
+        setAddressNotice(cached.warning ?? 'Confirma la ubicación sugerida antes de guardar.');
+        if (cached.candidates.length === 1) {
+          setSelectedCoordinate([cached.candidates[0]!.lat, cached.candidates[0]!.lng]);
+        }
+        return;
+      }
       setFindingAddress(true);
       void (async () => {
         try {
@@ -104,6 +115,7 @@ export default function OrdersPage() {
                   : 'No se pudo buscar la dirección.')
             );
           const suggestions = payload.candidates ?? [];
+          rememberResolvedAddress(cacheKey, { candidates: suggestions, warning: payload.warning });
           setCandidates(suggestions);
           setAddressNotice(payload.warning ?? 'Confirma la ubicación sugerida antes de guardar.');
           if (suggestions.length === 1) {

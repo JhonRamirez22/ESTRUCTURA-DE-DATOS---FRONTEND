@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/apiClient';
+import { LruCache } from '@/lib/lruCache';
 
 const REFRESH_MS = 90_000;
 type TrafficState = 'loading' | 'consulted' | 'stale' | 'unavailable' | 'no-coverage';
@@ -17,6 +18,13 @@ interface RouteTraffic {
   observations: Observation[];
 }
 
+// Últimas rutas consultadas: al volver a una de ellas se reutiliza la medición vigente.
+const recentTraffic = new LruCache<string, RouteTraffic>(8, REFRESH_MS);
+
+export function clearTrafficCache(): void {
+  recentTraffic.clear();
+}
+
 /** Informa sobre la ruta elegida sin pintar tráfico ni recorridos adicionales. */
 export default function TrafficOverlay({ routeId }: { routeId: string }) {
   const [status, setStatus] = useState<TrafficState>('loading');
@@ -27,8 +35,16 @@ export default function TrafficOverlay({ routeId }: { routeId: string }) {
     let pending: AbortController | null = null;
     let lastRefresh = -Infinity;
     let previous: RouteTraffic | null = null;
-    setSnapshot(null);
-    setStatus('loading');
+    const cached = recentTraffic.get(routeId);
+    if (cached !== undefined) {
+      previous = cached;
+      lastRefresh = Date.now();
+      setSnapshot(cached);
+      setStatus('consulted');
+    } else {
+      setSnapshot(null);
+      setStatus('loading');
+    }
 
     const refresh = async () => {
       if (document.visibilityState === 'hidden' || Date.now() - lastRefresh < REFRESH_MS) return;
@@ -48,6 +64,7 @@ export default function TrafficOverlay({ routeId }: { routeId: string }) {
           Number.isFinite(Date.parse(item.observedAt))
         );
         previous = { ...data, observations };
+        recentTraffic.set(routeId, previous);
         setSnapshot(previous);
         setStatus(
           !data.configured
