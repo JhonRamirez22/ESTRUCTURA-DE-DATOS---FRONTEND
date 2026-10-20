@@ -609,48 +609,52 @@ export default function RepartidorPage() {
     setIsTracking(true);
   };
 
+  const nextStop = navigation
+    ? activeDeliveryPoints.find((point) => point.id === navigation.nextDeliveryPointId)
+    : undefined;
+  const nearest = nearestStopsByEta(stopEtas, 3);
+
   return (
     <AppShell active="courier">
-      <main className="rp-courier px-5 py-8 text-slate-950 sm:px-8">
+      <main className="rp-courier rl-page !max-w-xl">
         <SessionChangeNotice role="courier" />
-      <section className="mx-auto max-w-xl">
-        <h1 className="text-2xl font-semibold sm:text-[28px]">Tu ruta de hoy</h1>
-
-        <div className="mt-8 rounded-xl border border-slate-200/90 bg-[var(--surface)] p-5 ">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-slate-800">Sesión del repartidor</p>
-            <p className="mt-1 text-xs text-slate-500">
+        <header className="rl-page-head !mb-5">
+          <div>
+            <h1>Tu ruta de hoy</h1>
+            <p className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className={`h-2.5 w-2.5 rounded-full ${isTracking ? "feed-pulse bg-[var(--route)]" : "bg-[var(--line-strong)]"}`}
+              />
+              <span>
+                <span className="sr-only">Sesión del repartidor: </span>
                 {loadingProfile
                   ? "Verificando acceso…"
                   : formatCourierStatus(courierStatus, lastLocation !== null)}
-              </p>
-            </div>
-            <span className={`h-2.5 w-2.5 rounded-full ${isTracking ? "bg-emerald-500" : "bg-slate-300"}`} aria-hidden="true" />
+              </span>
+            </p>
           </div>
+        </header>
 
-          <div className="mt-4 flex flex-wrap gap-3">
-            {/* Una sola acción de ubicación visible: iniciar o detener según el estado. */}
-            {isTracking ? (
-              <button
-                className="rp-button rp-button-danger"
-                onClick={stopTracking}
-                type="button"
-              >
-                Detener ubicación
-              </button>
-            ) : (
-              <button
-                className="rp-button rp-button-primary"
-                disabled={loadingProfile}
-                onClick={startTracking}
-                type="button"
-              >
-                Iniciar ubicación
-              </button>
-            )}
+        <div className="grid gap-3">
+          {/* Una sola acción de ubicación visible: iniciar o detener según el estado. */}
+          {isTracking ? (
+            <button className="rp-button rp-button-danger rp-button-block" onClick={stopTracking} type="button">
+              Detener ubicación
+            </button>
+          ) : (
             <button
-              className="rp-button rp-button-secondary"
+              className="rp-button rp-button-go rp-button-block"
+              disabled={loadingProfile}
+              onClick={startTracking}
+              type="button"
+            >
+              Iniciar ubicación
+            </button>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              className="rp-button rp-button-quiet"
               disabled={loadingProfile}
               onClick={() => void loadAssignedRoute()}
               type="button"
@@ -669,216 +673,200 @@ export default function RepartidorPage() {
               Actualizar estado
             </button>
           </div>
-        </div>
-
-        {lastLocation ? (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-[var(--surface)] p-4 text-sm ">
-            <p className="font-semibold text-slate-800">Última posición enviada</p>
-            <p className="mt-2 font-mono text-xs text-slate-500">
-              {lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)}
-            </p>
-            <p className="mt-1 text-xs text-slate-400">
+          {lastLocation ? (
+            <p className="text-xs tabular-nums text-[var(--ink-soft)]">
+              Última posición enviada: {lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)} ·{" "}
               {new Date(lastLocation.recordedAt).toLocaleString("es-CO")}
             </p>
+          ) : null}
+        </div>
+
+        {error ? (
+          <div className="rl-notice is-error mt-5" role="alert">
+            {error}
           </div>
         ) : null}
 
         {assignedRoute ? (
-          <section className="mt-4 rounded-2xl border border-teal-200 bg-[var(--surface)] p-4 ">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-semibold text-slate-800">Ruta asignada</p>
-                <p className="mt-1 font-mono text-[11px] text-slate-400">
-                  {assignedRoute.id.slice(0, 8)} · {activeDeliveryPoints.length} pendientes
+          <section aria-label="Ruta asignada" className="mt-8">
+            {navigation ? (
+              <div className="rl-board">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs font-semibold !text-[var(--board-soft)]">Navegación activa · próxima parada</p>
+                  <span className="rl-state text-[var(--board-soft)]">Calles {navigation.geometryProvider}</span>
+                </div>
+                <p className="mt-2 text-2xl font-semibold leading-tight !text-[var(--board-ink)]">
+                  <span className="sr-only">Próxima parada: </span>
+                  {nextStop?.address ?? "pendiente"}
+                </p>
+                <dl className="mt-4 grid grid-cols-2 gap-4">
+                  <div className="flex flex-col-reverse">
+                    <dt className="text-xs text-[var(--board-soft)]">Distancia restante</dt>
+                    <dd className="text-2xl font-semibold tabular-nums">{formatDistance(navigation.distanceMeters)}</dd>
+                  </div>
+                  <div className="flex flex-col-reverse">
+                    <dt className="text-xs text-[var(--board-soft)]">Tiempo estimado</dt>
+                    <dd className="text-2xl font-semibold tabular-nums">
+                      {Math.max(1, Math.round(navigation.durationMinutes))} min
+                    </dd>
+                  </div>
+                </dl>
+                <p className="mt-3 text-xs leading-5">
+                  {navigation.warning ??
+                    `El trazado sigue calles de OpenStreetMap mediante ${navigation.geometryProvider}. El proveedor público no ofrece tráfico en tiempo real.`}
                 </p>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <span className="rounded-full bg-teal-50 px-2.5 py-1 text-[11px] font-semibold text-teal-700">
-                  {assignedRoute.status === "IN_PROGRESS" ? "En curso" : "Planeada"}
-                </span>
-                {assignedRoute.status === "PLANNED" ? (
-                  <button
-                    className="rp-button rp-button-primary rp-button-small"
-                    onClick={() => void updateRouteStatus("IN_PROGRESS")}
-                    type="button"
-                  >
-                    Iniciar ruta
-                  </button>
-                ) : null}
-                {assignedRoute.status === "IN_PROGRESS" ? (
-                  <button
-                    className="rp-button rp-button-quiet rp-button-small"
-                    onClick={() => void updateRouteStatus("COMPLETED")}
-                    type="button"
-                  >
-                    Cerrar ruta
-                  </button>
-                ) : null}
-              </div>
+            ) : null}
+            {navigationError ? (
+              <p className="rl-notice is-warn mt-3" role="status">
+                {navigationError}
+              </p>
+            ) : null}
+
+            <div className="rl-head mt-8">
+              <h2>
+                <span>Ruta asignada</span>{" "}
+                <small className="tabular-nums">
+                  {assignedRoute.id.slice(0, 8)} · {activeDeliveryPoints.length} pendientes
+                </small>
+              </h2>
+              <span className={`rl-state ${assignedRoute.status === "IN_PROGRESS" ? "is-route" : ""}`}>
+                {assignedRoute.status === "IN_PROGRESS" ? "En curso" : "Planeada"}
+              </span>
             </div>
-            <div className="my-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-slate-600">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-[var(--ink-soft)]">
                 {assignedRoute.optimizedAt
                   ? `Última optimización: ${new Date(assignedRoute.optimizedAt).toLocaleString('es-CO')}`
                   : 'Ruta asignada por despacho; puedes recalcularla si cambia el tráfico.'}
                 {assignedRoute.estimatedDurationMinutes !== undefined
                   ? ` · ${Math.ceil(assignedRoute.estimatedDurationMinutes)} min estimados` : ''}
               </p>
+              {assignedRoute.status === "PLANNED" ? (
+                <button
+                  className="rp-button rp-button-primary rp-button-small"
+                  onClick={() => void updateRouteStatus("IN_PROGRESS")}
+                  type="button"
+                >
+                  Iniciar ruta
+                </button>
+              ) : null}
+              {assignedRoute.status === "IN_PROGRESS" ? (
+                <button
+                  className="rp-button rp-button-quiet rp-button-small"
+                  onClick={() => void updateRouteStatus("COMPLETED")}
+                  type="button"
+                >
+                  Cerrar ruta
+                </button>
+              ) : null}
             </div>
+
             {proposal?.changed && activeDeliveryPoints.length > 0 ? (
-              <div className="route-proposal mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-teal-300 bg-teal-50 p-4" role="status">
-                <div>
-                  <p className="text-sm font-semibold text-teal-950">Ruta optimizada disponible</p>
-                  <p className="text-xs leading-5 text-teal-900">
+              <div className="rl-notice is-ok route-proposal mt-4" role="status">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">Ruta optimizada disponible</p>
+                  <p className="text-sm leading-5">
                     {proposal.improvementMinutes !== null && proposal.improvementMinutes > 0
                       ? `Ahorras unos ${Math.round(proposal.improvementMinutes)} min con el tráfico de ahora.`
                       : "La IA encontró un orden distinto según el tráfico de ahora."}
                   </p>
                   {proposal.aiOrder?.accepted ? (
-                    <p className="text-xs leading-5 text-violet-900">
+                    <p className="text-xs leading-5">
                       La IA propuso este orden y el algoritmo lo verificó con Dijkstra: ahorra {proposal.aiOrder.savingMinutes ?? 0} min.
                     </p>
                   ) : null}
                 </div>
-                <button className="rp-button rp-button-primary rp-button-small" disabled={applying}
+                <button className="rp-button rp-button-go rp-button-small" disabled={applying}
                   onClick={() => void applyProposal()} type="button">
                   {applying ? "Aplicando…" : "Aplicar ruta"}
                 </button>
               </div>
             ) : null}
-            {proposalStatus ? <p className="mb-2 text-xs text-slate-600" aria-live="polite">{proposalStatus}</p> : null}
+            {proposalStatus ? <p className="mt-3 text-xs text-[var(--ink-soft)]" aria-live="polite">{proposalStatus}</p> : null}
             {appliedNotice ? (
-              <p className={`mb-3 rounded-xl border border-teal-200 bg-teal-50 p-3 text-xs leading-5 text-teal-950 ${celebrating ? "route-celebrate" : ""}`} role="status">
+              <p className={`rl-notice is-ok mt-3 ${celebrating ? "route-celebrate" : ""}`} role="status">
                 {appliedNotice}
               </p>
             ) : null}
-            <div className={`rounded-2xl ${celebrating ? "route-celebrate" : ""}`}>
-              <CourierRouteMap currentLocation={lastLocation} route={assignedRoute} trafficMarks={trafficMarks} />
-            </div>
             {pendingUpdates > 0 ? (
-              <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status">
+              <p className="rl-notice is-warn mt-3" role="status">
                 {pendingUpdates} entrega{pendingUpdates === 1 ? "" : "s"} pendiente{pendingUpdates === 1 ? "" : "s"} de enviar; se reintentará sola.
               </p>
             ) : null}
-            {nearestStopsByEta(stopEtas, 3).length > 0 ? (
-              <section className="mt-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3" aria-label="Próximas paradas por tiempo estimado">
-                <h3 className="text-sm font-semibold text-stone-800">Más cercanas por tiempo estimado</h3>
-                <ol className="mt-1 space-y-1 text-sm">
-                  {nearestStopsByEta(stopEtas, 3).map((eta) => (
-                    <li key={eta.stopId} className="flex justify-between gap-3">
-                      <span>{assignedRoute.deliveryPoints.find((point) => point.id === eta.stopId)?.address ?? "Parada"}</span>
-                      <span className="tabular-nums text-stone-700">{Math.ceil(eta.estimatedMinutesFromNow)} min</span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            ) : null}
+
+            <ol aria-label="Paradas de tu ruta" className="rl-line is-route mt-5">
+              {activeDeliveryPoints.length === 0 ? (
+                <li className="rl-empty">No tienes entregas pendientes en esta ruta.</li>
+              ) : activeDeliveryPoints.map((point, index) => {
+                const current = index === 0;
+                return (
+                  <li key={point.id} className={`rl-stop ${current ? "is-current" : "is-pending"}`}>
+                    <span aria-hidden="true" className="rl-dot" />
+                    <span className="rl-stop-label">
+                      <span className="tabular-nums text-[var(--ink-soft)]">{(point.sequenceIndex ?? index) + 1}. </span>
+                      {point.address}
+                      <span className="rl-stop-meta">{formatDeliveryStatus(point.status)}</span>
+                      {assignedRoute.status === "IN_PROGRESS" &&
+                      (point.status === "PENDING" || point.status === "EN_ROUTE") ? (
+                        <span className="mt-2 flex gap-2">
+                          <button
+                            className={`rp-button ${current ? "rp-button-go" : "rp-button-quiet"} rp-button-small`}
+                            onClick={() => void updateDeliveryStatus(point.id, "DELIVERED")}
+                            type="button"
+                          >
+                            Entregada
+                          </button>
+                          <button
+                            className="rp-button rp-button-danger rp-button-small"
+                            onClick={() => void updateDeliveryStatus(point.id, "FAILED")}
+                            type="button"
+                          >
+                            Fallida
+                          </button>
+                        </span>
+                      ) : null}
+                    </span>
+                    <span />
+                  </li>
+                );
+              })}
+            </ol>
+
+            <div className={`mt-6 overflow-hidden rounded ${celebrating ? "route-celebrate" : ""}`}>
+              <CourierRouteMap currentLocation={lastLocation} route={assignedRoute} trafficMarks={trafficMarks} />
+            </div>
             {trafficMarks.length > 0 ? (
-              <p className="mt-2 text-xs text-slate-600">
+              <p className="mt-2 text-xs text-[var(--ink-soft)]">
                 Tráfico sobre tu ruta: {summarizeTraffic(trafficMarks)}. Medido a las{" "}
                 {new Date(trafficMarks[0]!.observedAt).toLocaleTimeString("es-CO")}.
               </p>
             ) : null}
-            {navigationError ? (
-              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900" role="status">
-                {navigationError}
-              </p>
-            ) : null}
-            {navigation ? (
-              <div className="mt-3 rounded-2xl border border-sky-100 bg-sky-50 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold text-sky-800">
-                      Navegación activa
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-800">
-                      Próxima parada: {activeDeliveryPoints.find(
-                        (point) => point.id === navigation.nextDeliveryPointId,
-                      )?.address ?? "pendiente"}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-[var(--surface)] px-2 py-1 text-[10px] font-semibold text-sky-700">
-                    Calles {navigation.geometryProvider}
-                  </span>
+            {nearest.length > 0 ? (
+              <section aria-label="Próximas paradas por tiempo estimado" className="mt-6">
+                <div className="rl-head">
+                  <h3>Más cercanas por tiempo estimado</h3>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-xl bg-[var(--surface)] px-3 py-2">
-                    <span className="text-slate-400">Distancia restante</span>
-                    <strong className="mt-1 block text-slate-700">
-                      {formatDistance(navigation.distanceMeters)}
-                    </strong>
-                  </div>
-                  <div className="rounded-xl bg-[var(--surface)] px-3 py-2">
-                    <span className="text-slate-400">Tiempo estimado</span>
-                    <strong className="mt-1 block text-slate-700">
-                      {Math.max(1, Math.round(navigation.durationMinutes))} min
-                    </strong>
-                  </div>
-                </div>
-                {navigation.warning ? (
-                  <p className="mt-2 text-[11px] leading-4 text-amber-700">
-                    {navigation.warning}
-                  </p>
-                ) : (
-                  <p className="mt-2 text-[11px] leading-4 text-sky-700">
-                    El trazado sigue calles de OpenStreetMap mediante {navigation.geometryProvider}. El proveedor público no ofrece tráfico en tiempo real.
-                  </p>
-                )}
-              </div>
+                <ul className="rl-rows">
+                  {nearest.map((eta) => (
+                    <li key={eta.stopId} className="rl-row !min-h-11 text-sm">
+                      <span className="rl-row-main">
+                        {assignedRoute.deliveryPoints.find((point) => point.id === eta.stopId)?.address ?? "Parada"}
+                      </span>
+                      <span className="tabular-nums font-semibold">{Math.ceil(eta.estimatedMinutesFromNow)} min</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ) : null}
-            <ol className="mt-3 space-y-2 text-sm text-slate-600">
-              {activeDeliveryPoints.length === 0 ? (
-                <li className="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
-                  No tienes entregas pendientes en esta ruta.
-                </li>
-              ) : activeDeliveryPoints.map((point, index) => (
-                <li key={point.id} className="flex items-start justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
-                  <div className="flex min-w-0 gap-2">
-                    <span className="font-semibold text-teal-700">
-                      {(point.sequenceIndex ?? index) + 1}.
-                    </span>
-                    <span>
-                      <span className="block">{point.address}</span>
-                      <span className="text-[11px] text-slate-400">{formatDeliveryStatus(point.status)}</span>
-                    </span>
-                  </div>
-                  {assignedRoute.status === "IN_PROGRESS" &&
-                  (point.status === "PENDING" || point.status === "EN_ROUTE") ? (
-                    <div className="flex shrink-0 gap-1">
-                      <button
-                        className="rp-button rp-button-small border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700 hover:bg-emerald-100"
-                        onClick={() => void updateDeliveryStatus(point.id, "DELIVERED")}
-                        type="button"
-                      >
-                        Entregada
-                      </button>
-                      <button
-                        className="rp-button rp-button-danger rp-button-small px-2 py-1"
-                        onClick={() => void updateDeliveryStatus(point.id, "FAILED")}
-                        type="button"
-                      >
-                        Fallida
-                      </button>
-                    </div>
-                  ) : null}
-                </li>
-              ))}
-            </ol>
           </section>
         ) : null}
 
         {!assignedRoute && !loadingProfile && !error ? (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-[var(--surface)] px-4 py-5 text-sm leading-6 text-slate-500 ">
+          <p className="rl-empty mt-6">
             {loadingProfile ? "Cargando tus entregas…" : "El despacho todavía no te ha asignado una ruta."}
-          </div>
+          </p>
         ) : null}
-
-        {error ? (
-          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-            {error}
-          </div>
-        ) : null}
-      </section>
       </main>
     </AppShell>
   );

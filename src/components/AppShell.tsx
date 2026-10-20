@@ -33,7 +33,6 @@ export default function AppShell({ children, active }: AppShellProps) {
   const pathname = usePathname();
   const dispatcherSurface = active === 'orders' || active === 'dispatch' || active === 'team';
   const operational = dispatcherSurface || active === 'courier';
-  const sidebar = dispatcherSurface;
   const navigation =
     active === 'tracking'
       ? navigationBySurface.tracking
@@ -55,7 +54,7 @@ export default function AppShell({ children, active }: AppShellProps) {
 
   return (
     <div
-      className={`rp-shell ${operational ? 'rp-shell-operational' : 'rp-shell-public'} ${sidebar ? 'rp-shell-sidebar' : ''}`}
+      className={`rp-shell ${operational ? 'rp-shell-operational' : 'rp-shell-public'}`}
     >
       <a className="rp-skip-link" href="#main-content">
         Ir al contenido

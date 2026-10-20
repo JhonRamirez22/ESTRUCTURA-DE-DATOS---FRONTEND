@@ -12,6 +12,7 @@ import { isRoadGeometryProvider } from '@/lib/roadGeometry';
 import { formatNotificationMessage, formatOrderReference } from '@/lib/formatOrderReference';
 import { SessionChangeNotice } from "@/components/SessionChangeNotice";
 import OptimizationFeed from '@/components/OptimizationFeed';
+import { RouteLine, RouteStrip, type StopState } from '@/components/RouteLine';
 
 const RouteMap = dynamic(() => import('./RouteMap'), {
   ssr: false,
@@ -586,35 +587,40 @@ export default function DashboardPage() {
 
   return (
     <AppShell active="dispatch">
-      <main className="rp-dashboard text-slate-950">
+      <main className="rp-dashboard">
         <SessionChangeNotice role="dispatcher" />
-        <div className="mx-auto max-w-[1600px] px-5 py-6 sm:px-8 lg:px-10">
-          <header className="rp-page-heading flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="rl-page">
+          <header className="rl-page-head">
             <div>
-              <h1 className="text-2xl font-semibold text-[var(--foreground)] sm:text-[28px]">
-                Despacho
-              </h1>
-            </div>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
-              <span className="flex items-center gap-2 text-xs text-slate-600 sm:justify-end">
+              <h1>Despacho</h1>
+              <p className="flex items-center gap-2">
                 <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${loading ? 'bg-amber-500' : 'bg-emerald-600'}`}
+                  aria-hidden="true"
+                  className={`h-2 w-2 shrink-0 rounded-full ${loading ? 'bg-amber-500' : 'bg-[var(--route)]'}`}
                 />
                 {loading
                   ? 'Sincronizando operación…'
                   : lastUpdatedAt
                     ? `Actualizado ${lastUpdatedAt.toLocaleTimeString('es-CO')}`
                     : 'Actualización automática activa'}
-              </span>
-              <button
-                className="rp-button rp-button-quiet w-full sm:w-auto"
-                disabled={loading}
-                onClick={() => void loadDashboard()}
-                type="button"
-              >
-                {loading ? 'Actualizando…' : 'Actualizar datos'}
-              </button>
+              </p>
             </div>
+            <dl aria-label="Resumen operativo" className="rl-figures">
+              {summaryMetrics.map((metric) => (
+                <div key={metric.label}>
+                  <dt>{metric.label}</dt>
+                  <dd className={metric.warning ? 'is-warn' : undefined}>{metric.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <button
+              className="rp-button rp-button-quiet w-full sm:w-auto"
+              disabled={loading}
+              onClick={() => void loadDashboard()}
+              type="button"
+            >
+              {loading ? 'Actualizando…' : 'Actualizar datos'}
+            </button>
           </header>
 
           <nav aria-label="Accesos rápidos del despacho" className="rp-mobile-shortcuts">
@@ -622,113 +628,81 @@ export default function DashboardPage() {
             <a href="#dispatch-orders">Asignar pedidos</a>
           </nav>
 
-          {error ? (
-            <div
-              className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-800"
-              role="alert"
-            >
-              {error}
-              {sessionExpired ? (
-                <Link href="/acceso?retorno=%2Fdashboard" className="ml-2 font-semibold underline">
-                  Volver a ingresar
-                </Link>
-              ) : null}
-            </div>
-          ) : null}
-
-          {routeActionNotice ? (
-            <p
-              className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"
-              role="status"
-            >
-              <span>{routeActionNotice}</span>
-              <button
-                className="min-h-11 rounded-lg px-2 font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
-                onClick={() => setRouteActionNotice(null)}
-                type="button"
-              >
-                Cerrar
-              </button>
-            </p>
-          ) : null}
-
-          {data.notificationsWarning ? (
-            <p
-              className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-900"
-              role="status"
-            >
-              {data.notificationsWarning}
-            </p>
-          ) : null}
-
-          {dashboardWarning ? (
-            <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-950" role="status">
-              {dashboardWarning} Los datos secundarios pueden estar desactualizados.
-            </p>
-          ) : null}
-          {!operationalReady && lastUpdatedAt ? (
-            <p className="mb-4 text-sm text-amber-950" role="status">
-              Datos anteriores. Actualiza los servicios esenciales antes de modificar o despachar.
-            </p>
-          ) : null}
+          <div className="mb-6 empty:hidden">
+            {error ? (
+              <div className="rl-notice is-error" role="alert">
+                <span>
+                  {error}
+                  {sessionExpired ? (
+                    <Link href="/acceso?retorno=%2Fdashboard" className="ml-2 font-semibold underline">
+                      Volver a ingresar
+                    </Link>
+                  ) : null}
+                </span>
+              </div>
+            ) : null}
+            {routeActionNotice ? (
+              <p className="rl-notice is-ok" role="status">
+                <span>{routeActionNotice}</span>
+                <button
+                  className="min-h-11 px-2 font-semibold underline underline-offset-4"
+                  onClick={() => setRouteActionNotice(null)}
+                  type="button"
+                >
+                  Cerrar
+                </button>
+              </p>
+            ) : null}
+            {data.notificationsWarning ? (
+              <p className="rl-notice is-warn" role="status">
+                {data.notificationsWarning}
+              </p>
+            ) : null}
+            {dashboardWarning ? (
+              <p className="rl-notice is-warn" role="status">
+                {dashboardWarning} Los datos secundarios pueden estar desactualizados.
+              </p>
+            ) : null}
+            {!operationalReady && lastUpdatedAt ? (
+              <p className="rl-notice is-warn" role="status">
+                Datos anteriores. Actualiza los servicios esenciales antes de modificar o despachar.
+              </p>
+            ) : null}
+            {liveTrafficNotice ? (
+              <div className="rl-notice is-ok" role="status">
+                <span>
+                  <strong>Estado de tráfico de la ruta.</strong> {liveTrafficNotice}
+                </span>
+              </div>
+            ) : null}
+          </div>
 
           <fieldset disabled={!operationalReady} aria-label="Operación de despacho" className="min-w-0 border-0 p-0">
 
-          <dl
-            aria-label="Resumen operativo"
-            className="rp-operational-summary mb-6 grid grid-cols-2 divide-x divide-y divide-slate-200 sm:grid-cols-3 lg:grid-cols-5 lg:divide-y-0"
-          >
-            {summaryMetrics.map((metric) => (
-              <div className="min-w-0 px-3 py-3 sm:px-4" key={metric.label}>
-                <dt className="text-xs font-medium leading-5 text-slate-600">{metric.label}</dt>
-                <dd
-                  className={`mt-1 text-xl font-semibold tabular-nums ${metric.warning ? 'text-amber-700' : 'text-slate-950'}`}
-                >
-                  {metric.value}
-                </dd>
+          <section aria-label="Despachar pedidos" className="rl-section scroll-mt-24" id="dispatch-orders">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold">Nuevo despacho</h2>
+              <div className="flex flex-wrap items-center gap-4 text-sm">
+                <Link className="font-semibold underline-offset-4 hover:underline" href="/personal">
+                  ¿Falta un repartidor? Agrégalo en Personal
+                </Link>
+                <Link className="rp-button rp-button-secondary rp-button-small shrink-0" href="/pedidos">
+                  + Registrar pedido
+                </Link>
               </div>
-            ))}
-          </dl>
-
-          <section
-            aria-label="Despachar pedidos"
-            className="mb-8 scroll-mt-24"
-            id="dispatch-orders"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-slate-950">Nuevo despacho</h2>
-              </div>
-              <Link
-                className="rp-button rp-button-secondary rp-button-small shrink-0"
-                href="/pedidos"
-              >
-                + Registrar pedido
-              </Link>
             </div>
 
-
-            {liveTrafficNotice ? (
-              <div
-                className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-950"
-                role="status"
-              >
-                <p className="text-sm font-semibold">Estado de tráfico de la ruta</p>
-                <p className="mt-1 text-sm leading-5">{liveTrafficNotice}</p>
-              </div>
-            ) : null}
-
-            <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_340px]">
-              <div className="rounded-2xl border border-slate-200/90 bg-slate-50/40">
-                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">1. Pedidos pendientes</h3>
-                    <p className="mt-0.5 text-xs text-slate-500">
+            <div className="rl-columns rl-columns-dispatch items-start gap-y-8">
+              <div className="min-w-0">
+                <div className="rl-head">
+                  <h3>
+                    1. Pedidos pendientes{' '}
+                    <small>
                       {selectedPendingIds.length} de {data.pendingPoints.length} seleccionados
-                    </p>
-                  </div>
+                    </small>
+                  </h3>
                   <button
-                    className="text-xs font-bold text-emerald-700 hover:text-emerald-900"
+                    className="text-sm font-semibold underline-offset-4 hover:underline"
                     onClick={() =>
                       setSelectedPendingIds(
                         selectedPendingIds.length === data.pendingPoints.length
@@ -744,149 +718,199 @@ export default function DashboardPage() {
                       : 'Seleccionar todos'}
                   </button>
                 </div>
-                <div className="max-h-72 overflow-y-auto p-3">
-                  {data.pendingPoints.length === 0 ? (
-                    <p className="rounded-xl bg-slate-50 px-3 py-5 text-sm text-slate-500">
-                      No hay pedidos pendientes. Registra uno desde el módulo Pedidos.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {data.pendingPoints.map((point) => {
-                        const checked = selectedPendingIds.includes(point.id);
-                        const reference = formatOrderReference(point.orderId);
-                        return (
-                          <article
-                            className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 transition ${checked ? 'border-emerald-300 bg-emerald-50' : 'border-slate-100 hover:border-slate-300'}`}
-                            key={point.id}
+                {data.pendingPoints.length === 0 ? (
+                  <p className="rl-empty">No hay pedidos pendientes. Registra uno desde el módulo Pedidos.</p>
+                ) : (
+                  <ul className="rl-rows max-h-[420px] overflow-y-auto">
+                    {data.pendingPoints.map((point) => {
+                      const checked = selectedPendingIds.includes(point.id);
+                      const reference = formatOrderReference(point.orderId);
+                      return (
+                        <li className={`rl-row ${checked ? 'is-selected' : ''}`} key={point.id}>
+                          <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                            <input
+                              checked={checked}
+                              className="h-[18px] w-[18px] shrink-0"
+                              onChange={() =>
+                                setSelectedPendingIds((current) =>
+                                  checked
+                                    ? current.filter((id) => id !== point.id)
+                                    : [...current, point.id]
+                                )
+                              }
+                              type="checkbox"
+                            />
+                            <span className="rl-row-main">
+                              <strong className="truncate">{point.address}</strong>
+                              <span className="rl-ref">{reference} · Pendiente</span>
+                            </span>
+                          </label>
+                          <button
+                            aria-label={`Eliminar pedido ${reference}`}
+                            className="ui-button ui-button-ghost ui-button-icon ml-2 !h-10 !min-h-10 !w-10 !p-2 text-[var(--danger)] hover:bg-[var(--danger-band)]"
+                            disabled={deletingOrderId === point.id || dispatching}
+                            onClick={() => void deletePendingOrder(point)}
+                            type="button"
                           >
-                            <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
-                              <input
-                                checked={checked}
-                                className="mt-1 h-4 w-4 accent-emerald-700"
-                                onChange={() =>
-                                  setSelectedPendingIds((current) =>
-                                    checked
-                                      ? current.filter((id) => id !== point.id)
-                                      : [...current, point.id]
-                                  )
-                                }
-                                type="checkbox"
-                              />
-                              <span className="min-w-0 flex-1">
-                                <span className="flex items-center justify-between gap-3">
-                                  <span className="font-mono text-xs font-bold text-slate-800">
-                                    {reference}
-                                  </span>
-                                  <span className="text-[10px] font-semibold text-amber-700">
-                                    Pendiente
-                                  </span>
-                                </span>
-                                <span className="mt-1 block truncate text-xs text-slate-500">
-                                  {point.address}
-                                </span>
-                              </span>
-                            </label>
-                            <button
-                              aria-label={`Eliminar pedido ${reference}`}
-                              className="ui-button ui-button-ghost ui-button-icon !h-9 !min-h-9 !w-9 !p-2 text-rose-700 hover:bg-rose-50"
-                              disabled={deletingOrderId === point.id || dispatching}
-                              onClick={() => void deletePendingOrder(point)}
-                              type="button"
-                            >
-                              {deletingOrderId === point.id ? (
-                                <span className="sr-only">Eliminando…</span>
-                              ) : null}
-                              <Trash2 aria-hidden="true" className="h-4 w-4" />
-                            </button>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                            {deletingOrderId === point.id ? <span className="sr-only">Eliminando…</span> : null}
+                            <Trash2 aria-hidden="true" className="h-4 w-4" />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </div>
 
-              <div className="rounded-2xl border border-slate-200/90 bg-slate-50/40">
-                <div className="border-b border-slate-100 px-4 py-3">
-                  <h3 className="text-sm font-bold text-slate-900">2. Repartidores disponibles</h3>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    Puedes seleccionar más de uno para balancear la carga.
-                  </p>
+              <div className="min-w-0">
+                <div className="rl-head">
+                  <h3>
+                    2. Repartidores disponibles <small>con GPS reciente</small>
+                  </h3>
                 </div>
-                <div className="p-3">
-                  {availableCouriers.length === 0 ? (
-                    <p className="rounded-xl bg-amber-50 px-3 py-4 text-xs leading-5 text-amber-800">
-                      No hay repartidores con GPS disponible. Registra uno o inicia su PWA.
+                {availableCouriers.length === 0 ? (
+                  <p className="rl-empty">No hay repartidores con GPS disponible. Registra uno o inicia su PWA.</p>
+                ) : (
+                  <ul className="rl-rows">
+                    {availableCouriers.map((courier) => {
+                      const checked = selectedCourierIds.includes(courier.id);
+                      return (
+                        <li className={`rl-row ${checked ? 'is-selected' : ''}`} key={courier.id}>
+                          <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                            <input
+                              checked={checked}
+                              className="h-[18px] w-[18px] shrink-0"
+                              onChange={() =>
+                                setSelectedCourierIds((current) =>
+                                  checked
+                                    ? current.filter((id) => id !== courier.id)
+                                    : [...current, courier.id]
+                                )
+                              }
+                              type="checkbox"
+                            />
+                            <span className="rl-row-main">
+                              <strong>{courier.name}</strong>
+                              <span className="tabular-nums">GPS activo · {courier.phone}</span>
+                            </span>
+                            <span className="rl-state is-route">Libre</span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <p className="mt-3 text-xs text-[var(--ink-soft)]">
+                  Puedes seleccionar más de uno para balancear la carga.
+                </p>
+                <button
+                  className="rp-button rp-button-primary rp-button-block mt-4"
+                  disabled={analyzing || selectedPendingIds.length === 0 || selectedCourierIds.length === 0}
+                  onClick={() => void analyzeAssignments()}
+                  type="button"
+                >
+                  {analyzing ? 'Analizando cercanía…' : 'Analizar asignación'}
+                </button>
+              </div>
+
+              {assignmentPreview.length > 0 || unassignedDeliveryPointIds.length > 0 ? (
+                <aside aria-label="Propuesta" className="rl-board route-proposal min-w-0">
+                  <div className="rl-head">
+                    <h3>
+                      {assignmentPreview.length > 0 ? '3. Propuesta lista para despachar' : 'Pedidos pendientes de asignar'}
+                    </h3>
+                  </div>
+                  <p className="mt-3 text-sm">
+                    {assignmentPreview.length > 0
+                      ? 'Revisa la distribución antes de consultar OSRM y crear las rutas.'
+                      : 'No se asignaron pedidos en este análisis; siguen pendientes y no se despacharán.'}
+                  </p>
+                  {assignmentPreview.length > 0 && !assignmentPreviewIsCurrent ? (
+                    <p className="mt-3 text-sm font-semibold !text-[#f3d9a4]" role="status">
+                      La selección cambió. Vuelve a analizar antes de despachar esta propuesta.
                     </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {availableCouriers.map((courier) => {
-                        const checked = selectedCourierIds.includes(courier.id);
+                  ) : null}
+                  {assignmentPreview.length > 0 ? (
+                    <div className="mt-4 space-y-5">
+                      {assignmentPreview.map((assignment) => {
+                        const courier = data.couriers.find((item) => item.id === assignment.courierId);
                         return (
-                          <div className="flex items-center gap-2" key={courier.id}>
-                            <label
-                              className={`flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition ${checked ? 'border-sky-300 bg-sky-50' : 'border-slate-100 hover:border-slate-300'}`}
-                            >
-                              <input
-                                checked={checked}
-                                className="h-4 w-4 accent-sky-700"
-                                onChange={() =>
-                                  setSelectedCourierIds((current) =>
-                                    checked
-                                      ? current.filter((id) => id !== courier.id)
-                                      : [...current, courier.id]
-                                  )
-                                }
-                                type="checkbox"
-                              />
-                              <span className="min-w-0 flex-1">
-                                <span className="block text-sm font-semibold text-slate-800">
-                                  {courier.name}
-                                </span>
-                                <span className="block text-[11px] text-slate-500">
-                                  GPS activo · {courier.phone}
-                                </span>
+                          <div key={assignment.courierId}>
+                            <p className="mb-2 flex items-baseline justify-between gap-3 text-sm font-semibold !text-[var(--board-ink)]">
+                              {courier?.name ?? 'Repartidor'}
+                              <span className="text-xs font-normal tabular-nums !text-[var(--board-soft)]">
+                                {assignment.deliveryPointIds.length} paradas
                               </span>
-                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                            </label>
+                            </p>
+                            <RouteLine
+                              label={`Orden propuesto para ${courier?.name ?? 'el repartidor'}`}
+                              selected
+                              stops={assignment.deliveryPointIds.map((id) => ({
+                                id,
+                                label: data.pendingPoints.find((point) => point.id === id)?.address ?? id,
+                              }))}
+                            />
                           </div>
                         );
                       })}
                     </div>
-                  )}
-                  <button
-                    className="rp-button rp-button-primary mt-4 w-full"
-                    disabled={
-                      analyzing ||
-                      selectedPendingIds.length === 0 ||
-                      selectedCourierIds.length === 0
-                    }
-                    onClick={() => void analyzeAssignments()}
-                    type="button"
-                  >
-                    {analyzing ? 'Analizando cercanía…' : 'Analizar asignación'}
-                  </button>
-                </div>
-              </div>
-            
-            {assignmentPreview.length > 0 || unassignedDeliveryPointIds.length > 0 ? (
-              <div className="rp-panel-primary p-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold text-emerald-950">
-                      {assignmentPreview.length > 0
-                        ? '3. Propuesta lista para despachar'
-                        : 'Pedidos pendientes de asignar'}
-                    </h3>
-                    <p className="mt-1 text-xs text-emerald-800">
-                      {assignmentPreview.length > 0
-                        ? 'Revisa la distribución antes de consultar OSRM y crear las rutas.'
-                        : 'No se asignaron pedidos en este análisis; siguen pendientes y no se despacharán.'}
+                  ) : null}
+                  {unassignedDeliveryPointIds.length > 0 ? (
+                    <div aria-live="polite" className="mt-5 border-t-2 border-[#c08a2c] pt-3 text-sm" role="status">
+                      <p className="font-semibold !text-[var(--board-ink)]">
+                        {unassignedDeliveryPointIds.length === 1
+                          ? 'Un pedido sigue sin asignar.'
+                          : `${unassignedDeliveryPointIds.length} pedidos siguen sin asignar.`}
+                      </p>
+                      <p className="mt-1 leading-5">
+                        Puede faltar capacidad de ruta, GPS reciente o el pedido pudo cambiar de estado. Estos
+                        pedidos siguen pendientes; no se despacharán.
+                      </p>
+                      <ul className="mt-2 space-y-1 text-[var(--board-soft)]">
+                        {unassignedDeliveryPointIds.slice(0, 5).map((id) => {
+                          const point = data.pendingPoints.find((item) => item.id === id);
+                          return (
+                            <li className="break-words" key={id}>
+                              {point
+                                ? `${formatOrderReference(point.orderId)} · ${point.address}`
+                                : 'Un pedido seleccionado ya no está disponible.'}
+                            </li>
+                          );
+                        })}
+                        {unassignedDeliveryPointIds.length > 5 ? (
+                          <li>Y {unassignedDeliveryPointIds.length - 5} más.</li>
+                        ) : null}
+                      </ul>
+                      <button
+                        className="rp-button rp-button-quiet rp-button-small mt-3"
+                        disabled={loading}
+                        onClick={() => {
+                          setAssignmentPreview([]);
+                          setUnassignedDeliveryPointIds([]);
+                          void loadDashboard();
+                        }}
+                        type="button"
+                      >
+                        Actualizar pedidos pendientes
+                      </button>
+                    </div>
+                  ) : null}
+                  {assignmentAiStatus ? (
+                    <p className="mt-4 text-xs leading-5" role="status">
+                      <span className="font-semibold !text-[var(--board-ink)]">
+                        {assignmentAiStatus.source === 'tomtom-live'
+                          ? 'TomTom Traffic Flow priorizado'
+                          : assignmentAiStatus.source === 'external-ai' && assignmentAiStatus.applied
+                            ? 'Factor de congestión sugerido por IA aplicado'
+                            : 'Asignación determinista'}
+                        .
+                      </span>{' '}
+                      {assignmentAiStatus.warning ?? 'La propuesta se calculó con cercanía y balanceo.'}
                     </p>
-                  </div>
+                  ) : null}
                   {assignmentPreview.length > 0 ? (
                     <button
-                      className="rp-button rp-button-primary"
+                      className="rp-button rp-button-go rp-button-block mt-5"
                       disabled={dispatching || !assignmentPreviewIsCurrent}
                       onClick={() => void dispatchAssignments()}
                       type="button"
@@ -894,282 +918,142 @@ export default function DashboardPage() {
                       {dispatching ? 'Calculando ruta y tráfico…' : 'Despachar rutas optimizadas'}
                     </button>
                   ) : null}
-                </div>
-                {assignmentPreview.length > 0 && !assignmentPreviewIsCurrent ? (
-                  <p className="mt-3 text-sm font-medium text-amber-900" role="status">
-                    La selección cambió. Vuelve a analizar antes de despachar esta propuesta.
+                </aside>
+              ) : (
+                <aside aria-label="Propuesta" className="rl-board min-w-0">
+                  <div className="rl-head">
+                    <h3>3. Propuesta</h3>
+                  </div>
+                  <p className="mt-3 text-sm">Elige pedidos y repartidores y pulsa «Analizar asignación».</p>
+                  <p className="mt-4 text-xs leading-5">
+                    La IA propone el orden y Dijkstra lo verifica sobre la misma matriz antes de despachar.
                   </p>
-                ) : null}
-                {assignmentPreview.length > 0 ? (
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    {assignmentPreview.map((assignment) => {
-                      const courier = data.couriers.find(
-                        (item) => item.id === assignment.courierId
-                      );
-                      return (
-                        <div
-                          className="rounded-xl border border-emerald-100 bg-[var(--surface)] p-3"
-                          key={assignment.courierId}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-sm font-bold text-slate-800">
-                              {courier?.name ?? 'Repartidor'}
-                            </span>
-                            <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-800">
-                              {assignment.deliveryPointIds.length} paradas
-                            </span>
-                          </div>
-                          <ol className="mt-2 space-y-1 text-xs text-slate-600">
-                            {assignment.deliveryPointIds.map((id, index) => (
-                              <li className="truncate" key={id}>
-                                <span className="mr-1 font-bold text-emerald-700">
-                                  {index + 1}.
-                                </span>
-                                {data.pendingPoints.find((point) => point.id === id)?.address ?? id}
-                              </li>
-                            ))}
-                          </ol>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null}
-                {unassignedDeliveryPointIds.length > 0 ? (
-                  <div
-                    className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-950"
-                    aria-live="polite"
-                    role="status"
-                  >
-                    <p className="font-bold">
-                      {unassignedDeliveryPointIds.length === 1
-                        ? 'Un pedido sigue sin asignar.'
-                        : `${unassignedDeliveryPointIds.length} pedidos siguen sin asignar.`}
-                    </p>
-                    <p className="mt-1 leading-5 text-amber-900">
-                      Puede faltar capacidad de ruta, GPS reciente o el pedido pudo cambiar de
-                      estado. Estos pedidos siguen pendientes; no se despacharán.
-                    </p>
-                    <ul className="mt-2 space-y-1">
-                      {unassignedDeliveryPointIds.slice(0, 5).map((id) => {
-                        const point = data.pendingPoints.find((item) => item.id === id);
-                        return (
-                          <li className="break-words" key={id}>
-                            {point
-                              ? `${formatOrderReference(point.orderId)} · ${point.address}`
-                              : 'Un pedido seleccionado ya no está disponible.'}
-                          </li>
-                        );
-                      })}
-                      {unassignedDeliveryPointIds.length > 5 ? (
-                        <li>Y {unassignedDeliveryPointIds.length - 5} más.</li>
-                      ) : null}
-                    </ul>
-                    <button
-                      className="rp-button rp-button-quiet rp-button-small mt-3"
-                      disabled={loading}
-                      onClick={() => {
-                        setAssignmentPreview([]);
-                        setUnassignedDeliveryPointIds([]);
-                        void loadDashboard();
-                      }}
-                      type="button"
-                    >
-                      Actualizar pedidos pendientes
-                    </button>
-                  </div>
-                ) : null}
-                {assignmentAiStatus ? (
-                  <div
-                    className="mt-3 rounded-xl border border-slate-200 bg-[var(--surface)] px-3 py-2 text-xs text-slate-700"
-                    role="status"
-                  >
-                    <span className="font-bold">
-                      {assignmentAiStatus.source === 'tomtom-live'
-                        ? 'TomTom Traffic Flow priorizado'
-                        : assignmentAiStatus.source === 'external-ai' && assignmentAiStatus.applied
-                          ? 'Factor de congestión sugerido por IA aplicado'
-                          : 'Asignación determinista'}
-                      .
-                    </span>{' '}
-                    {assignmentAiStatus.warning ??
-                      'La propuesta se calculó con cercanía y balanceo.'}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            {assignmentPreview.length === 0 && unassignedDeliveryPointIds.length === 0 ? (
-              <aside aria-label="Propuesta" className="rp-panel-quiet p-4 text-sm text-slate-600">
-                <h3 className="text-sm font-bold text-slate-900">3. Propuesta</h3>
-                <p className="mt-1">Elige pedidos y repartidores y pulsa «Analizar asignación».</p>
-              </aside>
-            ) : null}
+                </aside>
+              )}
             </div>
-
-            <p className="mt-6 text-sm text-[var(--ink-soft)]">
-              ¿Falta un repartidor?{' '}
-              <Link className="font-semibold text-[var(--accent-strong)] underline-offset-2 hover:underline" href="/personal">
-                Agrégalo en Personal
-              </Link>
-            </p>
           </section>
 
-          <div className="scroll-mt-24" id="en-vivo">
-          <OptimizationFeed />
-          <section
-            aria-label="Mapa y rutas activas"
-            className="mb-6 grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]"
-          >
-            <div className="rp-map-frame min-w-0">
-              <div className="rp-map-heading">
-                <div className="min-w-0">
-                  <h2 className="font-semibold text-slate-900">Mapa operativo</h2>
-                  <p className="mt-1 max-w-3xl text-sm leading-5 text-slate-600">
-                    Ubicaciones del equipo y recorridos por calles de Pasto.
-                  </p>
-                </div>
-                <div className="rp-map-legend">
-                  <span className="inline-flex whitespace-nowrap items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-cyan-400" />
-                    Repartidor
-                  </span>
-                  <span className="inline-flex whitespace-nowrap items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-amber-500" />
-                    Pendiente
-                  </span>
-                  <span className="inline-flex whitespace-nowrap items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-sky-400" />
-                    En camino
-                  </span>
-                  <span className="inline-flex whitespace-nowrap items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    Entregada
-                  </span>
-                </div>
-              </div>
-              <RouteMap
-                showTraffic={activeRoutes.length > 0}
-                couriers={data.couriers}
-                pendingPoints={data.pendingPoints}
-                routes={activeRoutes}
-              />
-            </div>
-
-            <aside className="rp-route-list min-w-0" id="active-routes">
-              <div className="mb-5 flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="font-semibold text-slate-900">Rutas activas</h2>
-                  <p className="mt-1 text-xs text-slate-500">Recorridos planificados y en curso</p>
-                </div>
-                <span
-                  aria-label={`${activeRoutes.length} rutas activas`}
-                  className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800"
-                >
-                  {activeRoutes.length}
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {loading && data.routes.length === 0 ? (
-                  <p
-                    aria-live="polite"
-                    className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500"
-                    role="status"
-                  >
-                    Cargando rutas activas…
-                  </p>
-                ) : activeRoutes.length === 0 ? (
-                  <div className="rounded-2xl bg-slate-50 px-4 py-5">
-                    <p className="text-sm leading-6 text-slate-600">
-                      No hay recorridos activos.
-                    </p>
-                    <Link
-                      className="mt-3 inline-flex text-xs font-bold text-emerald-800 underline decoration-emerald-300 underline-offset-4 hover:text-emerald-950"
-                      href="#dispatch-orders"
-                    >
-                      Ir al despacho
-                    </Link>
+          <div className="rl-section mt-14 scroll-mt-24" id="en-vivo">
+            <section
+              aria-label="Mapa y rutas activas"
+              className="mb-10 grid min-w-0 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_360px]"
+            >
+              <div className="rp-map-frame min-w-0">
+                <div className="rp-map-heading">
+                  <div className="min-w-0">
+                    <h2>Mapa operativo</h2>
+                    <p className="mt-1 max-w-3xl">Ubicaciones del equipo y recorridos por calles de Pasto.</p>
                   </div>
-                ) : (
-                  activeRoutes.map((route) => (
-                    <RouteSummary
-                      key={route.id}
-                      isRecalculating={recalculatingRouteId === route.id}
-                      isUndoing={undoingRouteId === route.id}
-                      onRecalculate={recalculateRouteGeometry}
-                      onUndo={undoRouteRecalculation}
-                      onStatusChange={updateRouteStatus}
-                      route={route}
-                    />
-                  ))
-                )}
+                  <div className="rp-map-legend">
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="h-2 w-2 rounded-full bg-cyan-400" />
+                      Repartidor
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="h-2 w-2 rounded-full bg-amber-500" />
+                      Pendiente
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="h-2 w-2 rounded-full bg-sky-400" />
+                      En camino
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="h-2 w-2 rounded-full bg-green-500" />
+                      Entregada
+                    </span>
+                  </div>
+                </div>
+                <RouteMap
+                  showTraffic={activeRoutes.length > 0}
+                  couriers={data.couriers}
+                  pendingPoints={data.pendingPoints}
+                  routes={activeRoutes}
+                />
               </div>
-              {historicalRoutes.length > 0 ? (
-                <details
-                  aria-label="Historial de rutas"
-                  className="mt-4 border-t border-slate-100 pt-3"
-                >
-                  <summary className="cursor-pointer rounded-lg py-2 text-xs font-semibold text-slate-600 outline-offset-4 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-emerald-600">
-                    Historial de rutas{' '}
-                    <span className="ml-1 text-slate-400">({historicalRoutes.length})</span>
-                  </summary>
-                  <div className="mt-3 space-y-3">
-                    {historicalRoutes.map((route) => (
+
+              <aside className="rp-route-list min-w-0" id="active-routes">
+                <div className="rl-head">
+                  <h2>
+                    Rutas activas <small aria-label={`${activeRoutes.length} rutas activas`}>{activeRoutes.length}</small>
+                  </h2>
+                </div>
+                <div>
+                  {loading && data.routes.length === 0 ? (
+                    <p aria-live="polite" className="rl-empty" role="status">
+                      Cargando rutas activas…
+                    </p>
+                  ) : activeRoutes.length === 0 ? (
+                    <div className="rl-empty">
+                      <p>No hay recorridos activos.</p>
+                      <Link className="mt-2 inline-flex font-semibold underline underline-offset-4" href="#dispatch-orders">
+                        Ir al despacho
+                      </Link>
+                    </div>
+                  ) : (
+                    activeRoutes.map((route) => (
                       <RouteSummary
                         key={route.id}
-                        isRecalculating={false}
-                        isUndoing={false}
+                        isRecalculating={recalculatingRouteId === route.id}
+                        isUndoing={undoingRouteId === route.id}
                         onRecalculate={recalculateRouteGeometry}
                         onUndo={undoRouteRecalculation}
                         onStatusChange={updateRouteStatus}
                         route={route}
                       />
-                    ))}
-                  </div>
-                </details>
-              ) : null}
-            </aside>
-          </section>
-
-
-          {data.notifications.length > 0 ? (
-            <section
-              aria-label="Avisos operativos"
-              className="mb-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-sm font-semibold text-slate-900">Actividad reciente</h2>
-                <span className="text-xs text-slate-500">Avisos del equipo</span>
-              </div>
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                {data.notifications.map((notification) => {
-                  const isFailure = notification.kind === 'ROUTE_RECALCULATION_FAILED';
-                  return (
-                    <article
-                      className={`rounded-xl border px-3 py-2 ${isFailure ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-[var(--surface)]'}`}
-                      key={notification.id}
-                    >
-                      <p
-                        className={`text-xs font-semibold ${isFailure ? 'text-amber-900' : 'text-slate-800'}`}
-                      >
-                        {notification.title}
-                      </p>
-                      <p
-                        className={`mt-1 text-xs ${isFailure ? 'text-amber-800' : 'text-slate-600'}`}
-                      >
-                        {formatNotificationMessage(notification.message)}
-                      </p>
-                      <time
-                        className={`mt-1 block text-[11px] ${isFailure ? 'text-amber-700' : 'text-slate-500'}`}
-                      >
-                        {new Date(notification.createdAt).toLocaleString('es-CO')}
-                      </time>
-                    </article>
-                  );
-                })}
-              </div>
+                    ))
+                  )}
+                </div>
+                {historicalRoutes.length > 0 ? (
+                  <details aria-label="Historial de rutas" className="mt-4">
+                    <summary className="cursor-pointer py-2 text-sm font-semibold text-[var(--ink-soft)] hover:text-[var(--foreground)]">
+                      Historial de rutas <span className="ml-1">({historicalRoutes.length})</span>
+                    </summary>
+                    <div className="mt-2">
+                      {historicalRoutes.map((route) => (
+                        <RouteSummary
+                          key={route.id}
+                          isRecalculating={false}
+                          isUndoing={false}
+                          onRecalculate={recalculateRouteGeometry}
+                          onUndo={undoRouteRecalculation}
+                          onStatusChange={updateRouteStatus}
+                          route={route}
+                        />
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
+              </aside>
             </section>
-          ) : null}
 
+            <OptimizationFeed />
+
+            {data.notifications.length > 0 ? (
+              <section aria-label="Avisos operativos" className="rl-section">
+                <div className="rl-head">
+                  <h2>
+                    Actividad reciente <small>Avisos del equipo</small>
+                  </h2>
+                </div>
+                <ul className="rl-rows">
+                  {data.notifications.map((notification) => {
+                    const isFailure = notification.kind === 'ROUTE_RECALCULATION_FAILED';
+                    return (
+                      <li className="rl-row items-start" key={notification.id}>
+                        <span className={`rl-state mt-1 ${isFailure ? 'is-warn' : 'is-muted'}`} aria-hidden="true" />
+                        <span className="rl-row-main">
+                          <strong className={isFailure ? 'text-[var(--warn)]' : undefined}>{notification.title}</strong>
+                          <span>{formatNotificationMessage(notification.message)}</span>
+                        </span>
+                        <time className="shrink-0 text-xs tabular-nums text-[var(--ink-soft)]">
+                          {new Date(notification.createdAt).toLocaleString('es-CO')}
+                        </time>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
           </div>
           </fieldset>
         </div>
@@ -1224,12 +1108,6 @@ function RouteSummary({
     COMPLETED: 'Completada',
     CANCELLED: 'Cancelada',
   } as const;
-  const statusTone = {
-    PLANNED: 'bg-sky-50 text-sky-800',
-    IN_PROGRESS: 'bg-emerald-50 text-emerald-800',
-    COMPLETED: 'bg-slate-100 text-slate-600',
-    CANCELLED: 'bg-slate-100 text-slate-500',
-  } as const;
   const hasFreshCourierLocation =
     route.courier.currentLat !== null &&
     route.courier.currentLng !== null &&
@@ -1237,56 +1115,63 @@ function RouteSummary({
       route.courier.lastLocationAt ? new Date(route.courier.lastLocationAt) : null
     );
   const canRecalculate = route.status === 'PLANNED' || route.status === 'IN_PROGRESS';
+  const firstOpen = route.deliveryPoints.findIndex(
+    (point) => point.status !== 'DELIVERED' && point.status !== 'FAILED'
+  );
+  const stopState = (index: number): Exclude<StopState, 'terminal'> => {
+    const status = route.deliveryPoints[index]?.status;
+    if (status === 'DELIVERED' || status === 'FAILED') return 'done';
+    return index === firstOpen && route.status === 'IN_PROGRESS' ? 'current' : 'pending';
+  };
+  const delivered = route.deliveryPoints.filter((point) => point.status === 'DELIVERED').length;
+  const stateTone =
+    route.status === 'IN_PROGRESS' ? 'is-route' : route.status === 'PLANNED' ? '' : 'is-muted';
 
   return (
     <article className="rp-route-summary">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold text-slate-800">{route.courier.name}</p>
-          <p className="mt-1 font-mono text-xs text-slate-600">{route.id.slice(0, 8)}</p>
-        </div>
-        <span
-          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusTone[route.status]}`}
-        >
-          {statusLabels[route.status]}
-        </span>
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-        <div className="py-2">
-          <p className="text-slate-600">Duración</p>
-          <p className="mt-1 font-semibold text-slate-700">
-            {Math.round(route.estimatedDurationMinutes)} min
+        <div className="min-w-0">
+          <p className="font-semibold">{route.courier.name}</p>
+          <p className="mt-0.5 text-xs tabular-nums text-[var(--ink-soft)]">
+            Ruta {route.id.slice(0, 8)} · {Math.round(route.estimatedDurationMinutes)} min ·{' '}
+            {delivered}/{route.deliveryPoints.length} entregadas
           </p>
         </div>
-        <div className="py-2">
-          <p className="text-slate-600">Paradas</p>
-          <p className="mt-1 font-semibold text-slate-700">{route.deliveryPoints.length}</p>
-        </div>
+        <span className={`rl-state ${stateTone}`}>{statusLabels[route.status]}</span>
       </div>
-      <div className="mt-3 border-t border-slate-300 pt-3 text-xs">
-        <p className="font-semibold text-slate-700">Orden optimizado</p>
-        {route.deliveryPoints.length > 0 ? (
-          <ol className="mt-2 space-y-2 text-slate-700">
-            {route.deliveryPoints.map((point, index) => (
-              <li className="flex gap-2 leading-5" key={point.id}>
-                <span className="shrink-0 font-semibold tabular-nums">{index + 1}.</span>
-                <span className="break-words">{point.address}</span>
-              </li>
-            ))}
-          </ol>
-        ) : <p className="mt-2 text-slate-600">Sin paradas</p>}
-      </div>
+      {route.deliveryPoints.length > 0 ? (
+        <>
+          <div className="mt-3">
+            <RouteStrip
+              label={`Progreso de la ruta de ${route.courier.name}`}
+              states={route.deliveryPoints.map((_, index) => stopState(index))}
+            />
+          </div>
+          <p className="mt-4 text-xs font-semibold text-[var(--ink-soft)]">Orden optimizado</p>
+          <div className="mt-2">
+            <RouteLine
+              label={`Paradas de la ruta de ${route.courier.name}`}
+              stops={route.deliveryPoints.map((point, index) => ({
+                id: point.id,
+                label: point.address,
+                meta: point.status === 'FAILED' ? 'No entregada' : undefined,
+                aside: index + 1,
+                state: stopState(index),
+              }))}
+            />
+          </div>
+        </>
+      ) : (
+        <p className="mt-2 text-sm text-[var(--ink-soft)]">Sin paradas</p>
+      )}
       {canRecalculate && !isRoadGeometryProvider(route.geometryProvider) ? (
-        <div
-          className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950"
-          role="status"
-        >
+        <div className="rl-notice is-warn mt-3 !block text-sm" role="status">
           <p className="font-semibold">Trazado antiguo sin verificar</p>
           <p className="mt-1 leading-5">
             No se mostrará como si siguiera calles. Recalcula la ruta para confirmar su geometría
             con OSRM.
           </p>
-          {canRecalculate && hasFreshCourierLocation ? (
+          {hasFreshCourierLocation ? (
             <button
               className="rp-button rp-button-primary rp-button-small mt-2"
               disabled={isRecalculating}
@@ -1295,27 +1180,15 @@ function RouteSummary({
             >
               {isRecalculating ? 'Consultando OSRM…' : 'Recalcular por calles'}
             </button>
-          ) : null}
-          {canRecalculate && !hasFreshCourierLocation ? (
-            <p className="mt-2 leading-5 text-amber-800">
+          ) : (
+            <p className="mt-2 leading-5">
               El repartidor debe compartir una ubicación GPS reciente antes de recalcular.
             </p>
-          ) : null}
+          )}
         </div>
       ) : null}
       {route.status === 'PLANNED' || route.status === 'IN_PROGRESS' ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {route.canUndo ? (
-            <button
-              aria-label={`Deshacer último recálculo de la ruta de ${route.courier.name}`}
-              className="rp-button rp-button-secondary rp-button-small"
-              disabled={isUndoing || isRecalculating}
-              onClick={() => void onUndo(route.id)}
-              type="button"
-            >
-              {isUndoing ? 'Restaurando…' : 'Deshacer último recálculo'}
-            </button>
-          ) : null}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           {route.status === 'PLANNED' ? (
             <button
               className="rp-button rp-button-primary rp-button-small"
@@ -1333,8 +1206,19 @@ function RouteSummary({
               Completar ruta
             </button>
           )}
+          {route.canUndo ? (
+            <button
+              aria-label={`Deshacer último recálculo de la ruta de ${route.courier.name}`}
+              className="rp-button rp-button-quiet rp-button-small"
+              disabled={isUndoing || isRecalculating}
+              onClick={() => void onUndo(route.id)}
+              type="button"
+            >
+              {isUndoing ? 'Restaurando…' : 'Deshacer último recálculo'}
+            </button>
+          ) : null}
           <button
-            className="rp-button rp-button-danger rp-button-small"
+            className="rp-button rp-button-danger rp-button-small ml-auto"
             onClick={() => void onStatusChange(route.id, 'CANCELLED')}
             type="button"
           >

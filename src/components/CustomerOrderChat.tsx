@@ -141,9 +141,9 @@ export default function CustomerOrderChat({ guide }: CustomerOrderChatProps) {
   return (
     <section
       aria-labelledby="customer-order-chat-title"
-      className="lg:col-span-2 overflow-hidden rounded-2xl border border-slate-200 bg-[var(--surface)] "
+      className="rl-section"
     >
-      <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div className="rl-head flex-col !items-start sm:flex-row sm:!items-center">
         <div>
           <h2 className="text-base font-semibold text-slate-900" id="customer-order-chat-title">
             ¿Tienes dudas sobre este pedido?
@@ -221,7 +221,7 @@ export default function CustomerOrderChat({ guide }: CustomerOrderChatProps) {
                   <p
                     className={`max-w-[min(90%,42rem)] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${
                       message.role === 'user'
-                        ? 'rounded-br-md bg-[#122522] text-white'
+                        ? 'bg-[var(--board)] text-[var(--board-ink)]'
                         : 'rounded-bl-md border border-slate-200 bg-slate-50 text-slate-800'
                     }`}
                   >

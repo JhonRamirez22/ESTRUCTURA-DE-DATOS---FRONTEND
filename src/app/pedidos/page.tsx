@@ -257,66 +257,63 @@ export default function OrdersPage() {
 
   return (
     <AppShell active="orders">
-      <main className="rp-orders mx-auto max-w-[1600px] px-5 py-6 sm:px-8 lg:px-10">
-        <section className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+      <main className="rp-orders rl-page">
+        <header className="rl-page-head">
           <div>
-            <h1 className="text-2xl font-semibold text-[var(--foreground)] sm:text-[28px]">
-              Registrar un pedido
-            </h1>
+            <h1>Registrar un pedido</h1>
+            <p>Escribe la dirección, confirma la ubicación en Pasto y queda lista para el despacho.</p>
           </div>
-          <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-right">
-            <p className="text-2xl font-semibold tabular-nums text-[var(--foreground)]">
-              {pendingPoints.length}
-            </p>
-            <p className="text-sm text-[var(--ink-soft)]">
-              pendientes
-            </p>
-          </div>
-        </section>
-
-        {error ? <Alert tone="error">{error}</Alert> : null}
-        {success ? <Alert tone="success">{success}</Alert> : null}
-        {normalization ? (
-          <div className="mt-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-xs text-teal-800">
-            {normalization.source === 'external-ai'
-              ? `La IA normalizó la dirección con ${Math.round((normalization.confidence ?? 0) * 100)}% de confianza.`
-              : (normalization.warning ?? 'La dirección fue normalizada localmente.')}
-          </div>
-        ) : null}
-
-        <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
-          <div className="rp-map-frame self-start">
-            <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] px-5 py-4">
-              <div>
-                <h2 className="font-semibold text-slate-900">Pasto · selecciona una ubicación</h2>
-              </div>
-              <span className="rounded-full bg-[var(--secondary)] px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-soft)]">
-                Solo Pasto
-              </span>
+          <dl className="rl-figures">
+            <div>
+              <dt>pendientes</dt>
+              <dd>{pendingPoints.length}</dd>
             </div>
-            <div className="h-[560px]">
-              <OrderMap
-                ariaLabel="Mapa para seleccionar la dirección del pedido"
-                className="h-full w-full"
-                couriers={[]}
-                pendingPoints={pendingPoints}
-                routes={[]}
-                selectedCoordinate={selectedCoordinate}
-                onMapClick={handleMapClick}
-              />
+          </dl>
+        </header>
+
+        <div className="mb-6 empty:hidden">
+          {error ? <Alert tone="error">{error}</Alert> : null}
+          {success ? <Alert tone="success">{success}</Alert> : null}
+          {normalization ? (
+            <p className="rl-notice text-sm">
+              {normalization.source === 'external-ai'
+                ? `La IA normalizó la dirección con ${Math.round((normalization.confidence ?? 0) * 100)}% de confianza.`
+                : (normalization.warning ?? 'La dirección fue normalizada localmente.')}
+            </p>
+          ) : null}
+        </div>
+
+        <section className="grid items-start gap-8 lg:grid-cols-[400px_minmax(0,1fr)]">
+          <div className="min-w-0 lg:order-2">
+            <div className="rp-map-frame">
+              <div className="rp-map-heading">
+                <h2>Pasto · selecciona una ubicación</h2>
+                <span className="rl-state text-[var(--board-soft)]">Solo Pasto</span>
+              </div>
+              <div className="h-[560px]">
+                <OrderMap
+                  ariaLabel="Mapa para seleccionar la dirección del pedido"
+                  className="h-full w-full"
+                  couriers={[]}
+                  pendingPoints={pendingPoints}
+                  routes={[]}
+                  selectedCoordinate={selectedCoordinate}
+                  onMapClick={handleMapClick}
+                />
+              </div>
             </div>
           </div>
 
-          <div className="space-y-5">
-            <section className="rp-order-form bg-[var(--surface)] p-5">
-              <div>
-                <h2 className="font-semibold text-slate-900">Datos del pedido</h2>
+          <div className="min-w-0 space-y-10 lg:order-1">
+            <section className="rl-section">
+              <div className="rl-head">
+                <h2>Datos del pedido</h2>
               </div>
-              <div className="mt-5 space-y-4">
-                <label className="block text-xs font-semibold text-slate-600">
+              <div className="mt-5 space-y-5">
+                <label className="rp-field-label">
                   Dirección
                   <input
-                    className="rp-input mt-1.5 px-3 py-3 text-sm font-normal"
+                    className="rp-input mt-1.5 px-3 text-[15px] font-normal"
                     onChange={(event) => {
                       ++lookupSequence.current;
                       setSelectedCoordinate(null);
@@ -333,40 +330,41 @@ export default function OrdersPage() {
                 </label>
                 <div aria-live="polite" aria-busy={findingAddress}>
                   {findingAddress ? (
-                    <p className="text-sm text-[var(--muted)]">Buscando solo en Pasto…</p>
+                    <p className="text-sm text-[var(--ink-soft)]">Buscando solo en Pasto…</p>
                   ) : addressNotice ? (
-                    <p className="text-sm text-[var(--muted)]">{addressNotice}</p>
+                    <p className="text-sm text-[var(--ink-soft)]">{addressNotice}</p>
                   ) : null}
                   {candidates.length > 0 ? (
-                    <ul aria-label="Ubicaciones sugeridas" className="mt-3 space-y-2">
+                    <ul aria-label="Ubicaciones sugeridas" className="rl-rows mt-2">
                       {candidates.map((candidate, index) => (
                         <li key={`${candidate.lat}:${candidate.lng}:${index}`}>
                           <button
                             type="button"
-                            className="rp-button rp-button-secondary w-full text-left"
+                            className="rl-row w-full text-left hover:bg-[var(--band)]"
                             onClick={() => confirmAddress(candidate)}
                           >
-                            <span>
-                              {candidate.address}
-                              <small className="block">
+                            <span className="rl-row-main">
+                              <strong>{candidate.address}</strong>
+                              <span>
                                 {candidate.precision === 'address'
                                   ? 'Dirección'
                                   : candidate.precision === 'intersection'
                                     ? 'Intersección'
                                     : 'Aproximada'}
                                 {' · Confirmar ubicación'}
-                              </small>
+                              </span>
                             </span>
+                            <span aria-hidden="true" className="text-lg">→</span>
                           </button>
                         </li>
                       ))}
                     </ul>
                   ) : null}
                 </div>
-                <label className="block text-xs font-semibold text-slate-600">
+                <label className="rp-field-label">
                   Referencia interna del pedido (opcional)
                   <input
-                    className="rp-input mt-1.5 px-3 py-3 font-mono text-sm font-normal"
+                    className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
                     onChange={(event) =>
                       setDraft((current) => ({ ...current, orderId: event.target.value }))
                     }
@@ -374,15 +372,15 @@ export default function OrdersPage() {
                     value={draft.orderId}
                   />
                 </label>
-                <div className="border-t border-slate-200 py-3 text-xs text-slate-600">
-                  <span className="font-semibold text-slate-700">Coordenadas seleccionadas</span>
-                  <p className="mt-1 font-mono text-[11px]">
+                <div className="text-sm">
+                  <span className="font-semibold">Coordenadas seleccionadas</span>
+                  <p className={`mt-1 tabular-nums ${draft.lat && draft.lng ? 'text-[var(--route-ink)]' : 'text-[var(--ink-soft)]'}`}>
                     {draft.lat && draft.lng ? `${draft.lat}, ${draft.lng}` : selectedCoordinate
                       ? 'Sugerida · pendiente de confirmación' : 'Confirma una sugerencia o usa el mapa'}
                   </p>
                 </div>
                 <button
-                  className="rp-button rp-button-primary w-full"
+                  className="rp-button rp-button-primary rp-button-block"
                   disabled={saving}
                   onClick={() => void createOrder()}
                   type="button"
@@ -392,36 +390,27 @@ export default function OrdersPage() {
               </div>
             </section>
 
-            <section className="border-t border-slate-300 p-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-semibold text-slate-900">Últimos pendientes</h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Aparecerán en el centro de despacho.
-                  </p>
-                </div>
-                {loading ? <span className="text-xs text-slate-400">Cargando…</span> : null}
+            <section className="rl-section">
+              <div className="rl-head">
+                <h2>
+                  Últimos pendientes <small>Aparecerán en el centro de despacho.</small>
+                </h2>
+                {loading ? <span className="text-xs text-[var(--ink-soft)]">Cargando…</span> : null}
               </div>
-              <div className="mt-4 space-y-2">
+              <ul className="rl-rows">
                 {pendingPoints.slice(0, 6).map((point) => (
-                  <div className="border-b border-slate-200 py-3" key={point.id}>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-mono text-xs font-semibold text-slate-700">
-                        {formatOrderReference(point.orderId)}
-                      </span>
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                        Pendiente
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-xs text-slate-500">{point.address}</p>
-                  </div>
+                  <li className="rl-row" key={point.id}>
+                    <span className="rl-row-main">
+                      <strong className="truncate">{point.address}</strong>
+                      <span className="rl-ref">{formatOrderReference(point.orderId)}</span>
+                    </span>
+                    <span className="rl-state is-warn">Pendiente</span>
+                  </li>
                 ))}
                 {pendingPoints.length === 0 ? (
-                  <p className="rounded-xl bg-slate-50 px-3 py-4 text-xs leading-5 text-slate-500">
-                    No hay pendientes. Registra el primero para enviarlo al despacho.
-                  </p>
+                  <li className="rl-empty">No hay pendientes. Registra el primero para enviarlo al despacho.</li>
                 ) : null}
-              </div>
+              </ul>
             </section>
           </div>
         </section>
@@ -432,9 +421,7 @@ export default function OrdersPage() {
 
 function Alert({ children, tone }: { children: string; tone: 'error' | 'success' }) {
   return (
-    <div
-      className={`rounded-2xl border px-4 py-3 text-sm ${tone === 'error' ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}
-    >
+    <div className={`rl-notice ${tone === 'error' ? 'is-error' : 'is-ok'}`} role={tone === 'error' ? 'alert' : 'status'}>
       {children}
     </div>
   );

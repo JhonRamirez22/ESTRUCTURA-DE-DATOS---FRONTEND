@@ -140,46 +140,48 @@ export default function StaffPage() {
   return (
     <AppShell active="team">
       <SessionChangeNotice role="dispatcher" />
-      <main className="mx-auto max-w-[1600px] px-5 py-6 sm:px-8 lg:px-10">
-        <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <main className="rl-page">
+        <header className="rl-page-head">
           <div>
-            <h1 className="text-2xl font-semibold text-[var(--foreground)] sm:text-[28px]">Personal</h1>
-            <p className="mt-1 text-sm text-[var(--ink-soft)]">
-              Registra repartidores y administra su acceso a la aplicación.
-            </p>
+            <h1>Personal</h1>
+            <p>Registra repartidores y administra su acceso a la aplicación.</p>
           </div>
-          <p className="text-sm text-[var(--ink-soft)]">
-            <span className="text-2xl font-semibold tabular-nums text-[var(--foreground)]">
-              {couriers.length}
-            </span>{' '}
-            en el equipo · <span className="tabular-nums">{connected}</span> con GPS reciente
-          </p>
+          <dl className="rl-figures">
+            <div>
+              <dt>en el equipo</dt>
+              <dd>{couriers.length}</dd>
+            </div>
+            <div>
+              <dt>con GPS reciente</dt>
+              <dd className="is-route">{connected}</dd>
+            </div>
+          </dl>
         </header>
 
         {notice ? (
           <p
-            className="feed-enter mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+            className="rl-notice is-ok feed-enter mb-6"
             role="status"
           >
             {notice}
           </p>
         ) : null}
 
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_420px]">
           <section
             aria-labelledby="team-heading"
-            className="rounded-2xl border border-[var(--line)] bg-[var(--surface)]"
+            className="rl-section"
           >
-            <h2 className="border-b border-[var(--line)] px-5 py-4 text-base font-semibold" id="team-heading">
-              Repartidores
-            </h2>
+            <div className="rl-head">
+              <h2 id="team-heading">Repartidores</h2>
+            </div>
             {loading ? (
-              <p className="px-5 py-6 text-sm text-[var(--ink-soft)]" role="status">
+              <p className="rl-empty" role="status">
                 Cargando equipo…
               </p>
             ) : loadError ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-6" role="alert">
-                <p className="text-sm text-[#8e2635]">{loadError}</p>
+              <div className="rl-notice is-error mt-4" role="alert">
+                <span>{loadError}</span>
                 <button
                   className="rp-button rp-button-quiet rp-button-small"
                   onClick={() => {
@@ -192,15 +194,15 @@ export default function StaffPage() {
                 </button>
               </div>
             ) : couriers.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-[var(--ink-soft)]">
+              <p className="rl-empty">
                 Todavía no hay repartidores. Registra el primero con el formulario.
               </p>
             ) : (
-              <ul className="divide-y divide-[var(--line)]">
+              <ul className="rl-rows">
                 {couriers.map((courier) => {
                   const editing = access?.courierId === courier.id;
                   return (
-                    <li className="px-5 py-3" key={courier.id}>
+                    <li className="border-b border-[var(--line)] py-3" key={courier.id}>
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-[var(--foreground)]">
@@ -225,7 +227,7 @@ export default function StaffPage() {
                       {editing && access ? (
                         <form
                           aria-label={`Acceso de ${courier.name}`}
-                          className="route-proposal mt-3 grid gap-3 rounded-xl bg-[var(--secondary)] p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+                          className="route-proposal mt-3 grid gap-3 bg-[var(--band)] p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
                           noValidate
                           onSubmit={(event) => void saveAccess(event)}
                         >
@@ -255,7 +257,7 @@ export default function StaffPage() {
                             {savingAccess ? 'Guardando…' : 'Guardar'}
                           </button>
                           {accessError ? (
-                            <p className="text-sm text-[#8e2635] sm:col-span-3" role="alert">
+                            <p className="rl-notice is-error sm:col-span-3" role="alert">
                               {accessError}
                             </p>
                           ) : null}
@@ -270,16 +272,16 @@ export default function StaffPage() {
 
           <section
             aria-labelledby="new-courier-heading"
-            className="rp-panel-primary p-5 lg:sticky lg:top-6"
+            className="rl-section lg:sticky lg:top-20"
           >
-            <h2 className="text-base font-semibold" id="new-courier-heading">
-              Agregar repartidor
-            </h2>
-            <p className="mt-1 text-sm text-[var(--ink-soft)]">
+            <div className="rl-head">
+              <h2 id="new-courier-heading">Agregar repartidor</h2>
+            </div>
+            <p className="mt-3 text-sm text-[var(--ink-soft)]">
               Se crea su cuenta: entra desde la página de acceso con este correo y contraseña.
             </p>
-            <form className="mt-4 grid gap-3" noValidate onSubmit={(event) => void createCourier(event)}>
-              <label className="text-sm font-semibold text-[var(--foreground)]">
+            <form className="mt-5 grid gap-5" noValidate onSubmit={(event) => void createCourier(event)}>
+              <label className="rp-field-label">
                 Nombre completo
                 <input
                   autoComplete="off"
@@ -290,7 +292,7 @@ export default function StaffPage() {
                   value={draft.name}
                 />
               </label>
-              <label className="text-sm font-semibold text-[var(--foreground)]">
+              <label className="rp-field-label">
                 Teléfono
                 <input
                   autoComplete="off"
@@ -303,7 +305,7 @@ export default function StaffPage() {
                   value={draft.phone}
                 />
               </label>
-              <label className="text-sm font-semibold text-[var(--foreground)]">
+              <label className="rp-field-label">
                 Correo electrónico
                 <input
                   autoComplete="off"
@@ -315,7 +317,7 @@ export default function StaffPage() {
                   value={draft.email}
                 />
               </label>
-              <label className="text-sm font-semibold text-[var(--foreground)]">
+              <label className="rp-field-label">
                 Contraseña
                 <input
                   aria-describedby="new-courier-password-help"
@@ -326,16 +328,16 @@ export default function StaffPage() {
                   type="password"
                   value={draft.password}
                 />
-                <span className="mt-1 block text-xs font-normal text-[var(--ink-soft)]" id="new-courier-password-help">
+                <span className="rp-field-help" id="new-courier-password-help">
                   Mínimo {MIN_PASSWORD} caracteres. Entrégasela al repartidor en persona.
                 </span>
               </label>
               {formError ? (
-                <p className="text-sm text-[#8e2635]" role="alert">
+                <p className="rl-notice is-error" role="alert">
                   {formError}
                 </p>
               ) : null}
-              <button className="rp-button rp-button-primary mt-1" disabled={creating} type="submit">
+              <button className="rp-button rp-button-primary rp-button-block mt-1" disabled={creating} type="submit">
                 {creating ? 'Registrando…' : 'Registrar repartidor'}
               </button>
             </form>

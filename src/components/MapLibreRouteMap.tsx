@@ -284,7 +284,7 @@ export default function MapLibreRouteMap({
       {routes.length > 1 && selectedRoute ? (
         <select
           aria-label="Recorrido mostrado"
-          className="rp-button rp-button-secondary absolute right-3 top-3 z-10 max-w-[45%] text-xs"
+          className="rp-button rp-button-map absolute right-3 top-3 z-10 max-w-[45%] text-xs"
           value={selectedRoute.id}
           onChange={(event) => setSelectedRouteId(event.target.value)}
         >
@@ -296,7 +296,7 @@ export default function MapLibreRouteMap({
         </select>
       ) : null}
       <button
-        className="rp-button rp-button-secondary absolute left-3 top-3 z-10"
+        className="rp-button rp-button-map absolute left-3 top-3 z-10"
         onClick={() => {
           const map = mapRef.current;
           if (!map?.isStyleLoaded()) return;
