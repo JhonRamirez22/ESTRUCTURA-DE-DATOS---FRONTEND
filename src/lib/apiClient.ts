@@ -9,6 +9,8 @@ export type SessionChange = { role: SessionRole | 'all'; kind: 'login' | 'logout
 /** Rol de la pestaña: cada rol tiene su cookie, así que la pestaña debe indicarlo. */
 let sessionRole: SessionRole | null = null;
 let csrfProof: { role: SessionRole | null; value: string } | null = null;
+/** Token de acceso por rol: solo en memoria (nunca en localStorage); la cookie HttpOnly es el respaldo. */
+const accessTokens: Partial<Record<SessionRole, string>> = {};
 
 export class ApiRequestError extends Error {
   constructor(
@@ -80,9 +82,12 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   const staffMutation = unsafe && !['/api/v1/auth/login', '/api/v1/cliente/chat'].includes(url);
   const role = sessionRole;
   if (role) headers.set(SESSION_ROLE_HEADER, role);
+  const bearer = role ? accessTokens[role] : undefined;
+  if (bearer && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${bearer}`);
   try {
     if (staffMutation && csrfProof?.role !== role) csrfProof = null;
-    if (staffMutation && !csrfProof) {
+    // Con token Bearer no hace falta prueba CSRF: no hay credencial ambiente.
+    if (staffMutation && !bearer && !csrfProof) {
       const session = await fetch('/api/v1/auth/session', {
         credentials: 'same-origin',
         cache: 'no-store',
@@ -109,9 +114,17 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     if (proof) csrfProof = { role: responseRole ?? role, value: proof };
     if (response.status === 401 || url === '/api/v1/auth/logout') csrfProof = null;
     if (response.ok && url === '/api/v1/auth/login' && responseRole) {
+      const token = await response.clone().json().then(
+        (data: { accessToken?: unknown }) => (typeof data.accessToken === 'string' ? data.accessToken : null),
+        () => null
+      );
+      if (token) accessTokens[responseRole] = token;
       announceSessionChange({ role: responseRole, kind: 'login' });
     }
+    if (response.status === 401 && role) delete accessTokens[role];
     if (response.ok && url === '/api/v1/auth/logout') {
+      if (role) delete accessTokens[role];
+      else { delete accessTokens.dispatcher; delete accessTokens.courier; }
       announceSessionChange({ role: role ?? 'all', kind: 'logout' });
     }
     if (!response.ok && !response.headers.get('Content-Type')?.includes('application/json')) {
