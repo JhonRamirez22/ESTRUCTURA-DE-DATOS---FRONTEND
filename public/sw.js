@@ -34,3 +34,21 @@ self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(event.request.url);
 
   if (
+    requestUrl.origin !== self.location.origin ||
+    requestUrl.pathname.startsWith('/api/') ||
+    requestUrl.pathname.startsWith('/_next/')
+  ) {
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request).catch(async () => {
+      const cachedResponse = event.request.mode === 'navigate'
+        ? await caches.match('/offline.html') : undefined;
+      return cachedResponse ?? new Response('Sin conexión disponible.', {
+        status: 503,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      });
+    })
+  );
+});
