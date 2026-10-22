@@ -1,0 +1,7 @@
+{
+  "name": "rutas-pasto-cross-browser",
+  "private": true,
+  "description": "Cuatro flujos clave con Cypress y Selenium, aislados de la aplicación y de Playwright.",
+  "scripts": {
+    "cypress": "cypress run --browser chrome",
+    "selenium": "node --test selenium/flows.test.mjs",
