@@ -37,6 +37,9 @@ vi.mock("maplibre-gl", () => ({
   LngLatBounds: function () {
     return { extend: vi.fn() };
   },
+  Popup: function () {
+    return { setLngLat: vi.fn().mockReturnThis(), setText: vi.fn().mockReturnThis(), addTo: vi.fn().mockReturnThis(), remove: vi.fn() };
+  },
   setWorkerUrl,
 }));
 vi.mock("@maplibre/maplibre-gl-directions", () => ({

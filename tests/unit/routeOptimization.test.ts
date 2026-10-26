@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { congestionLabel, mostCongested, type TrafficPoint } from '@/lib/routeOptimization';
+import { congestionLabel, isSevereTraffic, mostCongested, type TrafficPoint } from '@/lib/routeOptimization';
 
 const point = (lng: number, multiplier: number | null, closed = false): TrafficPoint => ({
   point: [lng, 1.21],
@@ -28,5 +28,15 @@ describe('tramos más congestionados (min-heap de tamaño k)', () => {
     expect(mostCongested([point(-77.2, 2), point(-77.2, 2)], 5)).toHaveLength(1);
     expect(mostCongested([point(-77.2, 2)], 0)).toEqual([]);
     expect(congestionLabel({ point: [0, 0], multiplier: 1.4, closed: false }, 'x')).toBe('+40 %');
+  });
+});
+
+describe('tráfico que se pinta en rojo', () => {
+  it('solo ALTO, MUY_ALTO y cierres; el tráfico moderado y fluido no compite con la ruta', () => {
+    expect(isSevereTraffic('ALTO', false)).toBe(true);
+    expect(isSevereTraffic('MUY_ALTO', false)).toBe(true);
+    expect(isSevereTraffic('MODERADO', false)).toBe(false);
+    expect(isSevereTraffic('FLUIDO', false)).toBe(false);
+    expect(isSevereTraffic('FLUIDO', true)).toBe(true);
   });
 });

@@ -38,6 +38,7 @@ const LOOKUP_DEBOUNCE_MS = 600;
 interface CreatedRequest {
   trackingGuide: string;
   reference: string;
+  nearbyStop?: { distanceMeters: number; status: string } | null;
 }
 
 /** Solicitud pública de envío: queda en revisión hasta que despacho la acepta. */
@@ -173,6 +174,11 @@ export default function RequestDeliveryPage() {
                 Referencia <span className="font-semibold tabular-nums !text-[var(--board-ink)]">{created.reference}</span>.
                 Guarda tu guía: es la única forma de consultar el estado.
               </p>
+              {created.nearbyStop ? (
+                <p className="rl-notice is-ok mt-4 !block text-sm" role="status">
+                  {t('request.nearby')}
+                </p>
+              ) : null}
               <p className="mt-5 text-xs font-semibold">{t('request.guide')}</p>
               <p className="mt-1 break-all text-lg font-semibold tabular-nums !text-[var(--board-ink)]">
                 {created.trackingGuide}

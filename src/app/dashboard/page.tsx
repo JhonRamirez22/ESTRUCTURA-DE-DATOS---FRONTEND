@@ -15,6 +15,7 @@ import { SessionChangeNotice } from "@/components/SessionChangeNotice";
 import OptimizationFeed from '@/components/OptimizationFeed';
 import { RouteLine, RouteStrip, type StopState } from '@/components/RouteLine';
 import OptimizationLadder from '@/components/OptimizationLadder';
+import AiGroupSuggestions from '@/components/AiGroupSuggestions';
 import type { RouteOptimization } from '@/lib/routeOptimization';
 
 const RouteMap = dynamic(() => import('./RouteMap'), {
@@ -749,7 +750,10 @@ export default function DashboardPage() {
                             />
                             <span className="rl-row-main">
                               <strong className="truncate">{point.address}</strong>
-                              <span className="rl-ref">{reference} · {t('dash.pendingTag')}</span>
+                              <span className="rl-ref">
+                                {reference} · {t('dash.pendingTag')}
+                                {point.orderId.startsWith('SIM-') ? ` · ${t('demo.simulated')}` : ''}
+                              </span>
                             </span>
                           </label>
                           <button
@@ -768,6 +772,7 @@ export default function DashboardPage() {
                     })}
                   </ul>
                 )}
+                <AiGroupSuggestions onSelect={(ids) => setSelectedPendingIds(ids)} />
               </div>
 
               <div className="min-w-0">
@@ -1181,7 +1186,7 @@ function RouteSummary({
       )}
       {canRecalculate ? (
         route.optimization ? (
-          <OptimizationLadder optimization={route.optimization} />
+          <OptimizationLadder optimization={route.optimization} routeId={route.id} />
         ) : (
           <p className="mt-3 text-xs text-[var(--ink-soft)]">{t('opt.unavailable')}</p>
         )

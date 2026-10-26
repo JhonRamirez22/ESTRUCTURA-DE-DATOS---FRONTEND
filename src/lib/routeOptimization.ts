@@ -11,7 +11,21 @@ export interface TrafficPoint {
 }
 
 /** Cómo se llegó al orden final; lo calcula el backend con una sola matriz de costos. */
+export interface RouteLeg {
+  fromStop: string;
+  toStop: string;
+  minutes: number | null;
+}
+
+export interface RouteAlternative {
+  step: OptimizationStep;
+  minutes: number | null;
+  deltaMinutes: number | null;
+}
+
 export interface RouteOptimization {
+  legs: RouteLeg[];
+  alternatives: RouteAlternative[];
   ladder: Array<{ step: OptimizationStep; minutes: number | null; accepted?: boolean; proposed?: boolean }>;
   baselineMinutes: number | null;
   optimizedMinutes: number | null;
@@ -54,7 +68,8 @@ export function mostCongested(points: TrafficPoint[], count: number): CongestedP
   );
   const seen = new Set<string>();
   for (const item of points) {
-    if (!item.point || (!item.closed && (item.multiplier === null || item.multiplier < 1.15))) continue;
+    // Mismo umbral que el tráfico en rojo: ALTO o más (≥ 1,5).
+    if (!item.point || (!item.closed && (item.multiplier === null || item.multiplier < 1.5))) continue;
     const key = `${item.point[0]},${item.point[1]}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -64,6 +79,11 @@ export function mostCongested(points: TrafficPoint[], count: number): CongestedP
   const result: CongestedPoint[] = [];
   while (!heap.isEmpty()) result.push(heap.extractMin()!);
   return result.reverse();
+}
+
+/** Solo ALTO, MUY_ALTO y cierres se pintan en rojo: lo grave, sin competir con la ruta. */
+export function isSevereTraffic(level: string | null, closed: boolean): boolean {
+  return closed || level === 'ALTO' || level === 'MUY_ALTO' || level === 'CERRADO';
 }
 
 /** Porcentaje de tiempo extra de un tramo («+40 %»), o «cerrado». */

@@ -33,6 +33,17 @@ const route = {
   id: 'r1-7f3a9c21', courierId: 'c1', status: 'IN_PROGRESS', estimatedDurationMinutes: 27, estimatedDistanceMeters: 4200,
   canUndo: true, geometry, geometryProvider: 'OSRM', optimizedAt: iso(60), courier: couriers[0], deliveryPoints: stops,
   optimization: {
+    legs: [
+      { fromStop: 'courier', toStop: 's1', minutes: 6.2 },
+      { fromStop: 's1', toStop: 's2', minutes: 9.8 },
+      { fromStop: 's2', toStop: 's3', minutes: 7.4 },
+      { fromStop: 's3', toStop: 's4', minutes: 3.6 },
+    ],
+    alternatives: [
+      { step: 'nearestNeighbor', minutes: 34.6, deltaMinutes: 7.5 },
+      { step: 'twoOpt', minutes: 30.2, deltaMinutes: 3.1 },
+      { step: 'orOpt', minutes: 28.9, deltaMinutes: 1.8 },
+    ],
     ladder: [
       { step: 'nearestNeighbor', minutes: 34.6 },
       { step: 'twoOpt', minutes: 30.2 },
@@ -69,6 +80,8 @@ function body(path, method, search) {
   if (path === '/api/v1/analitica') return { metrics: { routeCount: 3, completedRouteCount: 1, estimatedDurationMinutes: 61, estimatedDistanceMeters: 9100, timeSavedMinutes: 6.8, distanceSavedMeters: 900, routesWithBaseline: 3 } };
   if (path === '/api/v1/optimizaciones/recientes') return { events: [{ at: iso(5), kind: 'propuesta', routeAlias: 'Ruta de Carlos', changed: false, improvementMinutes: 2.4, trafficSegments: 3, aiApplied: true, aiOrderAccepted: true, aiOrderSavingMinutes: 2.4 }, { at: iso(65), kind: 'aplicada', routeAlias: 'Ruta de Laura', changed: true, improvementMinutes: 3.1, trafficSegments: 5, aiApplied: true }], incidents: [], stats: { proposals: 42, cacheHits: 30, applied: 3, trafficSegments: 18, savedMinutes: 6.8 }, summaryCooldownSeconds: 0 };
   if (path === '/api/v1/seguimiento') return { tracking: { guide: search.get('guia'), status: 'EN_ROUTE', address: 'Avenida Idema #5-30, Las Lunas', coordinates: { lat: 1.2172, lng: -77.2744 }, route: { id: 'r1', status: 'IN_PROGRESS', courier: { currentLat: 1.215, currentLng: -77.2798, lastLocationAt: iso(6) }, geometry, geometryProvider: 'OSRM', estimatedMinutesFromNow: 14, distanceFromCourierMeters: 2300, estimateNote: 'Estimado por calles con tráfico del primer tramo.' } } };
+  if (path.endsWith('/explicar')) return { text: 'El orden base tardaba 34.6 min y el final 27.1 min, un ahorro de 7.5 min con la misma matriz de tiempos.', source: 'groq-validated' };
+  if (path === '/api/v1/inteligencia/agrupaciones') return { groups: [{ ids: ['p1', 'p2'], spreadMeters: 180, source: 'groq-validated', reason: 'Misma cuadra del centro' }, { ids: ['p3', 'p4', 'p5'], spreadMeters: 340, source: 'deterministic', reason: null }], ai: { source: 'groq-validated', proposed: true, accepted: 1 } };
   if (path === '/api/v1/solicitudes/direccion') return { candidates: [{ address: 'Calle 18 # 22-14, Centro, Pasto', lat: 1.215, lng: -77.2798, precision: 'address' }, { address: 'Calle 18 # 22, Pasto', lat: 1.2151, lng: -77.2796, precision: 'intersection' }], source: 'ai+tomtom', normalizedAddress: 'Calle 18 # 22-14', warning: null, cached: false };
   if (path === '/api/v1/solicitudes') return { trackingGuide: '5b1f0c2e-8d4a-4c6e-9f1a-2e7d3c9b8a41', reference: 'SOL-7F3A9C', status: 'REQUESTED' };
   if (path === '/api/v1/asignaciones') return { assignments: [{ courierId: 'c2', deliveryPointIds: ['p2', 'p4', 'p1'] }], unassignedDeliveryPointIds: ['p3'], ai: { source: 'deterministic', applied: false } };
@@ -96,6 +109,7 @@ const pages = [
   ['en-dashboard', '/dashboard', 'desktop'],
   ['tooltip', '/dashboard', 'desktop'],
   ['mapa-optimizado', '/dashboard', 'desktop'],
+  ['agrupa', '/dashboard', 'desktop'],
   ['solicitar-ia', '/solicitar', 'desktop'],
   ['solicitar-ok', '/solicitar', 'desktop'],
   ['solicitar-movil', '/solicitar', 'mobile'],
@@ -151,6 +165,12 @@ for (const [name, path, kind] of pages) {
     await page.evaluate(() => window.scrollBy(0, -80));
     await page.waitForTimeout(1500);
   }
+  if (name === 'agrupa') {
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: 'Ver agrupaciones IA' }).click();
+    await page.waitForTimeout(1200);
+    await page.locator('section[aria-label="Sugerencias"], section[aria-label="Agrupaciones sugeridas"]').first().scrollIntoViewIfNeeded().catch(() => {});
+  }
   if (name === 'solicitar-ia') {
     await page.waitForTimeout(1500);
     await page.getByLabel(/Dirección de entrega/).fill('cll 18 nro 22 14 centro');
@@ -166,7 +186,7 @@ for (const [name, path, kind] of pages) {
     await page.getByRole('button', { name: 'Analizar asignación' }).click();
   }
   await page.waitForTimeout(2500);
-  await page.screenshot({ path: `${out}/${name}.png`, fullPage: !['propuesta', 'oscuro-propuesta', 'intro', 'tooltip', 'en-dashboard', 'mapa-optimizado', 'solicitar-ia'].includes(name) });
+  await page.screenshot({ path: `${out}/${name}.png`, fullPage: !['propuesta', 'oscuro-propuesta', 'intro', 'tooltip', 'en-dashboard', 'mapa-optimizado', 'solicitar-ia', 'agrupa'].includes(name) });
   console.log('shot', name);
   await context.close();
 }

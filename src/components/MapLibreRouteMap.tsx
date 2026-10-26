@@ -9,7 +9,12 @@ import { getPastoMinimumZoom } from '@/lib/mapViewport';
 import TrafficOverlay from './TrafficOverlay';
 import { isRoadGeometryProvider } from '@/lib/roadGeometry';
 import { useT } from '@/lib/preferences';
-import { congestionLabel, mostCongested, type RouteOptimization } from '@/lib/routeOptimization';
+import {
+  congestionLabel,
+  isSevereTraffic,
+  mostCongested,
+  type RouteOptimization,
+} from '@/lib/routeOptimization';
 import {
   isMapStyleAuthorizationError,
   KEYLESS_DARK_MAP_STYLE_URL,
@@ -72,6 +77,7 @@ interface MapProperties {
   color?: string;
   label?: string;
   route?: 'SELECTED' | 'BASELINE';
+  stopId?: string;
 }
 
 type MapFeature = {
@@ -295,6 +301,43 @@ export default function MapLibreRouteMap({
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
   }, [drawKey, mapStatus, selectedRoute?.geometry?.coordinates]);
+
+  // Al pasar el puntero sobre una parada: minutos del tramo que llega a ella desde la anterior.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const popup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: 14,
+      className: 'rl-leg-popup',
+    });
+    const show = (event: maplibregl.MapLayerMouseEvent) => {
+      const stopId = event.features?.[0]?.properties?.stopId as string | undefined;
+      const optimization = dataRef.current.routes[0]?.optimization;
+      const leg = stopId ? optimization?.legs.find((item) => item.toStop === stopId) : undefined;
+      if (!leg || leg.minutes === null) {
+        popup.remove();
+        return;
+      }
+      map.getCanvas().style.cursor = 'pointer';
+      popup
+        .setLngLat(event.lngLat)
+        .setText(t('opt.legMinutes', { min: leg.minutes.toLocaleString('es-CO') }))
+        .addTo(map);
+    };
+    const hide = () => {
+      map.getCanvas().style.cursor = '';
+      popup.remove();
+    };
+    map.on('mousemove', 'delivery-points', show);
+    map.on('mouseleave', 'delivery-points', hide);
+    return () => {
+      map.off('mousemove', 'delivery-points', show);
+      map.off('mouseleave', 'delivery-points', hide);
+      popup.remove();
+    };
+  }, [t]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -572,15 +615,10 @@ function addClusters(map: MapLibreMap, source: string): void {
   });
 }
 
+// Rojo apagado: solo el tráfico grave aparece; la ruta verde sigue siendo lo principal.
 function trafficColor(level: string, roadClosure: boolean): string {
   if (roadClosure || level === 'CERRADO') return '#7f1d1d';
-  switch (level) {
-    case 'MUY_ALTO': return '#dc2626';
-    case 'ALTO': return '#ea580c';
-    case 'MODERADO': return '#f59e0b';
-    case 'FLUIDO': return '#0d9488';
-    default: return '#94a3b8';
-  }
+  return level === 'MUY_ALTO' ? '#b91c1c' : '#c2410c';
 }
 
 function updateMapData(
@@ -656,7 +694,9 @@ function updateMapData(
       focusCoordinates.push(coordinate);
       const label = `${(point.sequenceIndex ?? index) + 1}`;
       const color = deliveryPointColor(point.status);
-      deliveryFeatures.push(pointFeature(coordinate, color, label));
+      const stopFeature = pointFeature(coordinate, color, label);
+      stopFeature.properties.stopId = point.id;
+      deliveryFeatures.push(stopFeature);
       labelFeatures.push(pointFeature(coordinate, color, label));
     }
   }
@@ -707,20 +747,25 @@ function updateMapData(
       source: 'route-traffic',
       paint: {
         'circle-color': ['get', 'color'],
-        'circle-radius': 9,
+        'circle-radius': 8,
+        'circle-opacity': 0.35,
         'circle-stroke-color': '#FFFCF7',
-        'circle-stroke-width': 2,
+        'circle-stroke-width': 1.5,
+        'circle-stroke-opacity': 0.35,
       },
     });
   }
-  const trafficFeatures: MapFeature[] = data.trafficMarks.map((mark) => ({
-    type: 'Feature',
-    geometry: { type: 'Point', coordinates: mark.coordinates },
-    properties: { color: trafficColor(mark.trafficLevel, mark.roadClosure) },
-  }));
+  const trafficFeatures: MapFeature[] = data.trafficMarks
+    .filter((mark) => isSevereTraffic(mark.trafficLevel, mark.roadClosure))
+    .map((mark) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: mark.coordinates },
+      properties: { color: trafficColor(mark.trafficLevel, mark.roadClosure) },
+    }));
   // Las mediciones que usó la optimización también se ven, aunque no haya consulta en vivo.
   for (const item of optimization?.trafficPoints ?? []) {
     if (!item.point || !isWithinPastoServiceArea(item.point[1], item.point[0])) continue;
+    if (!isSevereTraffic(item.level ?? '', item.closed)) continue;
     trafficFeatures.push({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: item.point },
