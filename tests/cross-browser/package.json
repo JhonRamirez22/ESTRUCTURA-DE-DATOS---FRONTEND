@@ -5,3 +5,10 @@
   "scripts": {
     "cypress": "cypress run --browser chrome",
     "selenium": "node --test selenium/flows.test.mjs",
+    "test": "npm run cypress && npm run selenium"
+  },
+  "devDependencies": {
+    "cypress": "^15.0.0",
+    "selenium-webdriver": "^4.35.0"
+  }
+}
