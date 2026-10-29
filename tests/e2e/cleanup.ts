@@ -12,3 +12,17 @@ interface TestDataIds {
 }
 
 export async function cleanupTestData(ids: TestDataIds): Promise<void> {
+  const backendRoot = resolve(
+    process.env.PLAYWRIGHT_BACKEND_ROOT ??
+      resolve(dirname(fileURLToPath(import.meta.url)), "../../../../BACKEND/ESTRUCTURA-DE-DATOS---BACKEND")
+  );
+  const args = [
+    "run",
+    "--project",
+    backendRoot,
+    "python",
+    "-m",
+    "scripts.e2e_cleanup",
+  ];
+  for (const courierId of ids.courierId ? [ids.courierId] : []) {
+    args.push("--courier-id", courierId);
