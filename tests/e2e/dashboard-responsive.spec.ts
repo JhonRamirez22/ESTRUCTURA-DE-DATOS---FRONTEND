@@ -45,3 +45,50 @@ async function mockDashboardData(page: Page): Promise<void> {
           email: { configured: false, pending: 0, retrying: 0, processing: 0, failed: 0 },
           sms: { configured: false, pending: 0, retrying: 0, processing: 0, failed: 0 },
         },
+        workerRunning: false,
+        warning: "Canales de prueba sin configurar.",
+      };
+    } else if (url.pathname === "/api/v1/notificaciones") {
+      body = { notifications: [] };
+    } else if (url.pathname === "/api/v1/pedidos") {
+      body = {
+        deliveryPoints: [
+          {
+            id: "e2e-pending-stop",
+            orderId: "E2E-PENDING-001",
+            address: "Avenida de Prueba 5 # 8-12, Pasto",
+            lat: 1.2161,
+            lng: -77.2789,
+            status: "PENDING",
+            sequenceIndex: null,
+          },
+        ],
+      };
+    } else if (url.pathname === "/api/v1/rutas") {
+      body = {
+        routes: [
+          {
+            id: "e2e-route-001",
+            courierId: activeCourier.id,
+            status: "IN_PROGRESS",
+            estimatedDurationMinutes: 18,
+            estimatedDistanceMeters: 2_350,
+            canUndo: false,
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-77.2804, 1.2142],
+                [-77.2801, 1.2146],
+                [-77.2798, 1.215],
+              ],
+            },
+            geometryProvider: "OSRM",
+            courier: activeCourier,
+            deliveryPoints: [activeStop],
+          },
+        ],
+      };
+    } else if (url.pathname === "/api/v1/analitica") {
+      body = {
+        metrics: {
+          routeCount: 1,
