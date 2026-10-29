@@ -40,3 +40,44 @@ test("crea pedidos, optimiza una ruta y la muestra en el mapa", async ({
       [1.217, -77.277],
       [1.218, -77.276],
     ].entries()) {
+      const orderId = randomUUID();
+      orderIds.push(orderId);
+      const orderResponse = await apiRequest(request, "POST", "/api/v1/pedidos", {
+        data: {
+          address: `E2E parada ${index + 1}`,
+          lat: coordinates[0],
+          lng: coordinates[1],
+          orderId,
+        },
+      });
+
+      expect(orderResponse.status()).toBe(201);
+      const orderPayload = (await orderResponse.json()) as {
+        deliveryPoint: { id: string };
+      };
+      deliveryPointIds.push(orderPayload.deliveryPoint.id);
+    }
+
+    const assignmentResponse = await apiRequest(request, "POST", "/api/v1/asignaciones", {
+      data: { courierIds: [courierId], deliveryPointIds },
+    });
+
+    expect(assignmentResponse.status()).toBe(200);
+    const assignmentPayload = (await assignmentResponse.json()) as {
+      assignments: Array<{ courierId: string; deliveryPointIds: string[] }>;
+    };
+    expect(assignmentPayload.assignments).toHaveLength(1);
+
+    const routeResponse = await apiRequest(request, "POST", "/api/v1/asignaciones/aplicar", {
+      data: { assignments: assignmentPayload.assignments },
+    });
+
+    expect(routeResponse.status()).toBe(201);
+    const routePayload = (await routeResponse.json()) as {
+      routes: Array<{
+        matrixSource: string;
+        orderedDeliveryPointIds: string[];
+        route: {
+          id: string;
+          status: string;
+          geometryProvider: "OSRM" | "ORS" | null;
