@@ -27,3 +27,31 @@ test('despacho guiado: repartidores marcados por defecto, motivo del botón y re
     await loginAsDispatcher(page);
     for (const [index, [lat, lng]] of [[1.2142, -77.279], [1.2202, -77.2805]].entries()) {
       const orderId = `GUIA-${suffix}-${index}`;
+      const created = await apiRequest(request, 'POST', '/api/v1/pedidos', {
+        data: { address: 'Carrera 25 # 4 sur 65', lat, lng, orderId, priority: index === 0 ? 3 : 1 },
+      });
+      expect(created.status()).toBe(201);
+      orderIds.push(orderId);
+    }
+
+    await page.goto('/dashboard');
+    await expect(page.getByRole('heading', { name: 'Despacho', exact: true })).toBeVisible();
+    const steps = page.getByRole('list', { name: 'Pasos del despacho' });
+    await expect(steps).toBeVisible();
+    // Quedan marcados los repartidores de esta prueba: el reparto se hace entre todos.
+    const mine = page.locator('label').filter({ hasText: `Guía courier ${suffix}` }).locator('input[type="checkbox"]');
+    await expect(mine).toHaveCount(2);
+    await expect(mine.nth(0)).toBeChecked();
+    await expect(mine.nth(1)).toBeChecked();
+    // La prioridad del pedido se ve en la lista.
+    await expect(page.getByText(new RegExp(`GUIA-${suffix}-0.*Urgente`)).first()).toBeVisible();
+
+    // Se eligen solo los pedidos de esta prueba para que el reparto sea previsible.
+    const orders = page.locator('label').filter({ hasText: `GUIA-${suffix}` }).locator('input[type="checkbox"]');
+    await expect(orders).toHaveCount(2);
+    await expect(orders.nth(0)).toBeChecked();
+    const ready = page.getByRole('button', { name: /^Analizar reparto · \d+ pedidos? · \d+ repartidores?/ });
+    await expect(ready).toBeEnabled();
+    await ready.click();
+    await expect(page.getByRole('heading', { name: '3. Propuesta lista para despachar' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Despachar \d+ pedidos? a \d+ repartidores?/ })).toBeEnabled();
