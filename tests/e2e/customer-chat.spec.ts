@@ -49,3 +49,53 @@ test('el cliente pregunta por su guía y el chat se adapta a móvil', async ({ p
       }),
     });
   });
+  await page.route('**/api/v1/cliente/chat', async (route) => {
+    chatPayload = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        reply: 'Tu pedido fue recibido y aún no tiene una ruta asignada.',
+        scope: 'order',
+        providerNotice: PROVIDER_NOTICE,
+      }),
+    });
+  });
+  await page.route('**/api/v1/cliente/chat/estado', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ configured: true }),
+    })
+  );
+
+  await page.goto('/cliente');
+  await expect(page.getByPlaceholder('Pega aquí tu guía privada')).toBeVisible();
+  await expect(page.getByText('Es distinta al número de pedido.')).toBeVisible();
+  await page.getByRole('textbox', { name: 'Número de guía' }).fill(GUIDE);
+  const workerResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('maplibre-gl-worker')
+  );
+  await page.getByRole('button', { name: 'Buscar pedido' }).click();
+  const workerResponse = await workerResponsePromise;
+  expect(workerResponse.ok()).toBe(true);
+  expect(workerResponse.headers()['content-type']).toMatch(/javascript/);
+  await expect(
+    page.getByRole('heading', { name: '¿Tienes dudas sobre este pedido?' })
+  ).toBeVisible();
+  const privacyDisclosure = page.getByText(
+    /a la IA solo se envían la intención normalizada y el estado del pedido/i
+  );
+  await expect(privacyDisclosure).toBeVisible();
+  await privacyDisclosure.click();
+  await expect(page.getByText(/el texto original no se comparte/i)).toBeVisible();
+  await expect(
+    page.getByText(/no se envían guía, dirección, coordenadas, nombre, teléfono ni IDs/i)
+  ).toBeVisible();
+  await expect(
+    page.getByText(/TomTom, si está disponible, solo cubre parte del primer tramo, no toda la ruta/i)
+  ).toBeVisible();
+  await expect(page.getByText(/el chat se limita a este pedido/i)).toBeVisible();
+  await privacyDisclosure.click();
+  const trackingMap = page.getByRole('region', { name: 'Mapa de seguimiento del pedido' });
+  await expect(trackingMap.locator('.maplibregl-canvas')).toBeVisible();
