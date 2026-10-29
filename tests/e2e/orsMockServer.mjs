@@ -26,3 +26,31 @@ const server = createServer(async (request, response) => {
 
   if (request.url?.includes("/matrix/") || request.url?.includes("/table/")) {
     const durations = coordinates.map((_, fromIndex) =>
+      coordinates.map((__, toIndex) =>
+        fromIndex === toIndex ? 0 : Math.abs(fromIndex - toIndex) * 60,
+      ),
+    );
+
+    writeJson(response, {
+      code: "Ok",
+      durations,
+      distances: coordinates.map((_, fromIndex) =>
+        coordinates.map((__, toIndex) =>
+          fromIndex === toIndex ? 0 : Math.abs(fromIndex - toIndex) * 1000,
+        ),
+      ),
+    });
+    return;
+  }
+
+  if (request.url?.includes("/directions/") || request.url?.includes("/route/")) {
+    const geometry = buildRoadGeometry(coordinates);
+    writeJson(response, {
+      code: "Ok",
+      waypoints: coordinates.map((location) => ({ location, distance: 2 })),
+      routes: [{ geometry: { type: "LineString", coordinates: geometry }, distance: 1000, duration: 600 }],
+      features: [{ geometry: { type: "LineString", coordinates: geometry }, properties: { summary: { distance: 1000, duration: 600 } } }],
+    });
+    return;
+  }
+
