@@ -44,3 +44,49 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
 
   try {
     await reportCourierPosition(page, courierPayload.accessCode);
+    await loginAsDispatcher(page);
+
+    await page.goto('/pedidos');
+    await expect(page.getByRole('heading', { name: 'Registrar un pedido' })).toBeVisible();
+    const orderMap = page.getByLabel('Mapa para seleccionar la dirección del pedido');
+    await expect(orderMap.locator('.maplibregl-canvas')).toBeVisible();
+    await page.getByRole('textbox', { name: 'Dirección' }).fill('Cra. 27 #18-09');
+    await expect(orderMap.getByRole('status')).toHaveCount(0, { timeout: 20_000 });
+    await orderMap.locator('.maplibregl-canvas').click({ position: { x: 280, y: 260 } });
+    await page.getByLabel('Referencia interna del pedido (opcional)').fill(guide);
+    await page.getByRole('button', { name: 'Registrar pedido pendiente' }).click();
+    await expect(
+      page.getByText(new RegExp(`Pedido ${guide} listo\\. Guía privada para el cliente:`))
+    ).toBeVisible();
+
+    await page.goto('/dashboard');
+    await expect(page.getByRole('heading', { name: 'Despacho', exact: true })).toBeVisible();
+    await expect(page.getByText(guide).first()).toBeVisible();
+
+    const dispatchSection = page.getByRole('region', { name: 'Despachar pedidos' });
+    const pendingSection = dispatchSection
+      .getByRole('heading', { name: '1. Pedidos pendientes' })
+      .locator('xpath=../..');
+    await pendingSection.getByRole('button', { name: 'Quitar todos' }).click();
+    await page.waitForTimeout(10_500);
+    await expect(pendingSection.locator('input[type="checkbox"]:checked')).toHaveCount(0);
+    await pendingSection
+      .locator('label')
+      .filter({ hasText: guide })
+      .locator('input[type="checkbox"]')
+      .check();
+
+    const courierSection = dispatchSection
+      .getByRole('heading', { name: '2. Repartidores disponibles' })
+      .locator('xpath=../..');
+    const selectedCouriers = courierSection.locator('label input[type="checkbox"]:checked');
+    while ((await selectedCouriers.count()) > 0) {
+      await selectedCouriers.first().uncheck();
+    }
+    await courierSection
+      .locator('label')
+      .filter({ hasText: `UI courier ${suffix}` })
+      .locator('input[type="checkbox"]')
+      .check();
+
+    await page.getByRole('button', { name: /Analizar reparto|Cambió la selección/ }).click();
