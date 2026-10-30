@@ -33,3 +33,38 @@ it('revisa cada 5 s y aplica sola una mejora real, mostrando el ahorro y las mej
     sequenceIndex,
     address: `Dirección ${id}`,
     lat: 1.21,
+    lng: -77.28,
+    status: 'PENDING',
+  }));
+  const route = {
+    id: 'assigned',
+    status: 'PLANNED',
+    courier: { currentLat: 1.21, currentLng: -77.28 },
+    geometryProvider: 'OSRM',
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [-77.28, 1.21],
+        [-77.27, 1.22],
+      ],
+    },
+    deliveryPoints: points,
+  };
+  request.mockImplementation(async (url: string) => {
+    if (url.endsWith('/recalcular'))
+      return Response.json({
+        route: {
+          ...route,
+          deliveryPoints: [...points]
+            .reverse()
+            .map((point, sequenceIndex) => ({ ...point, sequenceIndex })),
+        },
+      });
+    if (url.endsWith('/propuesta'))
+      return Response.json({
+        orderedDeliveryPointIds: ['second', 'first'],
+        currentDeliveryPointIds: ['first', 'second'],
+        changed: true,
+        estimatedDurationMinutes: 12,
+        improvementMinutes: 3.2,
+        computedAt: new Date().toISOString(),
