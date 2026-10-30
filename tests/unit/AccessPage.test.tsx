@@ -21,3 +21,26 @@ describe("acceso con correo y contraseña", () => {
 
   function submit() {
     fireEvent.change(screen.getByLabelText("Correo electrónico"), {
+      target: { value: "a@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Contraseña"), {
+      target: { value: " contraseña privada " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+  }
+
+  it("envía credenciales sin recortar la contraseña y sin permitir seleccionar rol", async () => {
+    mockFetch.mockResolvedValue(Response.json({ authenticated: true, redirectTo: "/dashboard" }));
+    const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+    render(<AccessPage />);
+    submit();
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/dashboard"));
+    expect(JSON.parse(mockFetch.mock.calls[0]![1].body)).toEqual({
+      email: "a@example.com",
+      password: " contraseña privada ",
+      returnTo: null,
+    });
+    expect(screen.queryByLabelText("Código de acceso")).toBeNull();
+  });
+
+  it("muestra un error recuperable cuando el servidor devuelve texto en vez de JSON", async () => {
