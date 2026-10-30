@@ -25,3 +25,29 @@ describe("BackendAccessGuard", () => {
     vi.stubGlobal("fetch", mockFetch);
   });
 
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("monta el contenido solo después de que FastAPI autoriza la página", async () => {
+    mockFetch.mockResolvedValue(
+      new Response(JSON.stringify({ allowed: true, redirectTo: null }), { status: 200 }),
+    );
+    render(<BackendAccessGuard><p>Contenido privado</p></BackendAccessGuard>);
+
+    expect(screen.queryByText("Contenido privado")).toBeNull();
+    await screen.findByText("Contenido privado");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/auth/access?path=%2Fdashboard",
+      expect.objectContaining({ cache: "no-store" }),
+    );
+  });
+
+  it("envía a acceso y preserva la ruta solicitada si falta sesión", async () => {
+    mockFetch.mockResolvedValue(
+      new Response(JSON.stringify({ allowed: false, redirectTo: "/acceso" }), { status: 200 }),
+    );
+    render(<BackendAccessGuard><p>Contenido privado</p></BackendAccessGuard>);
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(
