@@ -31,3 +31,35 @@ function mockResponses(failure: string) {
     }] });
     if (path.endsWith('/rutas')) return Response.json({ routes: [] });
     if (path.endsWith('/notificaciones')) return Response.json({ notifications: [] });
+    return Response.json({ metrics: {
+      routeCount: 0, completedRouteCount: 0, estimatedDurationMinutes: 0,
+      estimatedDistanceMeters: 0, timeSavedMinutes: 0, distanceSavedMeters: 0, routesWithBaseline: 0,
+    } });
+  });
+  vi.stubGlobal('fetch', request);
+  return request;
+}
+
+it('permite despachar aunque la analítica no responda', async () => {
+  mockResponses('/api/v1/analitica');
+  await act(async () => render(<DashboardPage />));
+  expect(screen.getByText('Calle de prueba en Pasto')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Analizar reparto/ })).toBeEnabled();
+  expect(screen.queryByText('No se pudieron cargar los datos operativos.')).toBeNull();
+});
+
+it('conserva los últimos datos pero impide despachar si falla una consulta esencial', async () => {
+  const request = mockResponses('');
+  await act(async () => render(<DashboardPage />));
+  const successful = request.getMockImplementation()!;
+  request.mockImplementation(async (url: string) => url.endsWith('/rutas')
+    ? Response.json({}, { status: 503, headers: { 'X-Request-ID': 'route-failure-reference' } })
+    : successful(url));
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Actualizar datos' })));
+  expect(screen.getByText('Calle de prueba en Pasto')).toBeTruthy();
+  expect(screen.getByRole('alert').textContent).toContain('Rutas:');
+  expect(screen.getByRole('alert').textContent).toContain('route-failure-reference');
+  expect(screen.getByRole('button', { name: /Analizar reparto/ })).toBeDisabled();
+});
+
+it('ante una sesión vencida retira los datos privados y ofrece volver a ingresar', async () => {
