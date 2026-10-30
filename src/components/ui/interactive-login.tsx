@@ -28,8 +28,10 @@ export function InteractiveLogin({
   const [password, setPassword] = useState('');
   const [visiblePassword, setVisiblePassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submitting = useRef(false);
+  const emailInvalid = emailTouched && email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
   const reducedMotion = useReducedMotion();
   const { t } = usePreferences();
 
@@ -74,8 +76,16 @@ export function InteractiveLogin({
           maxLength={254}
           value={email}
           disabled={loading}
+          aria-invalid={emailInvalid}
+          aria-describedby={emailInvalid ? 'email-hint' : undefined}
+          onBlur={() => setEmailTouched(true)}
           onChange={(event) => setEmail(event.target.value)}
         />
+        {emailInvalid ? (
+          <p className="ui-login-error" id="email-hint">
+            {t('login.email.invalid')}
+          </p>
+        ) : null}
         <label htmlFor="password">{t('login.password')}</label>
         <div className="ui-password-field">
           <input

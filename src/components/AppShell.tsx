@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { CircleHelp, Home, Languages, LogIn, Moon, Package, Route, Search, Sun } from 'lucide-react';
+import CommandPalette, { type PaletteItem } from '@/components/CommandPalette';
 import IntroDialog, { OPEN_INTRO_EVENT } from '@/components/IntroDialog';
 import InterfaceIcon from '@/components/InterfaceIcon';
 import LogoutButton from '@/components/LogoutButton';
@@ -76,6 +77,39 @@ export default function AppShell({ children, active }: AppShellProps) {
 
   const label = (key: NavKey) => t(`nav.${key}` as MessageKey);
 
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    if (!dispatcherSurface) return undefined;
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dispatcherSurface]);
+  const paletteItems = useMemo<PaletteItem[]>(
+    () => [
+      ...navigationBySurface.dispatcher!.map((item) => ({
+        id: `go-${item.key}`,
+        group: t('palette.group.go'),
+        label: t(`nav.${item.key}` as MessageKey),
+        href: item.href,
+      })),
+      { id: 'new-order', group: t('palette.group.go'), label: t('dash.registerOrder'), href: '/pedidos' },
+      {
+        id: 'theme',
+        group: t('palette.group.prefs'),
+        label: theme === 'dark' ? t('shell.themeToLight') : t('shell.themeToDark'),
+        run: () => setTheme(theme === 'dark' ? 'light' : 'dark'),
+      },
+      { id: 'lang', group: t('palette.group.prefs'), label: t('shell.lang'), run: () => setLang(lang === 'es' ? 'en' : 'es') },
+      { id: 'help', group: t('palette.group.prefs'), label: t('shell.help'), run: () => window.dispatchEvent(new Event(OPEN_INTRO_EVENT)) },
+    ],
+    [lang, setLang, setTheme, t, theme]
+  );
+
   return (
     <div className={`rp-shell ${operational ? 'rp-shell-operational' : 'rp-shell-public'}`}>
       <a className="rp-skip-link" href="#main-content">
@@ -112,6 +146,17 @@ export default function AppShell({ children, active }: AppShellProps) {
           </nav>
           <div className="rp-shell-account">
             <div className="rp-shell-tools" role="group" aria-label={t('shell.help')}>
+              {dispatcherSurface ? (
+                <button
+                  aria-label={t('palette.open')}
+                  className="rp-tool"
+                  data-tip="tip.palette"
+                  onClick={() => setPaletteOpen(true)}
+                  type="button"
+                >
+                  <Search aria-hidden="true" />
+                </button>
+              ) : null}
               <button
                 aria-label={t('shell.help')}
                 className="rp-tool"
@@ -201,6 +246,16 @@ export default function AppShell({ children, active }: AppShellProps) {
           })}
         </Dock>
       )}
+      {dispatcherSurface ? (
+        <CommandPalette
+          emptyText={t('palette.empty')}
+          items={paletteItems}
+          label={t('palette.open')}
+          onClose={() => setPaletteOpen(false)}
+          open={paletteOpen}
+          placeholder={t('palette.placeholder')}
+        />
+      ) : null}
       <TooltipLayer />
       <IntroDialog />
     </div>
