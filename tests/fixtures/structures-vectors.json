@@ -31,3 +31,36 @@
       "structure": "stack",
       "ops": [
         { "call": "is_empty", "expect": true },
+        { "call": "pop", "expect": null },
+        { "call": "push", "args": [1], "expect": null },
+        { "call": "push", "args": [2], "expect": null },
+        { "call": "push", "args": [3], "expect": null },
+        { "call": "size", "expect": 3 },
+        { "call": "peek", "expect": 3 },
+        { "call": "pop", "expect": 3 },
+        { "call": "pop", "expect": 2 },
+        { "call": "size", "expect": 1 },
+        { "call": "pop", "expect": 1 },
+        { "call": "pop", "expect": null },
+        { "call": "is_empty", "expect": true }
+      ]
+    },
+    {
+      "name": "lista simple con inserción en extremos y remove",
+      "structure": "singly_linked_list",
+      "ops": [
+        { "call": "append", "args": ["b"], "expect": null },
+        { "call": "prepend", "args": ["a"], "expect": null },
+        { "call": "append", "args": ["c"], "expect": null },
+        { "call": "to_array", "expect": ["a", "b", "c"] },
+        { "call": "remove", "args": ["missing"], "expect": false },
+        { "call": "remove", "args": ["b"], "expect": true },
+        { "call": "to_array", "expect": ["a", "c"] },
+        { "call": "pop_front", "expect": "a" },
+        { "call": "pop_front", "expect": "c" },
+        { "call": "pop_front", "expect": null },
+        { "call": "size", "expect": 0 }
+      ]
+    },
+    {
+      "name": "min-heap: orden de prioridad con swaps y decrease_key por ID",
