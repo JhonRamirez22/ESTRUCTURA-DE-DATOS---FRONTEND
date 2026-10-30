@@ -12,11 +12,13 @@ import { SessionChangeNotice } from "@/components/SessionChangeNotice";
 import type { MapTrafficMark } from "@/components/MapLibreRouteMap";
 import { nearestStopsByEta, type StopEta } from "@/lib/etaHeap";
 import { OfflineQueue } from "@/lib/offlineQueue";
+import Sheet, { type SheetLayout } from "@/components/Sheet";
+import type { MapInset } from "@/components/MapLibreRouteMap";
 
 const CourierRouteMap = dynamic(() => import("./CourierRouteMap"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[340px] items-center justify-center bg-slate-100 text-sm text-slate-500">
+    <div className="absolute inset-0 flex items-center justify-center bg-[#17242b] text-sm text-slate-300">
       Cargando mapa de tu ruta…
     </div>
   ),
@@ -616,13 +618,112 @@ export default function RepartidorPage() {
     : undefined;
   const nearest = nearestStopsByEta(stopEtas, 3);
 
+  const [inset, setInset] = useState<MapInset | undefined>(undefined);
+  const [stageWide, setStageWide] = useState(false);
+  const handleSheetLayout = useCallback((layout: SheetLayout) => {
+    setStageWide(layout.wide);
+    setInset((current) =>
+      current &&
+      current.top === layout.inset.top &&
+      current.right === layout.inset.right &&
+      current.bottom === layout.inset.bottom &&
+      current.left === layout.inset.left
+        ? current
+        : layout.inset
+    );
+  }, []);
+
+  const gpsButton = isTracking ? (
+    <button className="rp-button rp-button-danger rp-button-small shrink-0" data-tip="tip.stopGps" onClick={stopTracking} type="button">
+      {t("courier.stopGps")}
+    </button>
+  ) : (
+    <button
+      className="rp-button rp-button-go rp-button-small shrink-0"
+      data-tip="tip.startGps"
+      disabled={loadingProfile}
+      onClick={startTracking}
+      type="button"
+    >
+      {t("courier.startGps")}
+    </button>
+  );
+  const currentStop = activeDeliveryPoints[0];
+  const canResolveCurrent =
+    assignedRoute?.status === "IN_PROGRESS" &&
+    currentStop !== undefined &&
+    (currentStop.status === "PENDING" || currentStop.status === "EN_ROUTE");
+  // Acción principal en la zona del pulgar: la parada que toca y cómo cerrarla.
+  const sheetFoot = assignedRoute ? (
+    <div className="grid gap-2">
+      {navigation ? (
+        <div className="rl-board !p-3">
+          <p className="text-xs font-semibold !text-[var(--board-soft)]">
+            {t("courier.nav")} · <span className="tabular-nums">{formatDistance(navigation.distanceMeters)} · {Math.max(1, Math.round(navigation.durationMinutes))} min</span>
+          </p>
+          <p className="mt-1 text-xl font-semibold leading-tight !text-[var(--board-ink)]">
+            <span className="sr-only">Próxima parada: </span>
+            {nextStop?.address ?? "pendiente"}
+          </p>
+        </div>
+      ) : null}
+      {assignedRoute.status === "PLANNED" ? (
+        <button
+          className="rp-button rp-button-go rp-button-block"
+          data-tip="tip.startRoute"
+          onClick={() => void updateRouteStatus("IN_PROGRESS")}
+          type="button"
+        >
+          {t("courier.start")}
+        </button>
+      ) : null}
+      {canResolveCurrent && currentStop ? (
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <button
+            className="rp-button rp-button-go rp-button-block"
+            data-tip="tip.delivered"
+            onClick={() => void updateDeliveryStatus(currentStop.id, "DELIVERED")}
+            type="button"
+          >
+            {t("courier.deliverNow")}
+          </button>
+          <button
+            className="rp-button rp-button-danger"
+            data-tip="tip.failed"
+            onClick={() => void updateDeliveryStatus(currentStop.id, "FAILED")}
+            type="button"
+          >
+            {t("courier.failed")}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  ) : undefined;
+
   return (
     <AppShell active="courier">
-      <main className="rp-courier rl-page !max-w-xl">
+      <main className="rp-courier">
         <SessionChangeNotice role="courier" />
-        <header className="rl-page-head !mb-5">
-          <div>
-            <h1>{t("courier.title")}</h1>
+        <section
+          aria-label={t("courier.title")}
+          className={`rp-stage ${stageWide ? "is-wide" : ""}`}
+        >
+          {assignedRoute ? (
+            <CourierRouteMap
+              className="absolute inset-0 h-full w-full"
+              currentLocation={lastLocation}
+              inset={inset}
+              route={assignedRoute}
+              trafficMarks={trafficMarks}
+            />
+          ) : null}
+          <Sheet
+            foot={sheetFoot}
+            grabberLabel={t("courier.sheet.grabber")}
+            head={
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h1 className="text-2xl font-semibold leading-tight">{t("courier.title")}</h1>
             <p className="flex items-center gap-2">
               <span
                 aria-hidden="true"
@@ -635,26 +736,17 @@ export default function RepartidorPage() {
                   : formatCourierStatus(courierStatus, lastLocation !== null)}
               </span>
             </p>
-          </div>
-        </header>
-
-        <div className="grid gap-3">
-          {/* Una sola acción de ubicación visible: iniciar o detener según el estado. */}
-          {isTracking ? (
-            <button className="rp-button rp-button-danger rp-button-block" data-tip="tip.stopGps" onClick={stopTracking} type="button">
-              {t("courier.stopGps")}
-            </button>
-          ) : (
-            <button
-              className="rp-button rp-button-go rp-button-block"
-              data-tip="tip.startGps"
-              disabled={loadingProfile}
-              onClick={startTracking}
-              type="button"
-            >
-              {t("courier.startGps")}
-            </button>
-          )}
+                </div>
+                {gpsButton}
+              </div>
+            }
+            initialSnap={assignedRoute ? 2 : 1}
+            label={t("courier.title")}
+            mid={0.55}
+            onLayout={handleSheetLayout}
+            peek={assignedRoute ? 284 : 150}
+          >
+            <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-3">
             <button
               className="rp-button rp-button-quiet"
@@ -684,50 +776,20 @@ export default function RepartidorPage() {
               {new Date(lastLocation.recordedAt).toLocaleString("es-CO")}
             </p>
           ) : null}
-        </div>
-
+            </div>
         {error ? (
           <div className="rl-notice is-error mt-5" role="alert">
             {error}
           </div>
         ) : null}
-
-        {assignedRoute ? (
-          <section aria-label="Ruta asignada" className="mt-8">
-            {navigation ? (
-              <div className="rl-board">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-xs font-semibold !text-[var(--board-soft)]">{t("courier.nav")}</p>
-                  <span className="rl-state text-[var(--board-soft)]">Calles {navigation.geometryProvider}</span>
-                </div>
-                <p className="mt-2 text-2xl font-semibold leading-tight !text-[var(--board-ink)]">
-                  <span className="sr-only">Próxima parada: </span>
-                  {nextStop?.address ?? "pendiente"}
-                </p>
-                <dl className="mt-4 grid grid-cols-2 gap-4">
-                  <div className="flex flex-col-reverse">
-                    <dt className="text-xs text-[var(--board-soft)]">{t("courier.distance")}</dt>
-                    <dd className="text-2xl font-semibold tabular-nums">{formatDistance(navigation.distanceMeters)}</dd>
-                  </div>
-                  <div className="flex flex-col-reverse">
-                    <dt className="text-xs text-[var(--board-soft)]">{t("courier.eta")}</dt>
-                    <dd className="text-2xl font-semibold tabular-nums">
-                      {Math.max(1, Math.round(navigation.durationMinutes))} min
-                    </dd>
-                  </div>
-                </dl>
-                <p className="mt-3 text-xs leading-5">
-                  {navigation.warning ??
-                    `El trazado sigue calles de OpenStreetMap mediante ${navigation.geometryProvider}. El proveedor público no ofrece tráfico en tiempo real.`}
-                </p>
-              </div>
-            ) : null}
+            {assignedRoute ? (
+              <section aria-label="Ruta asignada" className="mt-4">
+                {navigation?.warning ? <p className="rl-notice is-warn" role="status">{navigation.warning}</p> : null}
             {navigationError ? (
               <p className="rl-notice is-warn mt-3" role="status">
                 {navigationError}
               </p>
             ) : null}
-
             <div className="rl-head mt-8">
               <h2>
                 <span>{t("courier.assigned")}</span>{" "}
@@ -747,16 +809,6 @@ export default function RepartidorPage() {
                 {assignedRoute.estimatedDurationMinutes !== undefined
                   ? ` · ${Math.ceil(assignedRoute.estimatedDurationMinutes)} min estimados` : ''}
               </p>
-              {assignedRoute.status === "PLANNED" ? (
-                <button
-                  className="rp-button rp-button-primary rp-button-small"
-                  data-tip="tip.startRoute"
-                  onClick={() => void updateRouteStatus("IN_PROGRESS")}
-                  type="button"
-                >
-                  {t("courier.start")}
-                </button>
-              ) : null}
               {assignedRoute.status === "IN_PROGRESS" ? (
                 <button
                   className="rp-button rp-button-quiet rp-button-small"
@@ -814,7 +866,8 @@ export default function RepartidorPage() {
                       <span className="tabular-nums text-[var(--ink-soft)]">{(point.sequenceIndex ?? index) + 1}. </span>
                       {point.address}
                       <span className="rl-stop-meta">{formatDeliveryStatus(point.status)}</span>
-                      {assignedRoute.status === "IN_PROGRESS" &&
+                      {!current &&
+                      assignedRoute.status === "IN_PROGRESS" &&
                       (point.status === "PENDING" || point.status === "EN_ROUTE") ? (
                         <span className="mt-2 flex gap-2">
                           <button
@@ -842,9 +895,6 @@ export default function RepartidorPage() {
               })}
             </ol>
 
-            <div className={`mt-6 overflow-hidden rounded ${celebrating ? "route-celebrate" : ""}`}>
-              <CourierRouteMap currentLocation={lastLocation} route={assignedRoute} trafficMarks={trafficMarks} />
-            </div>
             {trafficMarks.length > 0 ? (
               <p className="mt-2 text-xs text-[var(--ink-soft)]">
                 Tráfico sobre tu ruta: {summarizeTraffic(trafficMarks)}. Medido a las{" "}
@@ -868,14 +918,15 @@ export default function RepartidorPage() {
                 </ul>
               </section>
             ) : null}
-          </section>
-        ) : null}
-
+              </section>
+            ) : null}
         {!assignedRoute && !loadingProfile && !error ? (
           <p className="rl-empty mt-6">
             {loadingProfile ? "Cargando tus entregas…" : t("courier.noRoute")}
           </p>
         ) : null}
+          </Sheet>
+        </section>
       </main>
     </AppShell>
   );

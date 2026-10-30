@@ -9,11 +9,13 @@ import AppShell from "@/components/AppShell";
 import { usePreferences, useT } from '@/lib/preferences';
 import CustomerOrderChat from "@/components/CustomerOrderChat";
 import { RouteLine, type LineStop } from "@/components/RouteLine";
+import Sheet, { type SheetLayout } from "@/components/Sheet";
+import type { MapInset } from "@/components/MapLibreRouteMap";
 
 const TrackingMap = dynamic(() => import("@/components/MapLibreRouteMap"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[360px] items-center justify-center bg-slate-100 text-sm text-slate-500">
+    <div className="absolute inset-0 flex items-center justify-center bg-[#17242b] text-sm text-slate-300">
       Cargando mapa de seguimiento…
     </div>
   ),
@@ -56,6 +58,20 @@ interface TrackingData {
 export default function ClientePage() {
   const { t } = usePreferences();
   const [guide, setGuide] = useState("");
+  const [inset, setInset] = useState<MapInset | undefined>(undefined);
+  const [stageWide, setStageWide] = useState(false);
+  const handleSheetLayout = useCallback((layout: SheetLayout) => {
+    setStageWide(layout.wide);
+    setInset((current) =>
+      current &&
+      current.top === layout.inset.top &&
+      current.right === layout.inset.right &&
+      current.bottom === layout.inset.bottom &&
+      current.left === layout.inset.left
+        ? current
+        : layout.inset
+    );
+  }, []);
   const [tracking, setTracking] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -206,38 +222,69 @@ export default function ClientePage() {
         ) : null}
 
         {tracking ? (
-          <section className="mt-8 grid items-start gap-8 lg:grid-cols-[340px_minmax(0,1fr)]">
-            {trackingRefreshWarning ? (
-              <p className="rl-notice is-warn lg:col-span-2" role="status">
+          <section
+            aria-label={t("tracking.map")}
+            className={`rp-stage mt-8 ${stageWide ? "is-wide" : ""}`}
+          >
+            <TrackingMap
+              ariaLabel="Mapa de seguimiento del pedido"
+              className="absolute inset-0 h-full w-full"
+              couriers={courierPosition ? [courierPosition] : []}
+              inset={inset}
+              pendingPoints={targetPoint && !tracking.route ? [targetPoint] : []}
+              routes={
+                tracking.route && courierPosition && targetPoint
+                  ? [{
+                      id: tracking.route.id,
+                      courier: courierPosition,
+                      deliveryPoints: [targetPoint],
+                      geometryProvider: tracking.route.geometryProvider,
+                      geometry: tracking.route.geometry,
+                    }]
+                  : []
+              }
+            />
+            <Sheet
+              foot={
+                <div className="rl-board !p-4">
+                  <p className="break-all text-xs font-semibold">Guía {tracking.guide}</p>
+                  <p className="mt-2 text-3xl font-semibold leading-tight !text-[var(--board-ink)]">
+                    {tracking.route
+                      ? tracking.route.estimatedMinutesFromNow === null
+                        ? t("tracking.assigned")
+                        : t("tracking.approx", { min: Math.max(1, Math.round(tracking.route.estimatedMinutesFromNow)) })
+                      : formatStatus(tracking.status)}
+                  </p>
+                  <h2 className="mt-1 text-sm font-normal !text-[var(--board-soft)]">{tracking.address}</h2>
+                </div>
+              }
+              grabberLabel={t("tracking.sheet.grabber")}
+              head={
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-xl font-semibold">{t("tracking.progress")}</h2>
+                  <span className="rl-state">{formatStatus(tracking.status)}</span>
+                </div>
+              }
+              label={t("tracking.map")}
+              onLayout={handleSheetLayout}
+              peek={190}
+            >
+              <div className="grid gap-4">
+{trackingRefreshWarning ? (
+              <p className="rl-notice is-warn " role="status">
                 {trackingRefreshWarning}
               </p>
             ) : null}
-
-            <aside className="min-w-0">
-              <div className="rl-board">
-                <p className="break-all text-xs font-semibold">Guía {tracking.guide}</p>
-                <p className="mt-3 text-3xl font-semibold leading-tight !text-[var(--board-ink)]">
-                  {tracking.route
-                    ? tracking.route.estimatedMinutesFromNow === null
-                      ? t("tracking.assigned")
-                      : t("tracking.approx", { min: Math.max(1, Math.round(tracking.route.estimatedMinutesFromNow)) })
-                    : formatStatus(tracking.status)}
-                </p>
-                <h2 className="mt-2 text-sm font-normal !text-[var(--board-soft)]">{tracking.address}</h2>
-                <div className="mt-5">
-                  <RouteLine label={t("tracking.progress")} selected stops={trackingStages(tracking, t)} />
-                </div>
-                {lastUpdatedAt ? (
-                  <p aria-live="polite" className="mt-2 text-xs leading-5">
+                <RouteLine label={t("tracking.progress")} selected stops={trackingStages(tracking, t)} />
+{lastUpdatedAt ? (
+                  <p aria-live="polite" className=" text-xs leading-5">
                     Última consulta {formatQueryTime(lastUpdatedAt)}
                     {tracking.status !== "DELIVERED" && tracking.status !== "FAILED"
                       ? " · se actualiza cada 30 s"
                       : ""}
                   </p>
                 ) : null}
-              </div>
-
-              {tracking.route ? (
+{tracking.route ? (
                 <>
                   <dl className="mt-5 text-sm">
                     <InfoRow label={t("tracking.delivery")} value={t("tracking.onWay")} />
@@ -272,8 +319,9 @@ export default function ClientePage() {
                     <p className="rl-notice is-warn mt-3 text-xs leading-5">{tracking.route.estimateWarning}</p>
                   ) : null}
                   <p className="mt-4 text-xs leading-5 text-[var(--ink-soft)]">{tracking.route.estimateNote}</p>
-                </>
-              ) : (
+                
+              </>
+                ) : (
                 <p className="mt-4 text-sm leading-6 text-[var(--ink-soft)]">
                   {tracking.status === "REQUESTED"
                     ? "Recibimos tu solicitud. El despacho la revisa antes de asignarla a un repartidor."
@@ -281,7 +329,7 @@ export default function ClientePage() {
                 </p>
               )}
               <button
-                className="rp-button rp-button-quiet mt-5 w-full"
+                className="rp-button rp-button-quiet w-full"
                 data-tip="tip.refreshTracking"
                 disabled={loading}
                 onClick={() => void searchTracking(tracking.guide)}
@@ -289,34 +337,9 @@ export default function ClientePage() {
               >
                 {loading ? t("tracking.refreshing") : t("tracking.refresh")}
               </button>
-            </aside>
-
-            <div className="min-w-0 space-y-8">
-              <div className="rp-map-frame">
-                <div className="rp-map-heading">
-                  <h2>{t("tracking.map")}</h2>
-                  <span className="rl-state text-[var(--board-soft)]">{formatStatus(tracking.status)}</span>
-                </div>
-                <TrackingMap
-                  ariaLabel="Mapa de seguimiento del pedido"
-                  className="h-[360px] w-full"
-                  couriers={courierPosition ? [courierPosition] : []}
-                  pendingPoints={targetPoint && !tracking.route ? [targetPoint] : []}
-                  routes={
-                    tracking.route && courierPosition && targetPoint
-                      ? [{
-                          id: tracking.route.id,
-                          courier: courierPosition,
-                          deliveryPoints: [targetPoint],
-                          geometryProvider: tracking.route.geometryProvider,
-                          geometry: tracking.route.geometry,
-                        }]
-                      : []
-                  }
-                />
+                <CustomerOrderChat guide={tracking.guide} key={tracking.guide} />
               </div>
-              <CustomerOrderChat guide={tracking.guide} key={tracking.guide} />
-            </div>
+            </Sheet>
           </section>
         ) : null}
       </main>

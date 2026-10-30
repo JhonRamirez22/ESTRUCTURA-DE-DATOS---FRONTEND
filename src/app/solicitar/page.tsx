@@ -2,18 +2,20 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import AppShell from '@/components/AppShell';
 import { usePreferences } from '@/lib/preferences';
 import { RouteLine } from '@/components/RouteLine';
+import Sheet, { type SheetLayout } from '@/components/Sheet';
+import type { MapInset } from '@/components/MapLibreRouteMap';
 import { apiFetch } from '@/lib/apiClient';
 import { containsForeignCityReference, isWithinPastoServiceArea } from '@/lib/pastoArea';
 
 const RequestMap = dynamic(() => import('@/components/MapLibreRouteMap'), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full min-h-[420px] items-center justify-center bg-[var(--board)] text-sm text-[var(--board-soft)]">
+    <div className="absolute inset-0 flex items-center justify-center bg-[var(--board)] text-sm text-[var(--board-soft)]">
       Cargando mapa de Pasto…
     </div>
   ),
@@ -50,6 +52,20 @@ export default function RequestDeliveryPage() {
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedRequest | null>(null);
   const [copied, setCopied] = useState(false);
+  const [inset, setInset] = useState<MapInset | undefined>(undefined);
+  const [stageWide, setStageWide] = useState(false);
+  const handleSheetLayout = useCallback((layout: SheetLayout) => {
+    setStageWide(layout.wide);
+    setInset((current) =>
+      current &&
+      current.top === layout.inset.top &&
+      current.right === layout.inset.right &&
+      current.bottom === layout.inset.bottom &&
+      current.left === layout.inset.left
+        ? current
+        : layout.inset
+    );
+  }, []);
   const [lookup, setLookup] = useState<LookupResult | null>(null);
   const [looking, setLooking] = useState(false);
   const [picked, setPicked] = useState(false);
@@ -214,11 +230,42 @@ export default function RequestDeliveryPage() {
             </div>
           </section>
         ) : (
-          <section className="grid items-start gap-8 lg:grid-cols-[400px_minmax(0,1fr)]">
-            <form className="rl-section space-y-5" noValidate onSubmit={(event) => void submit(event)}>
-              <div className="rl-head">
-                <h2>{t('request.form')}</h2>
-              </div>
+          <section aria-label={t('request.mapTitle')} className={`rp-stage ${stageWide ? 'is-wide' : ''}`}>
+                <RequestMap
+                  ariaLabel="Mapa para marcar el punto de entrega"
+                  className="absolute inset-0 h-full w-full"
+                  inset={inset}
+                  couriers={[]}
+                  onMapClick={({ lat, lng }) => {
+                    if (!isWithinPastoServiceArea(lat, lng)) {
+                      setError('Ese punto queda fuera de la zona de servicio de Pasto.');
+                      return;
+                    }
+                    setError(null);
+                    setPoint([lat, lng]);
+                  }}
+                  pendingPoints={[]}
+                  routes={[]}
+                  selectedCoordinate={point}
+                />
+            <Sheet
+              foot={
+                <button className="rp-button rp-button-go rp-button-block" data-tip="tip.sendRequest" disabled={sending} form="request-form" type="submit">
+                  {sending ? t('request.sending') : t('request.send')}
+                </button>
+              }
+              grabberLabel={t('request.sheet.grabber')}
+              head={
+                <div className="flex items-baseline justify-between gap-3">
+                  <h2 className="text-xl font-semibold">{t('request.form')}</h2>
+                  <span className="rl-state">{t('request.onlyPasto')}</span>
+                </div>
+              }
+              label={t('request.form')}
+              onLayout={handleSheetLayout}
+              peek={150}
+            >
+            <form className="space-y-5" id="request-form" noValidate onSubmit={(event) => void submit(event)}>
               <label className="rp-field-label">
                 {t('request.address')}
                 <input
@@ -278,9 +325,6 @@ export default function RequestDeliveryPage() {
                   {error}
                 </p>
               ) : null}
-              <button className="rp-button rp-button-go rp-button-block" data-tip="tip.sendRequest" disabled={sending} type="submit">
-                {sending ? t('request.sending') : t('request.send')}
-              </button>
               <p className="text-xs leading-5 text-[var(--ink-soft)]">
                 {t('request.haveGuide')}{' '}
                 <Link className="font-semibold underline underline-offset-4" href="/cliente">
@@ -288,30 +332,7 @@ export default function RequestDeliveryPage() {
                 </Link>
               </p>
             </form>
-            <div className="rp-map-frame order-first lg:order-none">
-              <div className="rp-map-heading">
-                <h2>{t('request.mapTitle')}</h2>
-                <span className="rl-state text-[var(--board-soft)]">{t('request.onlyPasto')}</span>
-              </div>
-              <div className="h-[360px] lg:h-[480px]">
-                <RequestMap
-                  ariaLabel="Mapa para marcar el punto de entrega"
-                  className="h-full w-full"
-                  couriers={[]}
-                  onMapClick={({ lat, lng }) => {
-                    if (!isWithinPastoServiceArea(lat, lng)) {
-                      setError('Ese punto queda fuera de la zona de servicio de Pasto.');
-                      return;
-                    }
-                    setError(null);
-                    setPoint([lat, lng]);
-                  }}
-                  pendingPoints={[]}
-                  routes={[]}
-                  selectedCoordinate={point}
-                />
-              </div>
-            </div>
+            </Sheet>
           </section>
         )}
       </main>
