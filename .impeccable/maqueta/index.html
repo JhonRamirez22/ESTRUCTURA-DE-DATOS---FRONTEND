@@ -1,0 +1,1100 @@
+<title>Maqueta Rutas Pasto</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Concepto: señalética de línea de transporte (paradas sobre una línea) + comportamiento físico de Apple:
+   el mapa es el escenario a pantalla completa y el panel es una hoja de vidrio cálido que se agarra,
+   se lanza y se puede revertir en cualquier instante. */
+:root {
+  --font: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bg: #f6f1e9; --fg: #32261f; --fg-soft: #5b4d43; --surface: #fffcf7; --band: #eee5d9;
+  --line: #ded2c4; --line-strong: #c9b9a8; --accent: #6b4f3f; --focus: #6b4f3f;
+  --board: #32261f; --board-ink: #fffcf7; --board-soft: #cdbfae; --on-board-route: #8fdcb1;
+  --route: #3e9b6a; --route-ink: #0d2a1c; --route-text: #1f5c3e; --warn: #8a5a12; --danger: #8e2635;
+  --glass-1: rgba(255, 252, 247, .87); --glass-2: rgba(255, 252, 247, .74); --glass-edge: rgba(255, 255, 255, .6);
+  --shadow-sheet: 0 -10px 44px rgba(18, 10, 5, .34), 0 2px 10px rgba(18, 10, 5, .22);
+  --shadow-pop: 0 14px 40px rgba(18, 10, 5, .32), 0 2px 8px rgba(18, 10, 5, .2);
+  --map-bg: #1b1815;
+  --ease: cubic-bezier(.23, 1, .32, 1);
+  --shift: 14px; --dur: 260ms;
+  /* Escala tipográfica: el tracking se aprieta al crecer y se abre al reducirse. */
+  --t-display: 600 clamp(1.75rem, 1.2rem + 2vw, 2.5rem)/1.05 var(--font);
+  --t-title: 600 1.5rem/1.15 var(--font);
+  --t-head: 600 1.0625rem/1.25 var(--font);
+  --t-body: 400 .9375rem/1.5 var(--font);
+  --t-small: 500 .8125rem/1.4 var(--font);
+  --t-micro: 600 .75rem/1.35 var(--font);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17120f; --fg: #f3ebe0; --fg-soft: #c3b5a6; --surface: #241c17; --band: #2e241d;
+    --line: #3b2f26; --line-strong: #5a4a3e; --accent: #d9b896; --focus: #e8cfae;
+    --board: #0e0a08; --board-ink: #f3ebe0; --board-soft: #b8a999; --route-text: #8fdcb1; --warn: #e0b060; --danger: #f08a96;
+    --glass-1: rgba(32, 24, 19, .86); --glass-2: rgba(32, 24, 19, .72); --glass-edge: rgba(255, 240, 220, .16);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17120f; --fg: #f3ebe0; --fg-soft: #c3b5a6; --surface: #241c17; --band: #2e241d;
+  --line: #3b2f26; --line-strong: #5a4a3e; --accent: #d9b896; --focus: #e8cfae;
+  --board: #0e0a08; --board-ink: #f3ebe0; --board-soft: #b8a999; --route-text: #8fdcb1; --warn: #e0b060; --danger: #f08a96;
+  --glass-1: rgba(32, 24, 19, .86); --glass-2: rgba(32, 24, 19, .72); --glass-edge: rgba(255, 240, 220, .16);
+  color-scheme: dark;
+}
+:root.rm { --shift: 0px; --dur: 120ms; }
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass-1: var(--surface); --glass-2: var(--surface); }
+  .sheet, .chip, .toolbar, .palette-box, .pop, .toast, .tip { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+}
+@media (prefers-contrast: more) {
+  :root { --glass-1: var(--surface); --glass-2: var(--surface); --line: var(--line-strong); }
+  .sheet, .chip, .pop, .toast { border: 2px solid var(--fg) !important; }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: var(--t-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px; -webkit-font-smoothing: antialiased; font-optical-sizing: auto;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 60; background: var(--board); }
+::selection { background: color-mix(in srgb, var(--route) 38%, transparent); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ic { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- barra del documento (cambia de pantalla; no es parte de la app) ---------- */
+.doc { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 50; margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
+  background: var(--board); color: var(--board-ink); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.brand { display: flex; align-items: center; gap: 10px; font: var(--t-head); letter-spacing: -.01em; }
+.brand-mark { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--board-ink); display: grid; place-items: center; position: relative; }
+.brand-mark::after { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--on-board-route); }
+.brand small { font: var(--t-micro); letter-spacing: .04em; color: var(--board-soft); text-transform: uppercase; }
+.nav { display: flex; gap: 2px; overflow-x: auto; flex: 1 1 360px; min-width: 0; scrollbar-width: none; padding-block: 2px; }
+.nav::-webkit-scrollbar { display: none; }
+.nav button { background: none; border: 0; color: var(--board-soft); padding: 0 12px; min-height: 40px; border-radius: 6px; font: var(--t-small); letter-spacing: .005em; white-space: nowrap; position: relative; transition: color 120ms; }
+.nav button:hover { color: var(--board-ink); }
+.nav button[aria-current="page"] { color: var(--board-ink); font-weight: 650; }
+.nav button[aria-current="page"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 2px; height: 4px; border-radius: 2px; background: var(--route); }
+.nav .sep { width: 1px; background: color-mix(in srgb, var(--board-soft) 40%, transparent); margin: 8px 6px; flex: none; }
+.tools { display: flex; gap: 4px; margin-left: auto; }
+.tool { width: 40px; height: 40px; border-radius: 8px; border: 0; background: none; color: var(--board-soft); display: grid; place-items: center; transition: background 120ms, color 120ms, transform 100ms var(--ease); }
+.tool:hover { background: color-mix(in srgb, var(--board-ink) 12%, transparent); color: var(--board-ink); }
+.tool:active { transform: scale(.94); }
+.tool[aria-pressed="true"] { color: var(--on-board-route); }
+.kbd { font: var(--t-micro); border: 1px solid color-mix(in srgb, var(--board-soft) 55%, transparent); border-radius: 4px; padding: 1px 5px; margin-left: 6px; color: var(--board-soft); }
+.tool-search { width: auto; padding: 0 10px; gap: 4px; display: flex; align-items: center; }
+
+/* ---------- estructura de pantalla ---------- */
+main { max-width: 1280px; margin: 0 auto; padding-top: 20px; }
+.view-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 24px; margin-bottom: 16px; }
+.view-head h1 { font: var(--t-display); letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+.view-head p { margin: 0; color: var(--fg-soft); max-width: 62ch; }
+.try { margin: 16px 0 0; color: var(--fg-soft); font: var(--t-small); max-width: 90ch; }
+.try b { color: var(--fg); font-weight: 650; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.layout.with-phone { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+.page { max-width: 880px; margin-inline: auto; }
+
+/* ---------- el escenario: mapa a pantalla completa + hoja ---------- */
+.stage { position: relative; overflow: hidden; border-radius: 16px; background: var(--map-bg); isolation: isolate;
+  height: min(78vh, 760px); min-height: 540px; contain: layout paint; }
+.phone { width: min(100%, 390px); margin-inline: auto; transition: width 360ms var(--ease); }
+.phone.land { width: min(100%, 800px); }
+.phone .stage { height: min(780px, calc(100dvh - 130px)); min-height: 560px; }
+.phone.land .stage { height: 400px; min-height: 0; }
+@media (min-width: 560px) {
+  .phone { padding: 10px; border-radius: 44px; background: #0e0b09; box-shadow: 0 24px 60px rgba(18, 10, 5, .35), inset 0 0 0 1.5px #3d332b; }
+  .phone .stage { border-radius: 34px; }
+}
+.map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.map .st-minor { stroke: #2b2622; fill: none; stroke-linecap: round; }
+.map .st-major { stroke: #3b352e; fill: none; stroke-linecap: round; }
+.map .lbl { fill: #6f655a; font: 600 1px var(--font); letter-spacing: .06em; text-anchor: middle; }
+.map .r-base { stroke: #8a7f72; fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity 300ms var(--ease); }
+.map .r-base.on { opacity: .85; }
+.map .r-halo { stroke: #d65a5a; fill: none; opacity: .35; stroke-linecap: round; stroke-linejoin: round; }
+.map .r-line { stroke: var(--route); fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.map .r-hit { stroke: transparent; fill: none; stroke-linecap: round; cursor: help; }
+.map .mk-ring { fill: none; stroke: var(--on-board-route); stroke-width: 2; opacity: 0; }
+.map .mk-dot { fill: #fffcf7; stroke: #1b1815; stroke-width: 3; }
+.map .mk-n { fill: #32261f; font: 700 12px var(--font); text-anchor: middle; dominant-baseline: central; font-variant-numeric: tabular-nums; pointer-events: none; }
+.map .mk.is-done .mk-dot { fill: var(--route); stroke: #1b1815; }
+.map .mk.is-done .mk-n { fill: #0d2a1c; }
+.map .mk.is-current .mk-ring { opacity: 1; }
+.map .mk.is-current .mk-dot { fill: #32261f; stroke: #fffcf7; }
+.map .mk.is-current .mk-n { fill: #fffcf7; }
+.map .mk { transition: opacity 240ms; }
+.map .pin .mk-dot { fill: var(--on-board-route); }
+.map .courier-pulse { fill: #8fdcb1; opacity: .35; transform-box: fill-box; transform-origin: center; animation: pulse 2.4s var(--ease) infinite; }
+:root.rm .map .courier-pulse { animation: none; opacity: .25; }
+.map .courier-dot { fill: #8fdcb1; stroke: #1b1815; stroke-width: 3; }
+.map .fuzz { fill: #8fdcb1; opacity: .16; stroke: #8fdcb1; stroke-opacity: .5; stroke-width: 1.5; stroke-dasharray: 4 4; }
+@keyframes pulse { 0% { transform: scale(.7); opacity: .5; } 100% { transform: scale(2.3); opacity: 0; } }
+.map-tip { position: absolute; z-index: 5; pointer-events: none; padding: 7px 10px; border-radius: 8px; background: var(--glass-1); border: 1px solid var(--glass-edge);
+  backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%); font: var(--t-small); box-shadow: var(--shadow-pop);
+  opacity: 0; transform: translateY(4px); transition: opacity 120ms; white-space: nowrap; }
+.map-tip.on { opacity: 1; transform: none; }
+
+/* barra flotante del escenario: material ligero, nunca apilado sobre vidrio claro */
+.stage-bar { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; pointer-events: none; }
+.stage.wide .stage-bar { left: 424px; }
+.stage-bar > * { pointer-events: auto; }
+.chip { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--glass-edge); background: var(--glass-2);
+  backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%); font: var(--t-small); font-weight: 600; color: var(--fg); box-shadow: 0 2px 10px rgba(18, 10, 5, .22);
+  transition: transform 100ms var(--ease), background 150ms; }
+button.chip:active { transform: scale(.96); }
+button.chip[aria-pressed="true"] { background: var(--board); color: var(--board-ink); border-color: transparent; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--route); flex: none; }
+.dot.warn { background: var(--warn); } .dot.off { background: var(--line-strong); }
+.dot.red { background: #d65a5a; }
+
+/* ---------- la hoja ---------- */
+.sheet { position: absolute; z-index: 3; left: 0; right: 0; top: 0; height: calc(100% - var(--full, 56px)); display: flex; flex-direction: column;
+  background: var(--glass-1); border-top: 1px solid var(--glass-edge); border-radius: 20px 20px 0 0; box-shadow: var(--shadow-sheet);
+  backdrop-filter: blur(24px) saturate(170%); -webkit-backdrop-filter: blur(24px) saturate(170%); will-change: transform; color: var(--fg); }
+.sheet.panel { left: 16px; right: auto; top: 16px; bottom: 16px; width: 392px; height: auto; border-radius: 18px; border: 1px solid var(--glass-edge); transform: none !important; }
+.sheet.dragging { transition: none; user-select: none; }
+.grabber { flex: none; display: grid; place-items: center; height: 26px; width: 100%; background: none; border: 0; padding: 0; touch-action: none; cursor: grab; }
+.grabber:active { cursor: grabbing; }
+.grip { width: 40px; height: 5px; border-radius: 3px; background: var(--line-strong); transition: width 160ms var(--ease), background 160ms; }
+.grabber:hover .grip, .sheet.dragging .grip { width: 52px; background: var(--fg-soft); }
+.sheet.panel .grabber { display: none; }
+.sheet-head { flex: none; padding: 2px 18px 10px; touch-action: none; }
+.sheet.panel .sheet-head { padding-top: 18px; touch-action: auto; }
+.sheet-foot { flex: none; padding: 0 18px 10px; order: 1; }
+.sheet-body { flex: 1 1 auto; min-height: 0; order: 2; padding: 6px 18px 28px; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 22px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 22px), transparent 100%); }
+.sheet.is-full .sheet-body, .sheet.panel .sheet-body { overflow-y: auto; overscroll-behavior: contain; }
+.sheet.panel .sheet-foot { order: 3; padding: 12px 18px 16px; }
+.sheet.panel .sheet-body { padding-bottom: 12px; }
+.sheet-head h1, .sheet-head h2 { margin: 0; font: var(--t-title); letter-spacing: -.015em; }
+.head-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.figures { margin: 0; font: var(--t-small); color: var(--fg-soft); font-variant-numeric: tabular-nums; text-align: right; }
+.figures b { color: var(--fg); font-weight: 700; }
+
+/* ---------- controles ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 8px; border: 2px solid transparent;
+  font: var(--t-small); font-weight: 650; letter-spacing: .005em; transition: transform 100ms var(--ease), background 150ms, border-color 150ms, opacity 150ms; text-decoration: none; position: relative; }
+.btn:active:not([disabled]) { transform: scale(.97); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn-primary { background: var(--board); color: var(--board-ink); }
+.btn-go { background: var(--route); color: var(--route-ink); }
+.btn-go:hover:not([disabled]) { background: color-mix(in srgb, var(--route) 88%, white); }
+.btn-secondary { background: transparent; border-color: var(--accent); color: var(--fg); }
+.btn-secondary:hover:not([disabled]) { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.btn-quiet { background: transparent; border-color: var(--line-strong); color: var(--fg-soft); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--fg-soft); min-width: 44px; padding: 0 10px; }
+.btn-ghost:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.btn-danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.btn-block { width: 100%; min-height: 56px; font-size: 1rem; }
+.btn-link { background: none; border: 0; padding: 0 4px; min-height: 36px; color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.btn.buzz::after { content: ""; position: absolute; inset: -2px; border-radius: 10px; border: 2px solid var(--on-board-route); animation: buzz 420ms var(--ease) forwards; pointer-events: none; }
+@keyframes buzz { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(1.06, 1.25); } }
+.field { display: grid; gap: 6px; }
+.field label { font: var(--t-small); font-weight: 650; }
+.input { width: 100%; min-height: 48px; padding: 0 14px; border-radius: 8px 8px 4px 4px; background: var(--surface); border: 1px solid var(--line-strong); border-bottom: 2px solid var(--fg-soft);
+  transition: border-color 150ms, box-shadow 150ms; color: var(--fg); }
+.input::placeholder { color: var(--fg-soft); opacity: .8; }
+.input:focus { outline: none; border-bottom-color: var(--fg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 28%, transparent); }
+.input[aria-invalid="true"] { border-bottom-color: var(--danger); }
+.hint { margin: 0; font: var(--t-small); color: var(--fg-soft); } .hint.err { color: var(--danger); }
+
+.seg { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 3px; border-radius: 10px; background: var(--band); }
+.seg-ind { position: absolute; top: 3px; bottom: 3px; left: 0; border-radius: 8px; background: var(--surface); box-shadow: 0 1px 3px rgba(18, 10, 5, .25); will-change: transform; pointer-events: none; }
+.seg button { position: relative; z-index: 1; background: none; border: 0; min-height: 38px; border-radius: 8px; font: var(--t-small); font-weight: 600; color: var(--fg-soft); transition: color 150ms; padding: 0 8px; }
+.seg button[aria-selected="true"] { color: var(--fg); font-weight: 700; }
+.seg .badge { margin-left: 6px; font-variant-numeric: tabular-nums; color: var(--fg-soft); font-weight: 600; }
+
+.rows { list-style: none; margin: 0; padding: 0; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); animation: rise var(--dur) var(--ease) both; }
+.row.is-selected { background: color-mix(in srgb, var(--band) 90%, transparent); }
+.row-main { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 12px; align-items: center; padding: 11px 6px; min-height: 56px; cursor: pointer; border-radius: 6px; transition: background 120ms; }
+.row-main:active { background: var(--band); }
+.row-title { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.row-meta { display: block; font: var(--t-small); color: var(--fg-soft); font-variant-numeric: tabular-nums; }
+.row-aside { font: var(--t-small); color: var(--fg-soft); padding-right: 6px; white-space: nowrap; }
+.check { position: absolute; opacity: 0; width: 26px; height: 26px; margin: 0; }
+.box { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line-strong); display: grid; place-items: center; transition: background 160ms var(--ease), border-color 160ms, transform 160ms var(--ease); color: transparent; }
+.box .ic { width: 15px; height: 15px; stroke-width: 3; }
+.check:checked + .box { background: var(--route); border-color: var(--route); color: var(--route-ink); transform: scale(1.04); }
+.check:focus-visible + .box { outline: 2px solid var(--focus); outline-offset: 2px; }
+@keyframes rise { from { opacity: 0; transform: translateY(var(--shift)); } to { opacity: 1; transform: none; } }
+
+.board { background: var(--board); color: var(--board-ink); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px; animation: rise var(--dur) var(--ease) both; }
+.board h2, .board h3 { margin: 0; font: var(--t-head); letter-spacing: -.005em; }
+.board p { margin: 0; color: var(--board-soft); font: var(--t-small); }
+.board .lead { color: var(--board-ink); font: var(--t-body); }
+.board .lead b { color: var(--on-board-route); font-weight: 700; }
+.ladder { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.ladder li { display: grid; gap: 2px; font: var(--t-micro); color: var(--board-soft); position: relative; padding-top: 14px; font-variant-numeric: tabular-nums; }
+.ladder li::before { content: ""; position: absolute; top: 3px; left: 0; right: -6px; height: 3px; background: color-mix(in srgb, var(--board-soft) 40%, transparent); }
+.ladder li::after { content: ""; position: absolute; top: 0; left: 0; width: 9px; height: 9px; border-radius: 50%; background: var(--board); border: 3px solid var(--board-soft); box-sizing: content-box; margin: -3px 0 0 -3px; }
+.ladder li:last-child::before { display: none; }
+.ladder li.ok { color: var(--board-ink); } .ladder li.ok::after { background: var(--on-board-route); border-color: var(--on-board-route); }
+.ladder b { font-size: .9375rem; font-weight: 700; color: var(--board-ink); }
+.verify { display: flex; gap: 8px; align-items: flex-start; color: var(--board-soft); font: var(--t-small); }
+.verify .ic { color: var(--on-board-route); width: 18px; height: 18px; margin-top: 1px; stroke-width: 2.4; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; } .btn-row > * { flex: 1 1 auto; }
+
+.notice { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--band); font: var(--t-small); margin: 6px 0; animation: rise var(--dur) var(--ease) both; }
+.notice::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 3px solid var(--fg-soft); margin-top: 3px; box-sizing: content-box; width: 8px; height: 8px; }
+.notice.is-ok::before { border-color: var(--route); } .notice.is-warn::before { border-color: var(--warn); } .notice.is-error::before { border-color: var(--danger); }
+.notice b { font-weight: 700; } .notice .btn-link { min-height: 28px; padding: 0; margin-left: 4px; }
+.state { display: inline-flex; align-items: center; gap: 7px; font: var(--t-small); font-weight: 600; }
+.skel { border-radius: 8px; background: linear-gradient(100deg, var(--band) 30%, color-mix(in srgb, var(--band) 55%, var(--surface)) 50%, var(--band) 70%); background-size: 220% 100%; animation: shimmer 1.3s linear infinite; }
+:root.rm .skel { animation: none; }
+@keyframes shimmer { from { background-position: 120% 0; } to { background-position: -100% 0; } }
+.empty { padding: 20px 6px; color: var(--fg-soft); }
+.empty b { display: block; color: var(--fg); font: var(--t-head); margin-bottom: 4px; }
+.sec-title { margin: 16px 0 4px; font: var(--t-micro); text-transform: uppercase; letter-spacing: .06em; color: var(--fg-soft); }
+
+/* línea de ruta: la firma del producto */
+.rl-line { list-style: none; margin: 0; padding: 0; }
+.rl-stop { position: relative; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; padding: 9px 0; align-items: start; }
+.rl-stop::before { content: ""; position: absolute; left: 9.5px; top: 30px; bottom: -9px; width: 3px; background: var(--line-strong); border-radius: 2px; }
+.rl-stop:last-child::before { display: none; }
+.rl-stop.is-done::before { background: var(--route); }
+.rl-dot { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--fg); background: var(--surface); margin-top: 1px; transition: background 220ms var(--ease), border-color 220ms, box-shadow 220ms var(--ease); }
+.rl-stop.is-done .rl-dot { background: var(--route); border-color: var(--route); }
+.rl-stop.is-current .rl-dot { background: var(--fg); box-shadow: 0 0 0 5px color-mix(in srgb, var(--fg) 16%, transparent); }
+.rl-stop.is-pending .rl-dot { border-color: var(--line-strong); }
+.rl-text { font-weight: 600; overflow-wrap: anywhere; } .rl-stop.is-done .rl-text { color: var(--fg-soft); text-decoration: line-through; text-decoration-thickness: 1px; }
+.rl-meta { display: block; font: var(--t-small); font-weight: 500; color: var(--fg-soft); font-variant-numeric: tabular-nums; }
+.rl-aside { font: var(--t-small); color: var(--fg-soft); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.strip { display: flex; align-items: center; gap: 0; margin: 2px 0 0; }
+.strip i { flex: 1; height: 4px; background: var(--line-strong); border-radius: 2px; margin: 0 2px; transition: background 260ms var(--ease); }
+.strip i.on { background: var(--route); }
+
+/* cliente */
+.eta { font: var(--t-display); letter-spacing: -.025em; font-variant-numeric: tabular-nums; margin: 0; }
+.eta small { font: var(--t-small); letter-spacing: 0; color: var(--board-soft); margin-left: 8px; }
+
+/* ---------- capas flotantes ---------- */
+#toasts { position: fixed; z-index: 90; left: 0; right: 0; bottom: max(18px, env(safe-area-inset-bottom, 0px)); display: grid; justify-items: center; gap: 8px; pointer-events: none; padding-inline: 16px; }
+.toast { pointer-events: auto; position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 12px; background: var(--board); color: var(--board-ink);
+  font: var(--t-small); font-weight: 600; box-shadow: var(--shadow-pop); opacity: 0; transform: translateY(var(--shift)) scale(.98); transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease); max-width: min(480px, 100%); }
+.toast.in { opacity: 1; transform: none; }
+.toast .btn-link { color: var(--on-board-route); }
+.toast-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--on-board-route); transform-origin: left; animation: drain var(--ms) linear forwards; }
+:root.rm .toast-bar { animation-duration: var(--ms); }
+@keyframes drain { to { transform: scaleX(0); } }
+.tip { position: fixed; z-index: 95; pointer-events: none; padding: 6px 10px; border-radius: 8px; background: var(--board); color: var(--board-ink); font: var(--t-small); font-weight: 600; opacity: 0; transform: translateY(3px); transition: opacity 120ms, transform 120ms var(--ease); max-width: 260px; }
+.tip.on { opacity: 1; transform: none; } .tip.instant { transition-duration: 0ms; }
+.scrim { position: fixed; inset: 0; z-index: 70; background: rgba(14, 9, 6, .42); opacity: 0; transition: opacity var(--dur) var(--ease); display: grid; align-items: start; justify-items: center; padding: max(12vh, 60px) 16px 16px; }
+.scrim.in { opacity: 1; }
+.palette-box { width: min(560px, 100%); border-radius: 16px; background: var(--glass-1); border: 1px solid var(--glass-edge); box-shadow: var(--shadow-pop); backdrop-filter: blur(26px) saturate(170%); -webkit-backdrop-filter: blur(26px) saturate(170%);
+  transform: translateY(calc(-1 * var(--shift))) scale(.97); transform-origin: top center; transition: transform var(--dur) var(--ease); overflow: hidden; }
+.scrim.in .palette-box { transform: none; }
+.palette-box input { width: 100%; border: 0; background: none; min-height: 56px; padding: 0 18px; font-size: 1.0625rem; outline: none; border-bottom: 1px solid var(--line); color: var(--fg); }
+.palette-box ul { list-style: none; margin: 0; padding: 6px; max-height: min(52vh, 380px); overflow-y: auto; }
+.palette-box li { display: flex; align-items: center; gap: 12px; padding: 0 12px; min-height: 46px; border-radius: 8px; cursor: pointer; }
+.palette-box li[aria-selected="true"] { background: var(--band); }
+.palette-box li small { margin-left: auto; color: var(--fg-soft); font: var(--t-small); font-variant-numeric: tabular-nums; }
+.palette-box .g { font: var(--t-micro); text-transform: uppercase; letter-spacing: .06em; color: var(--fg-soft); padding: 10px 12px 4px; min-height: 0; cursor: default; }
+.pop { position: fixed; z-index: 80; width: min(300px, calc(100vw - 32px)); padding: 14px; border-radius: 14px; background: var(--glass-1); border: 1px solid var(--glass-edge); box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(24px) saturate(170%); -webkit-backdrop-filter: blur(24px) saturate(170%); opacity: 0; transform: scale(.92); transition: opacity 160ms var(--ease), transform 220ms var(--ease); display: grid; gap: 12px; }
+.pop.in { opacity: 1; transform: none; }
+.pop p { margin: 0; }
+
+/* ---------- pantallas de página ---------- */
+.toolbar { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 61px); z-index: 20; display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; margin-bottom: 4px; border-radius: 14px; background: var(--glass-2);
+  backdrop-filter: blur(18px) saturate(170%); -webkit-backdrop-filter: blur(18px) saturate(170%); border: 1px solid var(--glass-edge); }
+.toolbar .input { flex: 1 1 220px; }
+.toolbar .seg { flex: 0 1 auto; }
+.table-rows .row { grid-template-columns: 92px minmax(0, 1fr) auto auto; padding: 0 6px; gap: 14px; min-height: 60px; }
+.table-rows .guide { font: var(--t-small); color: var(--fg-soft); font-variant-numeric: tabular-nums; font-weight: 600; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
+@media (min-width: 880px) { .split { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } }
+.form { display: grid; gap: 14px; align-content: start; }
+.login-wrap { min-height: calc(100dvh - 200px); display: grid; place-items: center; }
+.login { width: min(420px, 100%); display: grid; gap: 22px; }
+.login h1 { font: var(--t-display); letter-spacing: -.02em; margin: 0; }
+.login .rl-line { margin-top: 4px; }
+.suggest { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.suggest button { width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-height: 52px; display: grid; gap: 1px; transition: transform 100ms var(--ease), border-color 150ms; }
+.suggest button:hover { border-color: var(--accent); } .suggest button:active { transform: scale(.985); }
+.suggest small { color: var(--fg-soft); font: var(--t-small); }
+.spin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid color-mix(in srgb, currentColor 30%, transparent); border-top-color: currentColor; animation: turn 700ms linear infinite; }
+:root.rm .spin { animation-duration: 2.4s; }
+@keyframes turn { to { transform: rotate(360deg); } }
+@media (max-width: 559px) { .tool-search .kbd, .tool-search .lbl { display: none; } }
+@media (max-width: 700px) {
+  .brand { order: 1; } .tools { order: 2; } .nav { order: 3; flex-basis: 100%; }
+  main { padding-top: 12px; }
+  .layout > .view-head, .layout > .btn { display: none; }
+  .phone .stage, .stage { height: calc(100dvh - 168px); min-height: 500px; }
+  .try { font-size: .75rem; }
+}
+@media print { .doc { display: none; } }
+</style>
+
+<header class="doc" id="doc"></header>
+<main id="view" tabindex="-1"></main>
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+/* ====================================================================== utilidades */
+const state = { lang: 'es', rm: false, simRM: false, haptics: true, view: 'despacho', lastTip: 0 };
+const L = (es, en) => (state.lang === 'es' ? es : en);
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const safe = (fn) => { try { return fn(); } catch { return undefined; } };
+const ICONS = {
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>',
+  moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.5 5.7 3.5 9s-1 6.3-3.5 9c-2.5-2.7-3.5-5.7-3.5-9s1-6.3 3.5-9Z"/>',
+  motion: '<path d="M3 12c2-5 4-5 6 0s4 5 6 0 4-5 6 0"/>',
+  vibrate: '<rect x="8" y="3" width="8" height="18" rx="2"/><path d="M4 8v8M20 8v8"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  rotate: '<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
+  layers: '<path d="m12 3 9 5-9 5-9-5 9-5ZM3 13l9 5 9-5"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  shield: '<path d="M12 3 5 6v5.5c0 4.2 2.9 7.6 7 9 4.1-1.4 7-4.8 7-9V6l-7-3Z"/><path d="m9 12 2.2 2.2L15.5 10"/>',
+};
+const icon = (n, c = '') => `<svg class="ic ${c}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+
+/* Resorte con respuesta y amortiguamiento (como Apple): la velocidad se hereda al reorientarlo. */
+class Spring {
+  constructor(v, cb) { this.x = v; this.v = 0; this.t = v; this.cb = cb; this.raf = 0; this.last = 0; this.w = 15; this.z = 1; }
+  to(t, o = {}) {
+    this.t = t;
+    if (o.velocity != null) this.v = o.velocity;
+    this.w = (2 * Math.PI) / (o.response ?? 0.4);
+    this.z = o.damping ?? 1;
+    if (state.rm) { this.set(t); return; }
+    if (!this.raf) { this.last = performance.now(); this.raf = requestAnimationFrame((n) => this.tick(n)); }
+  }
+  stop() { cancelAnimationFrame(this.raf); this.raf = 0; }
+  set(x) { this.stop(); this.x = x; this.t = x; this.v = 0; this.cb(x); }
+  tick(now) {
+    const dt = Math.min((now - this.last) / 1000, 0.064); this.last = now;
+    const n = Math.max(1, Math.ceil(dt / (1 / 240))), s = dt / n;
+    for (let i = 0; i < n; i++) {
+      const a = -this.w * this.w * (this.x - this.t) - 2 * this.z * this.w * this.v;
+      this.v += a * s; this.x += this.v * s;
+    }
+    if (Math.abs(this.x - this.t) < 0.01 && Math.abs(this.v) < 0.05) { this.x = this.t; this.v = 0; this.raf = 0; this.cb(this.x); return; }
+    this.cb(this.x);
+    this.raf = requestAnimationFrame((nn) => this.tick(nn));
+  }
+}
+const project = (v, d = 0.998) => ((v / 1000) * d) / (1 - d);
+const rubber = (over, dim, c = 0.55) => (over * dim * c) / (dim + c * Math.abs(over));
+
+/* ====================================================================== retroalimentación */
+function buzz(btn, ms = 14) {
+  if (state.haptics) safe(() => navigator.vibrate && navigator.vibrate(ms));
+  if (btn && !state.rm) { btn.classList.remove('buzz'); void btn.offsetWidth; btn.classList.add('buzz'); setTimeout(() => btn.classList.remove('buzz'), 460); }
+}
+function toast(msg, o = {}) {
+  const { undo, onCommit, ms = 6000 } = o;
+  const el = document.createElement('div');
+  el.className = 'toast'; el.setAttribute('role', 'status');
+  el.innerHTML = `<span>${msg}</span>${undo ? `<button class="btn-link" type="button">${L('Deshacer', 'Undo')}</button><i class="toast-bar" style="--ms:${ms}ms"></i>` : ''}`;
+  const host = $('#toasts');
+  while (host.children.length >= 2) host.firstElementChild.remove();
+  host.append(el);
+  requestAnimationFrame(() => el.classList.add('in'));
+  let done = false, tm = 0;
+  const close = (commit) => {
+    if (done) return; done = true; clearTimeout(tm); el.classList.remove('in');
+    setTimeout(() => el.remove(), 280);
+    if (commit && onCommit) onCommit();
+  };
+  tm = setTimeout(() => close(true), undo ? ms : 3200);
+  if (undo) $('button', el).addEventListener('click', () => { undo(); close(false); });
+}
+const tipEl = document.createElement('div');
+tipEl.className = 'tip'; tipEl.setAttribute('role', 'tooltip');
+let tipTimer = 0;
+function showTip(t) {
+  clearTimeout(tipTimer);
+  const go = () => {
+    tipEl.textContent = t.dataset.tip; tipEl.classList.add('on');
+    const r = t.getBoundingClientRect(), w = tipEl.offsetWidth;
+    tipEl.style.left = clamp(r.left + r.width / 2 - w / 2, 8, innerWidth - w - 8) + 'px';
+    tipEl.style.top = (r.bottom + 8 + tipEl.offsetHeight > innerHeight ? r.top - tipEl.offsetHeight - 8 : r.bottom + 8) + 'px';
+  };
+  const instant = performance.now() - state.lastTip < 700;
+  tipEl.classList.toggle('instant', instant);
+  if (instant) go(); else tipTimer = setTimeout(go, 450);
+}
+function hideTip() { clearTimeout(tipTimer); if (tipEl.classList.contains('on')) state.lastTip = performance.now(); tipEl.classList.remove('on'); }
+document.addEventListener('pointerover', (e) => { const t = e.target.closest?.('[data-tip]'); if (t && e.pointerType !== 'touch') showTip(t); });
+document.addEventListener('pointerout', (e) => { if (e.target.closest?.('[data-tip]')) hideTip(); });
+document.addEventListener('focusin', (e) => { const t = e.target.closest?.('[data-tip]'); if (t && t.matches(':focus-visible')) showTip(t); });
+document.addEventListener('focusout', hideTip);
+document.addEventListener('pointerdown', hideTip, true);
+
+/* Confirmación anclada al botón que la abrió: nace de ahí y vuelve por el mismo camino. */
+let openPop = null;
+function popConfirm(trigger, { text, confirm, onConfirm }) {
+  closePop();
+  const pop = document.createElement('div');
+  pop.className = 'pop'; pop.setAttribute('role', 'alertdialog'); pop.setAttribute('aria-label', text);
+  pop.innerHTML = `<p><b>${text}</b></p><div class="btn-row"><button class="btn btn-quiet" data-k>${L('Conservar', 'Keep')}</button><button class="btn btn-danger" data-c>${confirm}</button></div>`;
+  document.body.append(pop);
+  const r = trigger.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  const left = clamp(r.right - w, 8, innerWidth - w - 8);
+  const below = r.bottom + 10 + h < innerHeight;
+  pop.style.left = left + 'px'; pop.style.top = (below ? r.bottom + 10 : r.top - h - 10) + 'px';
+  pop.style.transformOrigin = `${r.left + r.width / 2 - left}px ${below ? '-10px' : h + 10 + 'px'}`;
+  requestAnimationFrame(() => pop.classList.add('in'));
+  $('[data-k]', pop).focus();
+  const off = (e) => { if (!pop.contains(e.target) && e.target !== trigger) closePop(); };
+  const key = (e) => { if (e.key === 'Escape') closePop(); };
+  setTimeout(() => document.addEventListener('pointerdown', off), 0);
+  document.addEventListener('keydown', key);
+  $('[data-k]', pop).onclick = closePop;
+  $('[data-c]', pop).onclick = () => { closePop(false); onConfirm(); };
+  openPop = { pop, trigger, off, key };
+}
+function closePop(refocus = true) {
+  if (!openPop) return;
+  const { pop, trigger, off, key } = openPop; openPop = null;
+  document.removeEventListener('pointerdown', off); document.removeEventListener('keydown', key);
+  pop.classList.remove('in'); setTimeout(() => pop.remove(), 240);
+  if (refocus && trigger.isConnected) trigger.focus();
+}
+
+/* ====================================================================== datos de ejemplo (Pasto) */
+const GRID = 90, ORG = { x: 100, y: 80 }, ANG = (-9 * Math.PI) / 180, CX = 500, CY = 400;
+function P(c, r) {
+  const x = ORG.x + c * GRID - CX, y = ORG.y + r * GRID - CY;
+  return { x: CX + x * Math.cos(ANG) - y * Math.sin(ANG), y: CY + x * Math.sin(ANG) + y * Math.cos(ANG) };
+}
+const STOPS = [
+  { id: 'S1', c: 3, r: 5, addr: 'Carrera 27 #17-50, Centro', guide: 'DEMO-009' },
+  { id: 'S2', c: 5, r: 4, addr: 'Calle 18 #22-14, Centro', guide: 'DEMO-010' },
+  { id: 'S3', c: 7, r: 3, addr: 'Avenida Idema #5-30, Las Lunas', guide: 'DEMO-011' },
+  { id: 'S4', c: 6, r: 1, addr: 'Calle 20 #34-18, Santiago', guide: 'DEMO-012' },
+  { id: 'S5', c: 3, r: 1, addr: 'Carrera 22 #14-08, Lorenzo', guide: 'DEMO-013' },
+];
+const ORIGIN = { c: 1, r: 6 };
+const LEGS = [
+  { m: 3.6, lvl: null, mult: 1.05 }, { m: 3.4, lvl: null, mult: 1.1 },
+  { m: 4.1, lvl: 'ALTO', mult: 1.62 }, { m: 3.8, lvl: null, mult: 1.08 }, { m: 3.2, lvl: 'MUY_ALTO', mult: 1.95 },
+];
+const BASE_ORDER = ['S1', 'S5', 'S2', 'S3', 'S4'];
+const COURIERS = [
+  { id: 'c1', name: 'Carlos Muñoz', phone: '300 111 2233', status: 'ON_ROUTE' },
+  { id: 'c2', name: 'Laura Pérez', phone: '300 444 5566', status: 'AVAILABLE' },
+  { id: 'c3', name: 'Sofía Benavides', phone: '300 777 8899', status: 'AVAILABLE' },
+  { id: 'c4', name: 'Andrés Rosero', phone: '300 222 3344', status: 'OFFLINE', history: true },
+];
+let ORDERS = [
+  { id: 'p1', guide: 'DEMO-014', addr: 'Carrera 25 #4 Sur-65, Pasto', km: '3,2', age: 12, state: 'PENDING' },
+  { id: 'p2', guide: 'DEMO-015', addr: 'Calle 19 #29-40, Centro', km: '1,4', age: 9, state: 'PENDING' },
+  { id: 'p3', guide: 'DEMO-016', addr: 'Avenida Panamericana #12-30, Pandiaco', km: '4,8', age: 7, state: 'PENDING' },
+  { id: 'p4', guide: 'DEMO-017', addr: 'Calle 22 #8-15, Las Cuadras', km: '2,0', age: 6, state: 'PENDING' },
+  { id: 'p5', guide: 'DEMO-018', addr: 'Carrera 40 #19-02, Anganoy', km: '3,9', age: 3, state: 'PENDING' },
+  { id: 'p6', guide: 'DEMO-019', addr: 'Calle 17 #31-05, Santiago', km: '2,6', age: 2, state: 'PENDING' },
+  { id: 'e1', guide: 'DEMO-009', addr: 'Carrera 27 #17-50, Centro', km: '1,1', age: 52, state: 'ON_ROUTE' },
+  { id: 'e2', guide: 'DEMO-010', addr: 'Calle 18 #22-14, Centro', km: '1,3', age: 51, state: 'ON_ROUTE' },
+  { id: 'e3', guide: 'DEMO-004', addr: 'Calle 14 #25-31, Centro', km: '0,9', age: 130, state: 'DELIVERED' },
+  { id: 'e4', guide: 'DEMO-005', addr: 'Carrera 32 #20-18, Santiago', km: '2,4', age: 118, state: 'DELIVERED' },
+];
+const REQUESTS = [
+  { id: 'q1', addr: 'Calle 16 #24-30, Centro', age: 4 },
+  { id: 'q2', addr: 'Carrera 36 #18-44, Aranda', age: 1 },
+];
+const STATE_LABEL = {
+  PENDING: () => L('Pendiente', 'Pending'), ON_ROUTE: () => L('En ruta', 'On route'),
+  DELIVERED: () => L('Entregado', 'Delivered'), REQUESTED: () => L('Solicitado', 'Requested'),
+};
+const STATE_DOT = { PENDING: 'warn', ON_ROUTE: '', DELIVERED: 'off' };
+
+/* ====================================================================== mapa */
+function createMap(svg, tipHost, cfg) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const stops = cfg.stops.map((s) => ({ ...s, ...P(s.c, s.r) }));
+  const legsDef = cfg.legs || [];
+  const origin = P(ORIGIN.c, ORIGIN.r);
+  const pts = []; // puntos de cada tramo en coordenadas del mundo
+  let prev = { c: ORIGIN.c, r: ORIGIN.r };
+  legsDef.forEach((lg, i) => {
+    const s = STOPS.find((x) => x.id === lg.to);
+    const a = lg.from ? STOPS.find((x) => x.id === lg.from) : { c: ORIGIN.c, r: ORIGIN.r };
+    const mid = i % 2 === 0 ? { c: s.c, r: a.r } : { c: a.c, r: s.r };
+    pts.push([P(a.c, a.r), P(mid.c, mid.r), P(s.c, s.r)]);
+    prev = s;
+  });
+  const dOf = (list) => list.map((leg, i) => leg.map((p, j) => `${i === 0 && j === 0 ? 'M' : j === 0 ? 'L' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')).join(' ');
+  const lineStr = (a, b) => `M${a.x.toFixed(1)} ${a.y.toFixed(1)}L${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+  let minor = '', major = '';
+  for (let i = -6; i <= 16; i++) {
+    const t = i % 3 === 0 ? 'major' : 'minor';
+    const v = lineStr(P(i, -7), P(i, 15)), h = lineStr(P(-7, i), P(17, i));
+    if (t === 'major') major += v + h; else minor += v + h;
+  }
+  const labels = [['Calle 18', 8.4, 2.92], ['Calle 20', 8.4, 0.92], ['Carrera 25', 2.92, -0.4], ['Av. Idema', 9.3, 4.92]]
+    .map(([n, c, r]) => { const p = P(c, r); return `<text class="lbl" x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" transform="rotate(-9 ${p.x.toFixed(1)} ${p.y.toFixed(1)})">${n}</text>`; }).join('');
+  const baseOrder = BASE_ORDER.filter((id) => cfg.stops.some((s) => s.id === id));
+  let baseD = '';
+  if (cfg.baseline && baseOrder.length > 1) {
+    const bl = []; let pa = { c: ORIGIN.c, r: ORIGIN.r };
+    baseOrder.forEach((id, i) => { const s = STOPS.find((x) => x.id === id); const mid = i % 2 === 0 ? { c: s.c, r: pa.r } : { c: pa.c, r: s.r }; bl.push([P(pa.c, pa.r), P(mid.c, mid.r), P(s.c, s.r)]); pa = s; });
+    baseD = dOf(bl);
+  }
+  svg.innerHTML = `<g class="world">
+    <path class="st-minor" d="${minor}"/><path class="st-major" d="${major}"/><g class="labels">${labels}</g>
+    <path class="r-base" d="${baseD}"/>
+    <g class="halos">${legsDef.map((lg, i) => (lg.lvl ? `<path class="r-halo" d="${dOf([pts[i]])}"/>` : '')).join('')}</g>
+    <path class="r-line" d="${dOf(pts)}"/>
+    <g class="hits">${legsDef.map((lg, i) => `<path class="r-hit" data-leg="${i}" d="${dOf([pts[i]])}"/>`).join('')}</g>
+  </g>
+  <g class="overlay">
+    ${cfg.fuzz ? '<circle class="fuzz" r="46"/>' : ''}
+    ${stops.map((s, i) => `<g class="mk ${s.pin ? 'pin' : ''} is-${s.state || 'pending'}" data-id="${s.id}"><circle class="mk-ring" r="19"/><circle class="mk-dot" r="12"/><text class="mk-n">${s.label ?? i + 1}</text></g>`).join('')}
+    ${cfg.courier ? '<g class="courier"><circle class="courier-pulse" r="12"/><circle class="courier-dot" r="8"/></g>' : ''}
+  </g>`;
+  const world = $('.world', svg), line = $('.r-line', svg), base = $('.r-base', svg);
+  const total = pts.length ? line.getTotalLength() : 0;
+  const legLen = pts.map((_, i) => $(`.r-hit[data-leg="${i}"]`, svg).getTotalLength());
+  const mkEls = Object.fromEntries($$('.mk', svg).map((e) => [e.dataset.id, e]));
+  const courier = $('.courier', svg), fuzz = $('.fuzz', svg);
+  let cam = { s: 1, tx: 0, ty: 0 }, camFrom = cam, camTo = cam, drawP = cfg.drawn === false ? 0 : 1, curL = cfg.courierAt ?? 0;
+  const apply = () => {
+    const { s, tx, ty } = cam;
+    world.setAttribute('transform', `translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${s.toFixed(4)})`);
+    $('.st-minor', svg).setAttribute('stroke-width', (1.4 / s).toFixed(3)); $('.st-major', svg).setAttribute('stroke-width', (3 / s).toFixed(3));
+    $('.labels', svg).setAttribute('font-size', (12 / s).toFixed(2)); $$('.lbl', svg).forEach((t) => (t.style.fontSize = (12 / s) + 'px'));
+    line.setAttribute('stroke-width', (6 / s).toFixed(3)); base.setAttribute('stroke-width', (3.5 / s).toFixed(3)); base.setAttribute('stroke-dasharray', `${10 / s} ${9 / s}`);
+    $$('.r-halo', svg).forEach((h) => h.setAttribute('stroke-width', (22 / s).toFixed(3))); $$('.r-hit', svg).forEach((h) => h.setAttribute('stroke-width', (26 / s).toFixed(3)));
+    line.setAttribute('stroke-dasharray', total); line.setAttribute('stroke-dashoffset', (total * (1 - drawP)).toFixed(2));
+    $$('.r-halo', svg).forEach((h) => (h.style.opacity = drawP >= 1 ? '' : 0));
+    stops.forEach((st) => mkEls[st.id].setAttribute('transform', `translate(${(tx + s * st.x).toFixed(1)} ${(ty + s * st.y).toFixed(1)})`));
+    if (courier || fuzz) {
+      const p = total ? line.getPointAtLength(clamp(curL, 0, total)) : origin;
+      const sx = (tx + s * p.x).toFixed(1), sy = (ty + s * p.y).toFixed(1);
+      courier?.setAttribute('transform', `translate(${sx} ${sy})`); fuzz?.setAttribute('transform', `translate(${sx} ${sy})`);
+    }
+  };
+  const camSp = new Spring(0, (p) => { cam = { s: lerp(camFrom.s, camTo.s, p), tx: lerp(camFrom.tx, camTo.tx, p), ty: lerp(camFrom.ty, camTo.ty, p) }; apply(); });
+  const drawSp = new Spring(drawP, (p) => { drawP = clamp(p, 0, 1); apply(); });
+  const courSp = new Spring(curL, (l) => { curL = l; apply(); });
+  const api = {
+    total, legLen,
+    setCamera(free, immediate) {
+      const set = [origin, ...stops.map((s) => ({ x: s.x, y: s.y })), ...pts.flat()];
+      let x0 = Math.min(...set.map((p) => p.x)), x1 = Math.max(...set.map((p) => p.x)), y0 = Math.min(...set.map((p) => p.y)), y1 = Math.max(...set.map((p) => p.y));
+      const bw = Math.max(x1 - x0, 300), bh = Math.max(y1 - y0, 220), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      const fw = free.x1 - free.x0, fh = free.y1 - free.y0, pad = 0.82;
+      const s = clamp(Math.min((fw * pad) / bw, (fh * pad) / bh), 0.35, 1.7);
+      const to = { s, tx: (free.x0 + free.x1) / 2 - s * cx, ty: (free.y0 + free.y1) / 2 - s * cy };
+      camFrom = { ...cam }; camTo = to;
+      if (immediate || state.rm) { camSp.set(1); cam = to; apply(); } else { camSp.set(0); camSp.to(1, { response: 0.7, damping: 1 }); }
+    },
+    draw(replay) { if (replay) { drawSp.set(0); } drawSp.to(1, { response: 1.1, damping: 1 }); },
+    courierTo(l, o) { courSp.to(clamp(l, 0, total), o || { response: 1, damping: 1 }); },
+    setStop(id, st) { const el = mkEls[id]; if (el) el.setAttribute('class', `mk ${stops.find((s) => s.id === id).pin ? 'pin' : ''} is-${st}`); },
+    setStopPos(id, c, r) { Object.assign(stops.find((s) => s.id === id), P(c, r)); apply(); },
+    baseline(on) { base.classList.toggle('on', on); },
+    destroy() { camSp.stop(); drawSp.stop(); courSp.stop(); },
+  };
+  svg.addEventListener('pointermove', (e) => {
+    const h = e.target.closest?.('.r-hit');
+    if (!h || !cfg.hover) { tipHost.classList.remove('on'); return; }
+    const i = +h.dataset.leg, lg = legsDef[i], rect = tipHost.parentElement.getBoundingClientRect();
+    tipHost.textContent = cfg.hover(lg, i);
+    tipHost.style.left = clamp(e.clientX - rect.left + 14, 8, rect.width - tipHost.offsetWidth - 8) + 'px';
+    tipHost.style.top = clamp(e.clientY - rect.top + 14, 8, rect.height - 40) + 'px';
+    tipHost.classList.add('on');
+  });
+  svg.addEventListener('pointerleave', () => tipHost.classList.remove('on'));
+  apply();
+  return api;
+}
+
+/* ====================================================================== escenario + hoja */
+function makeStage(host, o) {
+  const frame = o.frame ? `<div class="phone ${o.land ? 'land' : ''}">` : '<div>';
+  host.innerHTML = `${frame}<section class="stage" aria-label="${o.label}">
+    <svg class="map" role="img" aria-label="${L('Mapa oscuro con la ruta en verde', 'Dark map with the route in green')}"></svg>
+    <div class="map-tip" aria-hidden="true"></div>
+    <div class="stage-bar"></div>
+    <aside class="sheet" aria-label="${o.sheetLabel}">
+      <button class="grabber" type="button" aria-label="${L('Cambiar la altura del panel. Flechas arriba y abajo.', 'Change panel height. Up and down arrows.')}"><span class="grip"></span></button>
+      <div class="sheet-head"></div><div class="sheet-foot"></div><div class="sheet-body"></div>
+    </aside></section></div>`;
+  const root = host.firstElementChild, stage = $('.stage', root), sheet = $('.sheet', stage), grab = $('.grabber', stage), head = $('.sheet-head', stage);
+  const map = createMap($('.map', stage), $('.map-tip', stage), o.map);
+  let idx = o.snap ?? 1, snaps = [56, 300, 500], wide = false, free = null;
+  const apply = (y) => { sheet.style.transform = `translate3d(0,${y.toFixed(2)}px,0)`; };
+  const sp = new Spring(0, (y) => { apply(y); });
+  const layout = () => {
+    const W = stage.clientWidth, H = stage.clientHeight;
+    wide = W >= 720;
+    stage.classList.toggle('wide', wide); sheet.classList.toggle('panel', wide);
+    if (wide) {
+      sheet.style.transform = ''; sp.stop();
+      free = { x0: 16 + 392 + 28, x1: W - 28, y0: 64, y1: H - 28 };
+    } else {
+      const full = 56, mid = Math.round(H * (o.mid ?? 0.52)), peek = H - (o.peek ?? 150);
+      snaps = [full, mid, peek]; stage.style.setProperty('--full', full + 'px');
+      sp.set(snaps[idx]); sheet.classList.toggle('is-full', idx === 0);
+      free = { x0: 16, x1: W - 16, y0: 64, y1: Math.max(120, mid - 14) };
+    }
+    map.setCamera(free, !stage._laid); stage._laid = true;
+  };
+  const snapTo = (i, v, damping) => {
+    idx = clamp(i, 0, 2); sheet.classList.toggle('is-full', idx === 0);
+    sp.to(snaps[idx], { velocity: v ?? 0, response: 0.38, damping: damping ?? 1 });
+  };
+  // arrastre 1:1 desde el punto agarrado; al soltar se proyecta el impulso y se hereda la velocidad
+  let drag = null;
+  const down = (e) => {
+    if (wide || e.button > 0) return;
+    if (e.currentTarget === head && e.target.closest('button,input,a,[role=tab]')) return;
+    e.currentTarget.setPointerCapture(e.pointerId); sp.stop();
+    drag = { y: e.clientY, pos: sp.x, hist: [{ t: e.timeStamp, y: e.clientY }], moved: false };
+    sheet.classList.add('dragging');
+  };
+  const move = (e) => {
+    if (!drag) return;
+    const raw = drag.pos + (e.clientY - drag.y);
+    drag.moved = drag.moved || Math.abs(e.clientY - drag.y) > 3;
+    const lo = snaps[0], hi = snaps[2];
+    const pos = raw < lo ? lo - rubber(lo - raw, 220) : raw > hi ? hi + rubber(raw - hi, 220) : raw;
+    sp.x = pos; apply(pos);
+    drag.hist.push({ t: e.timeStamp, y: e.clientY }); while (drag.hist.length > 2 && e.timeStamp - drag.hist[0].t > 100) drag.hist.shift();
+  };
+  const up = (e) => {
+    if (!drag) return;
+    const h = drag.hist, a = h[0], b = h[h.length - 1], dt = (b.t - a.t) / 1000;
+    const v = dt > 0.005 ? (b.y - a.y) / dt : 0; drag = null; sheet.classList.remove('dragging');
+    const proj = sp.x + project(v);
+    let best = 0; snaps.forEach((s, i) => { if (Math.abs(s - proj) < Math.abs(snaps[best] - proj)) best = i; });
+    snapTo(best, v, Math.abs(v) > 420 ? 0.8 : 1); // rebote solo cuando el gesto traía impulso
+  };
+  [grab, head].forEach((el) => { el.addEventListener('pointerdown', down); el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); });
+  grab.addEventListener('keydown', (e) => {
+    const k = { ArrowUp: -1, ArrowDown: 1 }[e.key];
+    if (k) { e.preventDefault(); snapTo(idx + k); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); snapTo(idx === 0 ? 2 : idx - 1); }
+  });
+  const ro = new ResizeObserver(layout); ro.observe(stage);
+  requestAnimationFrame(layout);
+  return { root, stage, sheet, head, foot: $('.sheet-foot', stage), body: $('.sheet-body', stage), bar: $('.stage-bar', stage), map,
+    snap: (i) => snapTo(i), destroy() { ro.disconnect(); sp.stop(); map.destroy(); }, isWide: () => wide };
+}
+
+/* control segmentado con indicador por resorte */
+function makeSeg(host, { items, get, set, label }) {
+  let ind;
+  const sx = new Spring(0, (v) => ind && (ind.style.transform = `translateX(${v}px)`));
+  const sw = new Spring(0, (v) => ind && (ind.style.width = v + 'px'));
+  function render(animate) {
+    host.innerHTML = `<div class="seg" role="tablist" aria-label="${label()}"><i class="seg-ind"></i>${items().map((it) => `<button role="tab" type="button" id="tab-${it.id}" data-id="${it.id}" aria-selected="${get() === it.id}" tabindex="${get() === it.id ? 0 : -1}">${it.label}${it.badge != null ? `<span class="badge">${it.badge}</span>` : ''}</button>`).join('')}</div>`;
+    ind = $('.seg-ind', host);
+    ind.style.transform = `translateX(${sx.x}px)`; ind.style.width = sw.x + 'px';
+    const b = $('[aria-selected=true]', host); if (!b) return;
+    if (animate) { sx.to(b.offsetLeft, { response: 0.36 }); sw.to(b.offsetWidth, { response: 0.36 }); } else { sx.set(b.offsetLeft); sw.set(b.offsetWidth); }
+  }
+  // el panel cambia de ancho al decidir si es hoja o panel lateral: se vuelve a medir sin animar
+  new ResizeObserver(() => { const b = $('[aria-selected=true]', host); if (b && ind) { sx.set(b.offsetLeft); sw.set(b.offsetWidth); } }).observe(host);
+  host.addEventListener('click', (e) => { const b = e.target.closest('[role=tab]'); if (b && b.dataset.id !== get()) { set(b.dataset.id); } });
+  host.addEventListener('keydown', (e) => {
+    const ids = items().map((i) => i.id), k = { ArrowLeft: -1, ArrowRight: 1 }[e.key]; if (!k) return;
+    const n = ids[(ids.indexOf(get()) + k + ids.length) % ids.length]; set(n); $(`#tab-${n}`, host)?.focus();
+  });
+  return { render, relayout: () => render(false) };
+}
+
+/* ====================================================================== pantalla: Despacho */
+function viewDespacho(host) {
+  const D = { tab: 'pedidos', sel: new Set(['p3', 'p4', 'p6']), analyzing: false, proposal: null, baseline: false, reqs: [...REQUESTS], dispatched: false, groupDone: false };
+  const stage = makeStage(host, {
+    label: L('Despacho', 'Dispatch'), sheetLabel: L('Panel de despacho', 'Dispatch panel'), snap: 1, peek: 150,
+    map: { stops: STOPS.map((s, i) => ({ ...s, state: i === 0 ? 'done' : i === 1 ? 'current' : 'pending' })), legs: STOPS.map((s, i) => ({ from: i ? STOPS[i - 1].id : null, to: s.id, ...LEGS[i] })), baseline: true, courier: true, courierAt: 0, hover: (lg) => `${L('Tramo', 'Leg')} · ${lg.m.toString().replace('.', ',')} min${lg.lvl ? ` · +${Math.round((lg.mult - 1) * 100)} %` : ''}` },
+  });
+  stage.map.courierTo(stage.map.legLen[0] * 0.35, { response: 0.5 });
+  const pend = () => ORDERS.filter((o) => o.state === 'PENDING');
+  let clock = 12, tclock = 40;
+  stage.head.innerHTML = `<div class="head-row"><h1>${L('Despacho', 'Dispatch')}</h1><p class="figures" id="fig"></p></div><div id="segHost"></div>`;
+  const segH = makeSeg($('#segHost', stage.head), {
+    label: () => L('Secciones del despacho', 'Dispatch sections'),
+    items: () => [{ id: 'pedidos', label: L('Pedidos', 'Orders'), badge: pend().length }, { id: 'rutas', label: L('Rutas', 'Routes'), badge: D.dispatched ? 2 : 1 }, { id: 'solicitudes', label: L('Solicitudes', 'Requests'), badge: D.reqs.length }],
+    get: () => D.tab, set: (t) => { D.tab = t; segH.render(true); body(); foot(); },
+  });
+  function fig() { $('#fig', stage.head).innerHTML = L(`<b>${pend().length}</b> pendientes · <b>2</b> libres · <b>${D.dispatched ? 2 : 1}</b> en ruta`, `<b>${pend().length}</b> pending · <b>2</b> free · <b>${D.dispatched ? 2 : 1}</b> on route`); }
+  function bar() {
+    stage.bar.innerHTML = `<button class="chip" type="button" id="bl" aria-pressed="${D.baseline}" data-tip="${L('Muestra el orden anterior a optimizar, en gris punteado', 'Shows the pre-optimization order as a dashed grey line')}">${icon('layers')}${L('Orden base', 'Base order')}</button>
+      <span class="chip"><i class="dot red"></i>${L('Tráfico fuerte', 'Heavy traffic')}</span>
+      <span class="chip num"><i class="dot"></i>GPS ${L('hace', '')} <span id="gps">${clock}</span> s</span>
+      <span class="chip num"><i class="dot ${tclock > 80 ? 'warn' : ''}"></i>TomTom ${L('hace', '')} <span id="tt">${tclock}</span> s</span>`;
+  }
+  function body() {
+    const b = stage.body;
+    if (D.tab === 'pedidos') {
+      const list = pend();
+      b.innerHTML = (list.length ? `<ul class="rows" role="list">${list.map((o, i) => `<li class="row ${D.sel.has(o.id) ? 'is-selected' : ''}" style="animation-delay:${i * 28}ms"><label class="row-main"><input class="check" type="checkbox" data-id="${o.id}" ${D.sel.has(o.id) ? 'checked' : ''}><span class="box">${icon('check')}</span><span><span class="row-title">${o.addr}</span><span class="row-meta">${o.guide} · ${o.km} km</span></span></label><span class="row-aside">${L('hace', '')} ${o.age} min</span></li>`).join('')}</ul>`
+        : `<div class="empty"><b>${L('No hay pedidos pendientes', 'No pending orders')}</b>${L('Los nuevos pedidos y solicitudes aceptadas aparecen aquí.', 'New orders and accepted requests show up here.')}</div>`);
+      const grp = pend().some((o) => o.id === 'p3') && pend().some((o) => o.id === 'p4') && !D.groupDone;
+      if (grp) b.insertAdjacentHTML('afterbegin', `<div class="notice is-ok"><span><b>${L('Groq sugiere agrupar', 'Groq suggests grouping')}</b> ${L('DEMO-016 y DEMO-017: están a 230 m entre sí y conviene que los lleve el mismo repartidor.', 'DEMO-016 and DEMO-017 are 230 m apart and suit the same courier.')} <button class="btn-link" data-act="group" type="button">${L('Seleccionar ambos', 'Select both')}</button></span></div>`);
+    } else if (D.tab === 'rutas') {
+      const st = ['done', 'current', 'pending', 'pending', 'pending'];
+      b.innerHTML = `<h2 class="sec-title">Carlos Muñoz · ${L('en ruta', 'on route')}</h2>
+        <ol class="rl-line" aria-label="${L('Paradas de la ruta de Carlos Muñoz', 'Stops of Carlos Muñoz route')}">${STOPS.map((s, i) => `<li class="rl-stop is-${st[i]}"><span class="rl-dot"></span><span class="rl-text"><span class="sr-only">${st[i]}: </span>${s.addr}<span class="rl-meta">${s.guide}</span></span><span class="rl-aside">${LEGS[i].m.toString().replace('.', ',')} min</span></li>`).join('')}</ol>
+        <div class="notice is-warn"><span><b>${L('2 tramos con tráfico fuerte', '2 legs with heavy traffic')}</b> ${L('medidos por TomTom. La ruta ya los considera; un recálculo solo ocurre si lo pides.', 'measured by TomTom. The route already accounts for them; recalculation only runs when you ask.')}</span></div>
+        <div class="btn-row"><button class="btn btn-secondary" data-act="recalc" type="button">${L('Recalcular ruta', 'Recalculate route')}</button><button class="btn btn-quiet" type="button" disabled>${L('Deshacer recálculo', 'Undo recalculation')}</button></div>
+        ${D.dispatched ? `<h2 class="sec-title">Laura Pérez · ${L('recién despachada', 'just dispatched')}</h2><p class="hint">${D.sel.size || 3} ${L('paradas, orden verificado.', 'stops, order verified.')}</p>` : ''}`;
+    } else {
+      b.innerHTML = D.reqs.length ? `<ul class="rows" role="list">${D.reqs.map((r) => `<li class="row" data-id="${r.id}" style="grid-template-columns:minmax(0,1fr)"><div style="padding:12px 6px;display:grid;gap:8px"><span><span class="row-title">${r.addr}</span><span class="row-meta">${L('Solicitud de cliente · hace', 'Customer request ·')} ${r.age} min</span></span><span class="btn-row"><button class="btn btn-go" data-act="accept" data-id="${r.id}" type="button">${L('Aceptar', 'Accept')}</button><button class="btn btn-quiet" data-act="reject" data-id="${r.id}" type="button">${L('Rechazar', 'Reject')}</button></span></div></li>`).join('')}</ul>`
+        : `<div class="empty"><b>${L('Sin solicitudes en espera', 'No requests waiting')}</b>${L('Cuando un cliente pida un envío, aparecerá aquí para que lo aceptes o lo rechaces.', 'When a customer asks for a delivery, it shows up here to accept or reject.')}</div>`;
+    }
+  }
+  function foot() {
+    const f = stage.foot;
+    if (D.tab !== 'pedidos') { f.innerHTML = ''; return; }
+    if (D.analyzing) { f.innerHTML = `<div class="board" aria-busy="true"><h2>${L('Analizando la selección…', 'Analyzing selection…')}</h2><div class="skel" style="height:14px"></div><div class="skel" style="height:44px"></div></div>`; return; }
+    if (D.proposal) {
+      const n = D.proposal.n, base = (n * 6.4).toFixed(1).replace('.', ','), nn = (n * 6.4 * 0.86).toFixed(1).replace('.', ','), oo = (n * 6.4 * 0.81).toFixed(1).replace('.', ','), fin = (n * 6.4 * 0.78).toFixed(1).replace('.', ','), save = (n * 6.4 * 0.22).toFixed(1).replace('.', ',');
+      f.innerHTML = `<section class="board" aria-label="${L('Propuesta de despacho', 'Dispatch proposal')}"><h2>${L('Propuesta · Laura Pérez', 'Proposal · Laura Pérez')}</h2>
+        <p class="lead">${L(`Con ${n} pedidos se ahorran <b>${save} min</b> (22 %) frente al orden base.`, `With ${n} orders you save <b>${save} min</b> (22 %) against the base order.`)}</p>
+        <ol class="ladder" aria-label="${L('Mejora paso a paso, en minutos', 'Step-by-step improvement, in minutes')}"><li><span>${L('Cercano', 'Nearest')}</span><b>${base}</b></li><li><span>2-opt</span><b>${nn}</b></li><li><span>Or-opt</span><b>${oo}</b></li><li class="ok"><span>Groq</span><b>${fin}</b></li></ol>
+        <p class="verify">${icon('shield')}<span>${L('Groq propuso el orden y el algoritmo lo verificó con la misma matriz de tiempos antes de aceptarlo.', 'Groq proposed the order and the algorithm verified it on the same time matrix before accepting.')}</span></p>
+        <div class="btn-row"><button class="btn btn-go" data-act="dispatch" type="button">${L('Despachar', 'Dispatch')}</button><button class="btn btn-quiet" data-act="discard" type="button" style="color:var(--board-soft);border-color:var(--board-soft)">${L('Descartar', 'Discard')}</button></div></section>`;
+      return;
+    }
+    const n = D.sel.size;
+    f.innerHTML = `<div class="btn-row"><button class="btn btn-primary" data-act="analyze" type="button" ${n ? '' : 'disabled'}>${n ? L(`Analizar ${n} ${n === 1 ? 'pedido' : 'pedidos'}`, `Analyze ${n} ${n === 1 ? 'order' : 'orders'}`) : L('Elige pedidos para analizar', 'Pick orders to analyze')}</button>${n ? `<button class="btn btn-quiet" data-act="clear" type="button" style="flex:0 0 auto">${L('Limpiar', 'Clear')}</button>` : ''}</div>`;
+  }
+  function analyze() {
+    if (!D.sel.size) return;
+    D.analyzing = true; foot(); stage.snap(1);
+    setTimeout(() => { D.analyzing = false; D.proposal = { n: D.sel.size }; if (host.isConnected) foot(); }, 950);
+  }
+  const click = (e) => {
+    const a = e.target.closest('[data-act]'); const chk = e.target.closest('.check');
+    if (chk) { D.sel[chk.checked ? 'add' : 'delete'](chk.dataset.id); D.proposal = null; chk.closest('.row').classList.toggle('is-selected', chk.checked); foot(); return; }
+    if (!a) return;
+    const act = a.dataset.act;
+    if (act === 'group') { D.sel.add('p3'); D.sel.add('p4'); D.groupDone = true; D.proposal = null; body(); foot(); }
+    else if (act === 'analyze') analyze();
+    else if (act === 'clear') { const prev = new Set(D.sel); D.sel.clear(); D.proposal = null; body(); foot(); toast(L('Selección limpiada', 'Selection cleared'), { undo: () => { prev.forEach((i) => D.sel.add(i)); body(); foot(); } }); }
+    else if (act === 'discard') { const prev = D.proposal; D.proposal = null; foot(); toast(L('Análisis descartado', 'Analysis discarded'), { undo: () => { D.proposal = prev; foot(); } }); }
+    else if (act === 'dispatch') {
+      buzz(a, 24); const ids = [...D.sel]; ORDERS = ORDERS.map((o) => (ids.includes(o.id) ? { ...o, state: 'ON_ROUTE' } : o)); D.sel.clear(); D.proposal = null; D.dispatched = true; D.tab = 'rutas';
+      fig(); segH.render(true); body(); foot(); stage.map.draw(true); stage.snap(1); toast(L('Despachado a Laura Pérez. La ruta se dibujó sobre calles reales.', 'Dispatched to Laura Pérez. The route was drawn on real streets.'));
+    } else if (act === 'recalc') { stage.map.draw(true); toast(L('Ruta recalculada con el tráfico de ahora.', 'Route recalculated with current traffic.')); }
+    else if (act === 'accept') {
+      buzz(a, 14); const r = D.reqs.find((x) => x.id === a.dataset.id); D.reqs = D.reqs.filter((x) => x !== r);
+      ORDERS.unshift({ id: 'n' + r.id, guide: 'DEMO-0' + (20 + D.reqs.length), addr: r.addr, km: '2,2', age: r.age, state: 'PENDING' });
+      fig(); segH.render(false); body(); foot(); toast(L('Solicitud aceptada: ya es un pedido pendiente.', 'Request accepted: it is now a pending order.'));
+    } else if (act === 'reject') {
+      const r = D.reqs.find((x) => x.id === a.dataset.id), at = D.reqs.indexOf(r); D.reqs = D.reqs.filter((x) => x !== r); fig(); segH.render(false); body();
+      toast(L('Solicitud rechazada', 'Request rejected'), { undo: () => { D.reqs.splice(at, 0, r); fig(); segH.render(false); body(); }, onCommit: () => {} });
+    }
+  };
+  stage.sheet.addEventListener('click', click); stage.sheet.addEventListener('change', click);
+  stage.bar.addEventListener('click', (e) => { if (e.target.closest('#bl')) { D.baseline = !D.baseline; stage.map.baseline(D.baseline); bar(); } });
+  const tick = setInterval(() => { clock = clock >= 20 ? 1 : clock + 1; tclock = tclock >= 89 ? 2 : tclock + 1; const g = $('#gps', stage.bar), t = $('#tt', stage.bar); if (g) g.textContent = clock; if (t) t.textContent = tclock; }, 1000);
+  const refresh = () => { fig(); segH.render(false); bar(); body(); foot(); $('.map', stage.root).setAttribute('aria-label', L('Mapa oscuro con la ruta en verde', 'Dark map with the route in green')); };
+  refresh(); stage.map.baseline(false);
+  return {
+    refresh, destroy() { clearInterval(tick); stage.destroy(); },
+    palette: () => [{ g: L('Despacho', 'Dispatch'), t: L('Analizar la selección', 'Analyze selection'), run: () => { D.tab = 'pedidos'; segH.render(true); body(); analyze(); } }, { g: L('Despacho', 'Dispatch'), t: L('Ver solicitudes de clientes', 'See customer requests'), run: () => { D.tab = 'solicitudes'; segH.render(true); body(); foot(); } }],
+    pick: (id) => { D.tab = 'pedidos'; D.sel.add(id); segH.render(true); body(); foot(); },
+  };
+}
+
+/* ====================================================================== pantalla: Repartidor */
+function viewRepartidor(host) {
+  const R = { i: 1, land: false, done: new Set(['S1']), finished: false };
+  let stage, route = null;
+  const mount = () => {
+    stage?.destroy();
+    stage = makeStage(host, { frame: true, land: R.land, label: L('Pantalla del repartidor', 'Courier screen'), sheetLabel: L('Tu ruta', 'Your route'), snap: 2, peek: 252, mid: 0.5,
+      map: { stops: STOPS.map((s, i) => ({ ...s, state: R.done.has(s.id) ? 'done' : i === R.i ? 'current' : 'pending' })), legs: STOPS.map((s, i) => ({ from: i ? STOPS[i - 1].id : null, to: s.id, ...LEGS[i] })), courier: true, courierAt: 0, hover: (lg) => `${lg.m.toString().replace('.', ',')} min` },
+    });
+    stage.map.courierTo(cum(R.i) - 40, { response: 0.4 });
+    stage.bar.innerHTML = `<span class="chip"><i class="dot"></i>${L('GPS activo', 'GPS on')}</span>`;
+    stage.sheet.addEventListener('click', click);
+    render();
+  };
+  const cum = (n) => stage.map.legLen.slice(0, n + 1).reduce((a, b) => a + b, 0);
+  const st = (i) => (R.done.has(STOPS[i].id) ? 'done' : i === R.i ? 'current' : 'pending');
+  function render() {
+    const left = STOPS.length - R.done.size;
+    stage.head.innerHTML = `<div class="head-row"><h1>${L('Tu ruta', 'Your route')}</h1><p class="figures num"><b>${R.done.size}</b> ${L('de', 'of')} ${STOPS.length} ${L('entregadas', 'delivered')}</p></div><div class="strip" role="img" aria-label="${R.done.size} / ${STOPS.length}">${STOPS.map((s) => `<i class="${R.done.has(s.id) ? 'on' : ''}"></i>`).join('')}</div>`;
+    if (R.finished) {
+      stage.foot.innerHTML = `<section class="board"><h2>${L('Ruta completada', 'Route completed')}</h2><p class="lead">${L('Entregaste las 5 paradas en 18 min de manejo, 4 min menos que el orden base.', 'You delivered all 5 stops in 18 min of driving, 4 min less than the base order.')}</p><button class="btn btn-go" data-act="again" type="button">${L('Volver a empezar la demo', 'Restart the demo')}</button></section>`;
+    } else {
+      const s = STOPS[R.i];
+      stage.foot.innerHTML = `<section class="board" aria-live="polite"><h2>${L('Próxima parada', 'Next stop')} · ${R.i + 1}</h2><p class="lead" style="font-weight:650;font-size:1.0625rem">${s.addr}</p><p class="num">${s.guide} · ${LEGS[R.i].m.toString().replace('.', ',')} min · ${L('llegas', 'arrive')} 10:${String(18 + R.i * 4)}</p>
+        <button class="btn btn-go btn-block" data-act="deliver" type="button">${L('Marcar entregado', 'Mark delivered')}</button></section>`;
+    }
+    stage.body.innerHTML = `<ol class="rl-line" aria-label="${L('Paradas de tu ruta', 'Your route stops')}">${STOPS.map((s, i) => `<li class="rl-stop is-${st(i)}"><span class="rl-dot"></span><span class="rl-text"><span class="sr-only">${st(i)}: </span>${s.addr}<span class="rl-meta">${s.guide}</span></span><span class="rl-aside">${LEGS[i].m.toString().replace('.', ',')} min</span></li>`).join('')}</ol>
+      <div class="notice"><span>${L('La cámara del mapa no se mueve con el GPS: tú decides si la recentras.', 'The map camera does not follow GPS updates: you decide when to recenter.')}</span></div>`;
+  }
+  function click(e) {
+    const a = e.target.closest('[data-act]'); if (!a) return;
+    if (a.dataset.act === 'deliver') {
+      buzz(a, 28); const cur = STOPS[R.i]; R.done.add(cur.id); stage.map.setStop(cur.id, 'done');
+      const next = STOPS.findIndex((s) => !R.done.has(s.id));
+      if (next === -1) { R.finished = true; stage.map.courierTo(stage.map.total, { response: 0.9 }); }
+      else { R.i = next; stage.map.setStop(STOPS[next].id, 'current'); stage.map.courierTo(cum(next) - 40, { response: 0.9 }); }
+      render(); toast(L('Entrega confirmada', 'Delivery confirmed'));
+    } else if (a.dataset.act === 'again') { R.i = 1; R.done = new Set(['S1']); R.finished = false; mount(); }
+  }
+  mount();
+  return {
+    refresh() { mount(); }, destroy() { stage.destroy(); },
+    extra: () => ({ rotate() { R.land = !R.land; mount(); } }),
+  };
+}
+
+/* ====================================================================== pantalla: Seguimiento del cliente */
+function viewSeguimiento(host) {
+  const s5 = STOPS[4];
+  const stage = makeStage(host, { frame: true, label: L('Seguimiento del cliente', 'Customer tracking'), sheetLabel: L('Estado del pedido', 'Order status'), snap: 1, peek: 170, mid: 0.5,
+    map: { stops: [{ ...s5, label: '', state: 'current' }], legs: [{ from: 'S4', to: 'S5', ...LEGS[4] }], courier: true, fuzz: true, cust: true, drawn: true } });
+  stage.map.courierTo(stage.map.legLen[0] * 0.5, { response: 0.1 });
+  stage.bar.innerHTML = `<span class="chip">${icon('shield')}${L('Ubicación aproximada', 'Approximate location')}</span>`;
+  const steps = [[L('Pedido recibido', 'Order received'), '09:41', 'done'], [L('Asignado a un repartidor', 'Assigned to a courier'), '09:52', 'done'], [L('En camino', 'On the way'), '10:06', 'current'], [L('Cerca de ti', 'Near you'), '', 'pending'], [L('Entregado', 'Delivered'), '', 'pending']];
+  function refresh() {
+    stage.head.innerHTML = `<div class="head-row"><h1>${L('Tu pedido', 'Your order')}</h1><p class="figures num">DEMO-013</p></div>`;
+    stage.foot.innerHTML = `<section class="board"><p>${L('Llega aproximadamente a las', 'Arrives around')}</p><p class="eta">10:24<small>${L('en 8 min', 'in 8 min')}</small></p><p>${L('Calculado con el tráfico medido hace un momento.', 'Estimated from traffic measured moments ago.')}</p></section>`;
+    stage.body.innerHTML = `<ol class="rl-line" aria-label="${L('Estado del pedido', 'Order status')}">${steps.map(([t, h, s]) => `<li class="rl-stop is-${s}"><span class="rl-dot"></span><span class="rl-text"><span class="sr-only">${s}: </span>${t}</span><span class="rl-aside">${h}</span></li>`).join('')}</ol>
+      <div class="notice"><span>${L('Solo ves tu envío. Los demás pedidos del repartidor no se muestran.', 'You only see your delivery. The courier\'s other orders are not shown.')}</span></div>
+      <button class="btn btn-secondary btn-block" type="button" style="min-height:48px">${L('Escribir al despachador', 'Message the dispatcher')}</button>`;
+  }
+  refresh();
+  return { refresh, destroy: () => stage.destroy() };
+}
+
+/* ====================================================================== pantalla: Solicitar envío */
+function viewSolicitar(host) {
+  const S = { q: '', loading: false, cands: [], ai: false, chosen: null, sent: false };
+  const stage = makeStage(host, { label: L('Solicitar un envío', 'Request a delivery'), sheetLabel: L('Formulario de solicitud', 'Request form'), snap: 1, peek: 150,
+    map: { stops: [{ id: 'S1', c: 4, r: 3, label: '', pin: true, state: 'pending', addr: '' }], legs: [] } });
+  stage.map.setStopPos('S1', 4, 3);
+  const CANDS = [{ a: 'Calle 18 #22-14, Pasto', c: 5, r: 4, p: L('Dirección exacta', 'Exact address') }, { a: 'Calle 18 #22-14 Sur, Pasto', c: 3, r: 6, p: L('Aproximada', 'Approximate') }];
+  let timer = 0;
+  function render(keepInput) {
+    stage.head.innerHTML = `<h1 style="margin-bottom:4px">${L('Solicitar un envío', 'Request a delivery')}</h1><p class="hint">${L('Solo enviamos dentro de Pasto. Un despachador revisa y acepta tu solicitud.', 'We only deliver inside Pasto. A dispatcher reviews and accepts your request.')}</p>`;
+    stage.foot.innerHTML = '';
+    if (S.sent) { stage.body.innerHTML = `<section class="board"><h2>${L('Solicitud enviada', 'Request sent')}</h2><p class="lead">${L('Guarda tu guía para seguir el pedido:', 'Keep your tracking code:')} <b class="num">DEMO-052</b></p><button class="btn btn-go" data-act="track" type="button">${L('Seguir mi pedido', 'Track my order')}</button></section>`; return; }
+    stage.body.innerHTML = `<form class="form" id="req" novalidate><div class="field"><label for="addr">${L('Dirección de entrega', 'Delivery address')}</label><input class="input" id="addr" autocomplete="off" inputmode="text" placeholder="${L('Ej. cll 18 nro 22 14', 'E.g. cll 18 nro 22 14')}" value="${S.q.replace(/"/g, '&quot;')}"><p class="hint" id="h">${L('Escribe como la dices. Entiende abreviaturas.', 'Type it your way. Abbreviations are understood.')}</p></div>
+      <div id="sug" aria-live="polite"></div><button class="btn btn-go btn-block" type="submit" ${S.chosen ? '' : 'disabled'}>${L('Enviar solicitud', 'Send request')}</button></form>`;
+    sug();
+    if (keepInput) { const i = $('#addr', stage.body); i.focus(); i.setSelectionRange(S.q.length, S.q.length); }
+  }
+  function sug() {
+    const el = $('#sug', stage.body); if (!el) return;
+    if (S.loading) { el.innerHTML = '<div class="skel" style="height:52px;margin-top:6px"></div><div class="skel" style="height:52px;margin-top:6px"></div>'; return; }
+    if (!S.cands.length) { el.innerHTML = ''; return; }
+    el.innerHTML = (S.ai ? `<div class="notice is-ok"><span><b>${L('La IA (Groq) interpretó tu texto', 'The AI (Groq) interpreted your text')}</b> ${L('como «Calle 18 # 22-14». Elige la dirección correcta.', 'as “Calle 18 # 22-14”. Pick the right address.')}</span></div>` : '')
+      + `<ul class="suggest" role="list">${S.cands.map((c, i) => `<li><button type="button" data-i="${i}"><span>${c.a}</span><small>${c.p}</small></button></li>`).join('')}</ul>`;
+  }
+  stage.body.addEventListener('input', (e) => {
+    if (e.target.id !== 'addr') return;
+    S.q = e.target.value; S.chosen = null; S.cands = []; clearTimeout(timer);
+    const sub = $('button[type=submit]', stage.body); if (sub) sub.disabled = true;
+    if (S.q.trim().length < 5) { S.loading = false; sug(); return; }
+    timer = setTimeout(() => { S.loading = true; sug(); setTimeout(() => { S.loading = false; S.ai = /cll|cra|nro|#/i.test(S.q) && !/#/.test(S.q); S.cands = CANDS; if (host.isConnected) sug(); }, 520); }, 500);
+  });
+  stage.body.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-i]'); const t = e.target.closest('[data-act=track]');
+    if (t) { go('seguimiento'); return; }
+    if (!b) return;
+    const c = S.cands[+b.dataset.i]; S.chosen = c; S.q = c.a; $('#addr', stage.body).value = c.a; S.cands = [];
+    stage.map.setStopPos('S1', c.c, c.r); stage.map.setCamera({ x0: stage.isWide() ? 432 : 16, x1: stage.stage.clientWidth - 28, y0: 64, y1: stage.isWide() ? stage.stage.clientHeight - 28 : stage.stage.clientHeight * 0.5 - 14 });
+    sug(); const sub = $('button[type=submit]', stage.body); sub.disabled = false; $('#h', stage.body).textContent = L('Punto ubicado en el mapa dentro de Pasto.', 'Point placed on the map inside Pasto.');
+  });
+  stage.body.addEventListener('submit', (e) => { e.preventDefault(); if (!S.chosen) return; buzz(null, 20); S.sent = true; render(); });
+  render();
+  return { refresh: () => render(true), destroy: () => stage.destroy() };
+}
+
+/* ====================================================================== pantalla: Pedidos */
+function viewPedidos(host) {
+  const F = { q: '', f: 'all' };
+  host.innerHTML = `<div class="page"><div class="view-head"><h1>${L('Pedidos', 'Orders')}</h1><p id="cnt"></p></div><div class="toolbar"><input class="input" id="q" type="search" aria-label="${L('Buscar por guía o dirección', 'Search by code or address')}" placeholder="${L('Buscar por guía o dirección', 'Search by code or address')}"><div id="seg"></div></div><div id="list" class="table-rows"></div></div>`;
+  const seg = makeSeg($('#seg', host), { label: () => L('Filtrar por estado', 'Filter by status'), get: () => F.f, set: (f) => { F.f = f; seg.render(true); list(); },
+    items: () => [{ id: 'all', label: L('Todos', 'All') }, { id: 'PENDING', label: L('Pendientes', 'Pending') }, { id: 'ON_ROUTE', label: L('En ruta', 'On route') }, { id: 'DELIVERED', label: L('Entregados', 'Delivered') }] });
+  function list() {
+    const rows = ORDERS.filter((o) => (F.f === 'all' || o.state === F.f) && norm(o.guide + ' ' + o.addr).includes(norm(F.q)));
+    $('#cnt', host).textContent = L(`${ORDERS.length} pedidos hoy · ${ORDERS.filter((o) => o.state === 'PENDING').length} esperan despacho`, `${ORDERS.length} orders today · ${ORDERS.filter((o) => o.state === 'PENDING').length} waiting for dispatch`);
+    $('#list', host).innerHTML = rows.length ? `<ul class="rows" role="list">${rows.map((o) => `<li class="row"><span class="guide">${o.guide}</span><span><span class="row-title">${o.addr}</span><span class="row-meta">${o.km} km · ${L('hace', '')} ${o.age} min</span></span><span class="state"><i class="dot ${STATE_DOT[o.state]}"></i>${STATE_LABEL[o.state]()}</span>${o.state === 'PENDING' ? `<button class="btn btn-ghost" data-del="${o.id}" type="button" aria-label="${L('Eliminar el pedido', 'Delete order')} ${o.guide}" data-tip="${L('Eliminar pedido', 'Delete order')}">${icon('trash')}</button>` : '<span></span>'}</li>`).join('')}</ul>`
+      : `<div class="empty"><b>${L('Ningún pedido coincide', 'No orders match')}</b>${L('Prueba con otra guía, otra dirección o quita el filtro de estado.', 'Try another code, another address or clear the status filter.')}</div>`;
+  }
+  $('#q', host).addEventListener('input', (e) => { F.q = e.target.value; list(); });
+  host.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-del]'); if (!b) return; const o = ORDERS.find((x) => x.id === b.dataset.del);
+    popConfirm(b, { text: L(`¿Eliminar ${o.guide}?`, `Delete ${o.guide}?`), confirm: L('Sí, eliminar', 'Yes, delete'), onConfirm: () => { ORDERS = ORDERS.filter((x) => x !== o); list(); toast(L('Pedido eliminado', 'Order deleted')); } });
+  });
+  const refresh = () => { host.querySelector('h1').textContent = L('Pedidos', 'Orders'); $('#q', host).placeholder = L('Buscar por guía o dirección', 'Search by code or address'); seg.render(false); list(); };
+  seg.render(false); list();
+  return { refresh, destroy() { closePop(false); } };
+}
+
+/* ====================================================================== pantalla: Personal */
+function viewPersonal(host) {
+  let team = COURIERS.map((c) => ({ ...c })), email = '', pass = '', touched = false;
+  host.innerHTML = `<div class="page"><div class="view-head"><h1>${L('Personal', 'Staff')}</h1><p>${L('Registra repartidores y administra quién puede salir a ruta.', 'Register couriers and manage who can go out on a route.')}</p></div><div class="split"><section><ul class="rows" id="team" role="list"></ul><div id="msg" role="status"></div></section>
+    <form class="form" id="reg" novalidate><h2 style="margin:0;font:var(--t-head)">${L('Registrar repartidor', 'Register courier')}</h2>
+      <div class="field"><label for="n">${L('Nombre', 'Name')}</label><input class="input" id="n" autocomplete="off"></div>
+      <div class="field"><label for="e">${L('Correo electrónico', 'Email')}</label><input class="input" id="e" type="email" autocomplete="off" aria-describedby="eh"><p class="hint" id="eh"></p></div>
+      <div class="field"><label for="pw">${L('Contraseña', 'Password')}</label><input class="input" id="pw" type="password" autocomplete="new-password" aria-describedby="ph"><p class="hint" id="ph">${L('Mínimo 10 caracteres.', 'At least 10 characters.')}</p></div>
+      <button class="btn btn-primary" type="submit" id="go" disabled>${L('Registrar repartidor', 'Register courier')}</button></form></div></div>`;
+  const status = (s) => ({ AVAILABLE: [L('Libre', 'Free'), ''], ON_ROUTE: [L('En ruta', 'On route'), ''], OFFLINE: [L('Sin conexión', 'Offline'), 'off'] }[s]);
+  function draw() {
+    $('#team', host).innerHTML = team.map((c) => `<li class="row" style="grid-template-columns:minmax(0,1fr) auto auto;padding:0 6px;gap:14px;min-height:64px"><span><span class="row-title">${c.name}</span><span class="row-meta">${c.phone}</span></span><span class="state"><i class="dot ${status(c.status)[1]}"></i>${status(c.status)[0]}</span><button class="btn btn-ghost" data-del="${c.id}" type="button" aria-label="${L('Eliminar a', 'Delete')} ${c.name}" data-tip="${L('Eliminar repartidor', 'Delete courier')}">${icon('trash')}</button></li>`).join('');
+  }
+  const valid = () => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+  function check() {
+    const eh = $('#eh', host), e = $('#e', host), bad = touched && email && !valid();
+    e.setAttribute('aria-invalid', bad); eh.className = 'hint' + (bad ? ' err' : ''); eh.textContent = bad ? L('Escribe un correo válido, como nombre@dominio.com.', 'Enter a valid email, like name@domain.com.') : L('Usa el correo con el que ingresará.', 'The email they will sign in with.');
+    $('#go', host).disabled = !($('#n', host).value.trim() && valid() && pass.length >= 10);
+  }
+  host.addEventListener('input', (e) => { if (e.target.id === 'e') email = e.target.value; if (e.target.id === 'pw') pass = e.target.value; check(); });
+  host.addEventListener('focusout', (e) => { if (e.target.id === 'e') { touched = true; check(); } });
+  $('#reg', host).addEventListener('submit', (e) => { e.preventDefault(); team.push({ id: 'c' + (team.length + 5), name: $('#n', host).value.trim(), phone: '—', status: 'OFFLINE' }); e.target.reset(); email = pass = ''; touched = false; check(); draw(); toast(L('Repartidor registrado', 'Courier registered')); });
+  host.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-del]'); if (!b) return; const c = team.find((x) => x.id === b.dataset.del);
+    popConfirm(b, { text: L(`¿Eliminar a ${c.name}?`, `Delete ${c.name}?`), confirm: L('Sí, eliminar', 'Yes, delete'), onConfirm: () => {
+      const m = $('#msg', host);
+      if (c.history) { m.innerHTML = `<div class="notice is-error" role="alert"><span><b>${c.name}</b> ${L('tiene rutas en su historial y no se puede eliminar. Puedes dejarlo sin conexión.', 'has routes in their history and cannot be deleted. You can leave them offline.')}</span></div>`; return; }
+      team = team.filter((x) => x !== c); draw(); m.innerHTML = ''; toast(L(`${c.name} fue eliminado`, `${c.name} was deleted`));
+    } });
+  });
+  draw(); check();
+  return { refresh() { const keep = { n: $('#n', host).value }; host.innerHTML = ''; const v = viewPersonal(host); return v; }, destroy() { closePop(false); } };
+}
+
+/* ====================================================================== pantalla: Acceso */
+function viewAcceso(host) {
+  let touched = false;
+  host.innerHTML = `<div class="login-wrap"><form class="login" id="lf" novalidate><h1>${L('Ingresa a Rutas Pasto', 'Sign in to Rutas Pasto')}</h1>
+    <ol class="rl-line" aria-label="${L('Pasos para ingresar', 'Sign-in steps')}"><li class="rl-stop is-current"><span class="rl-dot"></span><span class="rl-text">${L('Tu correo y contraseña', 'Your email and password')}</span><span></span></li><li class="rl-stop is-pending"><span class="rl-dot"></span><span class="rl-text">${L('Tu panel según tu rol', 'Your panel for your role')}</span><span></span></li></ol>
+    <div class="field"><label for="le">${L('Correo electrónico', 'Email')}</label><input class="input" id="le" type="email" autocomplete="username" aria-describedby="leh"><p class="hint" id="leh"></p></div>
+    <div class="field"><label for="lp">${L('Contraseña', 'Password')}</label><input class="input" id="lp" type="password" autocomplete="current-password"></div>
+    <button class="btn btn-primary btn-block" id="lb" type="submit" disabled>${L('Ingresar', 'Sign in')}</button></form></div>`;
+  const ok = () => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test($('#le', host).value);
+  function check() { const bad = touched && $('#le', host).value && !ok(), h = $('#leh', host); $('#le', host).setAttribute('aria-invalid', bad); h.className = 'hint' + (bad ? ' err' : ''); h.textContent = bad ? L('Falta el dominio. Ejemplo: nombre@correo.com', 'The domain is missing. Example: name@mail.com') : ''; $('#lb', host).disabled = !(ok() && $('#lp', host).value.length >= 8); }
+  host.addEventListener('input', check); host.addEventListener('focusout', (e) => { if (e.target.id === 'le') { touched = true; check(); } });
+  $('#lf', host).addEventListener('submit', (e) => { e.preventDefault(); const b = $('#lb', host); b.innerHTML = '<i class="spin"></i>'; b.disabled = true; setTimeout(() => { b.textContent = L('Ingresar', 'Sign in'); b.disabled = false; toast(L('Esto es una maqueta: no hay acceso real.', 'This is a mockup: there is no real sign-in.')); }, 900); });
+  return { refresh() { host.innerHTML = ''; viewAcceso(host); }, destroy() {} };
+}
+
+/* ====================================================================== shell del documento */
+const VIEWS = [
+  { id: 'despacho', t: () => L('Despacho', 'Dispatch'), fn: viewDespacho, g: 'a', title: () => L('Despacho', 'Dispatch'), sub: () => L('El mapa es el escenario; el panel es una hoja de vidrio.', 'The map is the stage; the panel is a glass sheet.'),
+    try: () => L('<b>Prueba:</b> arrastra la hoja del móvil (en escritorio es un panel) · marca pedidos y pulsa Analizar · descarta la propuesta y toca Deshacer · pasa el puntero sobre un tramo del mapa · activa Orden base · <b>⌘K</b> para buscar.', '<b>Try:</b> drag the mobile sheet (on desktop it is a side panel) · tick orders and press Analyze · discard the proposal and tap Undo · hover a map leg · toggle Base order · <b>⌘K</b> to search.') },
+  { id: 'pedidos', t: () => L('Pedidos', 'Orders'), fn: viewPedidos, g: 'a' },
+  { id: 'personal', t: () => L('Personal', 'Staff'), fn: viewPersonal, g: 'a' },
+  { id: 'repartidor', t: () => L('Repartidor', 'Courier'), fn: viewRepartidor, g: 'b', title: () => L('Repartidor', 'Courier'), sub: () => L('Una acción grande, a una mano, en la zona del pulgar.', 'One big action, one-handed, in the thumb zone.'),
+    try: () => L('<b>Prueba:</b> arrastra la hoja y suéltala con impulso (rebota solo si el gesto traía velocidad) · toca Marcar entregado · gira el teléfono con el botón de arriba.', '<b>Try:</b> drag the sheet and release with momentum (it only bounces when the gesture carried speed) · tap Mark delivered · rotate the phone with the button above.') },
+  { id: 'seguimiento', t: () => L('Seguimiento', 'Tracking'), fn: viewSeguimiento, g: 'c', title: () => L('Seguimiento del cliente', 'Customer tracking'), sub: () => L('Una hora de llegada clara y una línea de estado.', 'A clear arrival time and a status line.'), try: () => L('<b>Prueba:</b> arrastra la hoja para ver más o menos mapa. El cliente solo ve su envío y una ubicación aproximada.', '<b>Try:</b> drag the sheet to see more or less map. Customers only see their own delivery and an approximate position.') },
+  { id: 'solicitar', t: () => L('Solicitar', 'Request'), fn: viewSolicitar, g: 'c', title: () => L('Solicitar un envío', 'Request a delivery'), sub: () => L('La IA ayuda a deducir la dirección mientras escribes.', 'The AI helps infer the address as you type.'), try: () => L('<b>Prueba:</b> escribe «cll 18 nro 22 14», espera medio segundo y elige una dirección.', '<b>Try:</b> type “cll 18 nro 22 14”, wait half a second and pick an address.') },
+  { id: 'acceso', t: () => L('Acceso', 'Sign in'), fn: viewAcceso, g: 'c' },
+];
+let current = null, curDef = null;
+function go(id, replace) {
+  closePop(false); current?.destroy?.();
+  curDef = VIEWS.find((v) => v.id === id) || VIEWS[0]; state.view = curDef.id;
+  if (!replace) safe(() => history.replaceState(null, '', '#' + curDef.id));
+  const main = $('#view'); main.innerHTML = '';
+  const wrap = document.createElement('div'); const host = document.createElement('div');
+  if (curDef.title) {
+    wrap.innerHTML = `<div class="view-head"><h1>${curDef.title()}</h1><p>${curDef.sub()}</p></div>`;
+  }
+  wrap.className = 'layout'; wrap.append(host);
+  if (curDef.id === 'repartidor') { wrap.insertAdjacentHTML('afterbegin', ''); }
+  main.append(wrap);
+  current = curDef.fn(host);
+  if (curDef.try) wrap.insertAdjacentHTML('beforeend', `<p class="try">${curDef.try()}</p>`);
+  if (curDef.id === 'repartidor') {
+    const b = document.createElement('button'); b.className = 'btn btn-quiet'; b.type = 'button'; b.style.justifySelf = 'center'; b.innerHTML = `${icon('rotate')}${L('Girar el teléfono', 'Rotate the phone')}`;
+    b.addEventListener('click', () => current.extra().rotate()); wrap.insertBefore(b, host);
+  }
+  chrome();
+  window.scrollTo({ top: 0 });
+}
+function chrome() {
+  const d = $('#doc'); const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+  const nav = VIEWS.map((v, i) => `${i && VIEWS[i - 1].g !== v.g ? '<i class="sep"></i>' : ''}<button type="button" data-go="${v.id}" ${v.id === state.view ? 'aria-current="page"' : ''}>${v.t()}</button>`).join('');
+  d.innerHTML = `<div class="brand"><span class="brand-mark" aria-hidden="true"></span>Rutas Pasto <small>${L('Maqueta v2', 'Mockup v2')}</small></div>
+    <nav class="nav" aria-label="${L('Pantallas de la maqueta', 'Mockup screens')}">${nav}</nav>
+    <div class="tools"><button class="tool tool-search" type="button" id="kbtn" data-tip="${L('Buscar y saltar (⌘K)', 'Search and jump (⌘K)')}" aria-label="${L('Abrir la búsqueda', 'Open search')}">${icon('search')}<span class="kbd">⌘K</span></button>
+      <button class="tool" type="button" id="tTheme" data-tip="${L('Cambiar entre tema claro y oscuro', 'Switch between light and dark theme')}" aria-label="${L('Cambiar tema', 'Switch theme')}">${icon(dark ? 'sun' : 'moon')}</button>
+      <button class="tool" type="button" id="tLang" data-tip="${L('Cambiar el idioma a inglés', 'Switch language to Spanish')}" aria-label="${L('Cambiar idioma', 'Switch language')}">${icon('globe')}</button>
+      <button class="tool" type="button" id="tRm" aria-pressed="${state.simRM}" data-tip="${L('Simular «reducir movimiento»: resortes por fundidos', 'Simulate “reduce motion”: springs become fades')}" aria-label="${L('Simular movimiento reducido', 'Simulate reduced motion')}">${icon('motion')}</button>
+      <button class="tool" type="button" id="tHap" aria-pressed="${state.haptics}" data-tip="${L('Vibración en entregas y acciones (solo teléfonos)', 'Haptics on deliveries and actions (phones only)')}" aria-label="${L('Vibración', 'Haptics')}">${icon('vibrate')}</button></div>`;
+}
+function setRM() { state.rm = state.simRM || matchMedia('(prefers-reduced-motion: reduce)').matches; document.documentElement.classList.toggle('rm', state.rm); }
+function setLang() { document.documentElement.lang = state.lang; }
+document.addEventListener('click', (e) => {
+  const g = e.target.closest('[data-go]'); if (g) { go(g.dataset.go); return; }
+  if (e.target.closest('#tTheme')) { const r = document.documentElement, dark = r.dataset.theme === 'dark' || (!r.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches); r.dataset.theme = dark ? 'light' : 'dark'; chrome(); }
+  else if (e.target.closest('#tLang')) { state.lang = state.lang === 'es' ? 'en' : 'es'; setLang(); go(state.view, true); }
+  else if (e.target.closest('#tRm')) { state.simRM = !state.simRM; setRM(); chrome(); toast(state.simRM ? L('Movimiento reducido: los resortes pasan a fundidos.', 'Reduced motion: springs become fades.') : L('Movimiento normal.', 'Normal motion.')); }
+  else if (e.target.closest('#tHap')) { state.haptics = !state.haptics; chrome(); if (state.haptics) buzz(null, 18); }
+  else if (e.target.closest('#kbtn')) openPalette(e.target.closest('#kbtn'));
+});
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', setRM);
+
+/* ====================================================================== paleta de comandos */
+let pal = null;
+function items() {
+  const nav = VIEWS.map((v) => ({ g: L('Ir a', 'Go to'), t: v.t(), run: () => go(v.id) }));
+  const act = [{ g: L('Preferencias', 'Preferences'), t: L('Cambiar tema claro/oscuro', 'Toggle light/dark theme'), run: () => $('#tTheme').click() }, { g: L('Preferencias', 'Preferences'), t: L('Cambiar idioma', 'Switch language'), run: () => $('#tLang').click() }];
+  const ords = ORDERS.filter((o) => o.state === 'PENDING').map((o) => ({ g: L('Pedidos pendientes', 'Pending orders'), t: o.addr, s: o.guide, run: () => { go('despacho'); setTimeout(() => current.pick?.(o.id), 60); } }));
+  return [...(current?.palette?.() || []), ...nav, ...act, ...ords];
+}
+function openPalette(origin) {
+  if (pal) return;
+  const sc = document.createElement('div'); sc.className = 'scrim';
+  sc.innerHTML = `<div class="palette-box" role="dialog" aria-modal="true" aria-label="${L('Buscar y saltar', 'Search and jump')}"><input id="pq" role="combobox" aria-expanded="true" aria-controls="pl" aria-autocomplete="list" placeholder="${L('Busca una pantalla, un pedido o una acción', 'Search a screen, an order or an action')}" autocomplete="off"><ul id="pl" role="listbox"></ul></div>`;
+  document.body.append(sc); requestAnimationFrame(() => sc.classList.add('in'));
+  const inp = $('#pq', sc), ul = $('#pl', sc); let sel = 0, list = [];
+  const draw = () => {
+    const q = norm(inp.value); list = items().filter((i) => norm(i.t + ' ' + (i.s || '') + ' ' + i.g).includes(q));
+    sel = clamp(sel, 0, Math.max(0, list.length - 1)); let last = '';
+    ul.innerHTML = list.map((i, n) => { const gh = i.g !== last ? `<li class="g" role="presentation">${i.g}</li>` : ''; last = i.g; return `${gh}<li role="option" id="po${n}" data-n="${n}" aria-selected="${n === sel}">${i.t}${i.s ? `<small>${i.s}</small>` : ''}</li>`; }).join('') || `<li role="presentation" style="cursor:default;color:var(--fg-soft)">${L('Nada coincide. Prueba con una guía como DEMO-016.', 'Nothing matches. Try a code like DEMO-016.')}</li>`;
+    inp.setAttribute('aria-activedescendant', list.length ? 'po' + sel : ''); $('[aria-selected=true]', ul)?.scrollIntoView({ block: 'nearest' });
+  };
+  const close = () => { if (!pal) return; pal = null; sc.classList.remove('in'); document.removeEventListener('keydown', key); setTimeout(() => sc.remove(), 260); origin?.focus?.(); };
+  const run = (n) => { const it = list[n]; if (!it) return; close(); setTimeout(it.run, 40); };
+  const key = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, list.length - 1); draw(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); draw(); }
+    else if (e.key === 'Enter') { e.preventDefault(); run(sel); }
+    else if (e.key === 'Tab') { e.preventDefault(); }
+  };
+  document.addEventListener('keydown', key);
+  inp.addEventListener('input', () => { sel = 0; draw(); });
+  ul.addEventListener('click', (e) => { const li = e.target.closest('[data-n]'); if (li) run(+li.dataset.n); });
+  sc.addEventListener('pointerdown', (e) => { if (e.target === sc) close(); });
+  pal = { close }; draw(); inp.focus();
+}
+document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); pal ? pal.close() : openPalette(document.activeElement); } });
+document.body.append(tipEl);
+
+/* ====================================================================== arranque */
+setRM(); setLang();
+const start = (location.hash || '').slice(1);
+go(VIEWS.some((v) => v.id === start) ? start : 'despacho', true);
+})();
+</script>
