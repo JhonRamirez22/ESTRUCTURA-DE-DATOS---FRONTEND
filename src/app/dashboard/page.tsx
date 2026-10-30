@@ -18,6 +18,7 @@ import OptimizationLadder from '@/components/OptimizationLadder';
 import AiGroupSuggestions from '@/components/AiGroupSuggestions';
 import Sheet, { type SheetLayout } from '@/components/Sheet';
 import SegmentedTabs from '@/components/SegmentedTabs';
+import { useUndoToast } from '@/components/UndoToast';
 import type { MapInset } from '@/components/MapLibreRouteMap';
 import type { RouteOptimization } from '@/lib/routeOptimization';
 
@@ -170,6 +171,7 @@ export default function DashboardPage() {
   const [routeActionNotice, setRouteActionNotice] = useState<string | null>(null);
   const [assignmentAiStatus, setAssignmentAiStatus] = useState<AssignmentAiStatus | null>(null);
   const [liveTrafficNotice, setLiveTrafficNotice] = useState<string | null>(null);
+  const undoToast = useUndoToast(t('undo.action'));
   const [sheetTab, setSheetTab] = useState<'pedidos' | 'rutas' | 'actividad'>('pedidos');
   const [inset, setInset] = useState<MapInset | undefined>(undefined);
   const [stageWide, setStageWide] = useState(false);
@@ -610,6 +612,25 @@ export default function DashboardPage() {
     },
   ];
 
+  const discardProposal = () => {
+    const previous = {
+      preview: assignmentPreview,
+      selectionKey: assignmentPreviewSelectionKey,
+      unassigned: unassignedDeliveryPointIds,
+      aiStatus: assignmentAiStatus,
+    };
+    setAssignmentPreview([]);
+    setAssignmentPreviewSelectionKey(null);
+    setUnassignedDeliveryPointIds([]);
+    setAssignmentAiStatus(null);
+    undoToast.show(t('dash.undo.discarded'), () => {
+      setAssignmentPreview(previous.preview);
+      setAssignmentPreviewSelectionKey(previous.selectionKey);
+      setUnassignedDeliveryPointIds(previous.unassigned);
+      setAssignmentAiStatus(previous.aiStatus);
+    });
+  };
+
   const sheetFoot =
     sheetTab === 'pedidos' ? (
       <div className="grid gap-2">
@@ -622,6 +643,16 @@ export default function DashboardPage() {
             type="button"
           >
             {dispatching ? t('dash.dispatching') : t('dash.dispatchBtn')}
+          </button>
+        ) : null}
+        {assignmentPreview.length > 0 ? (
+          <button
+            className="rp-button rp-button-quiet rp-button-block"
+            disabled={dispatching}
+            onClick={discardProposal}
+            type="button"
+          >
+            {t('dash.discard')}
           </button>
         ) : null}
                 <button
@@ -780,6 +811,13 @@ export default function DashboardPage() {
               </div>
             </div>
                     <div className="grid gap-8">
+                      {analyzing ? (
+                        <div aria-busy="true" aria-label={t('dash.analyzing')} className="rl-board order-first grid gap-3" role="status">
+                          <p className="font-semibold !text-[var(--board-ink)]">{t('dash.analyzing')}</p>
+                          <div className="rp-skeleton h-4 !bg-white/15" />
+                          <div className="rp-skeleton h-16 !bg-white/15" />
+                        </div>
+                      ) : null}
               <div className="min-w-0">
                 <div className="rl-head">
                   <h3>
@@ -791,13 +829,17 @@ export default function DashboardPage() {
                   <button
                     className="text-sm font-semibold underline-offset-4 hover:underline"
                     data-tip="tip.selectAll"
-                    onClick={() =>
-                      setSelectedPendingIds(
-                        selectedPendingIds.length === data.pendingPoints.length
-                          ? []
-                          : data.pendingPoints.map((point) => point.id)
-                      )
-                    }
+                    onClick={() => {
+                      const clearing =
+                        selectedPendingIds.length === data.pendingPoints.length && data.pendingPoints.length > 0;
+                      if (clearing) {
+                        const previous = selectedPendingIds;
+                        setSelectedPendingIds([]);
+                        undoToast.show(t('dash.undo.cleared'), () => setSelectedPendingIds(previous));
+                        return;
+                      }
+                      setSelectedPendingIds(data.pendingPoints.map((point) => point.id));
+                    }}
                     type="button"
                   >
                     {selectedPendingIds.length === data.pendingPoints.length &&
@@ -806,7 +848,13 @@ export default function DashboardPage() {
                       : t('dash.selectAll')}
                   </button>
                 </div>
-                {data.pendingPoints.length === 0 ? (
+                {loading && !lastUpdatedAt && data.pendingPoints.length === 0 ? (
+                  <div aria-busy="true" aria-label={t('dash.syncing')} className="grid gap-2 py-2" role="status">
+                    <div className="rp-skeleton h-14" />
+                    <div className="rp-skeleton h-14" />
+                    <div className="rp-skeleton h-14" />
+                  </div>
+                ) : data.pendingPoints.length === 0 ? (
                   <p className="rl-empty">{t('dash.noPending')}</p>
                 ) : (
                   <ul className="rl-rows max-h-[420px] overflow-y-auto">
@@ -1097,6 +1145,7 @@ export default function DashboardPage() {
             </Sheet>
           </section>
           </fieldset>
+          {undoToast.node}
         </div>
       </main>
     </AppShell>
