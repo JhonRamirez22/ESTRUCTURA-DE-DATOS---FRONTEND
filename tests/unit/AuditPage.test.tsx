@@ -27,3 +27,32 @@ beforeEach(() => {
     return { subjects: [{ id: 'c1', label: 'Ana Repartidora', detail: 'AVAILABLE' }] };
   });
   Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:x'), revokeObjectURL: vi.fn() });
+});
+afterEach(cleanup);
+
+it('no deja descargar hasta elegir sujeto y descarga el PDF pedido con el periodo', async () => {
+  fetchMock.mockResolvedValue(
+    new Response('%PDF-1.4', { status: 200, headers: { 'content-disposition': 'attachment; filename="auditoria-courier-20261120.pdf"' } }),
+  );
+  await act(async () => { render(<AuditPage />); });
+  const button = screen.getByRole('button', { name: 'Descargar PDF' }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  const pick = await screen.findByRole('button', { name: 'Elegir' });
+  await act(async () => { fireEvent.click(pick); });
+  expect(button.disabled).toBe(false);
+  await act(async () => { fireEvent.click(button); });
+  const url = String(fetchMock.mock.calls[0][0]);
+  expect(url).toContain('/api/auditoria/informe?tipo=courier&id=c1');
+  expect(url).toMatch(/desde=\d{4}-\d{2}-\d{2}&hasta=\d{4}-\d{2}-\d{2}/);
+  expect(screen.getByRole('status').textContent).toContain('descargado');
+});
+
+it('bloquea el botón con un periodo invertido y muestra el error del servidor', async () => {
+  await act(async () => { render(<AuditPage />); });
+  const pick = await screen.findByRole('button', { name: 'Elegir' });
+  await act(async () => { fireEvent.click(pick); });
+  fireEvent.change(screen.getAllByLabelText('Desde')[0], { target: { value: '2026-12-01' } });
+  fireEvent.change(screen.getAllByLabelText('Hasta')[0], { target: { value: '2026-11-01' } });
+  expect((screen.getByRole('button', { name: 'Descargar PDF' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole('alert').textContent).toContain('posterior');
+
