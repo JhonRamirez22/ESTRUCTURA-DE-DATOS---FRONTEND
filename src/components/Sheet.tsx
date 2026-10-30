@@ -23,6 +23,12 @@ export interface FreeArea {
 export interface SheetLayout {
   wide: boolean;
   free: FreeArea;
+  /** Margen que el mapa debe respetar en cada lado para que la hoja no tape la ruta. */
+  inset: { top: number; right: number; bottom: number; left: number };
+}
+
+function layoutOf(wide: boolean, free: FreeArea, width: number, height: number): SheetLayout {
+  return { wide, free, inset: { top: free.y0, right: width - free.x1, bottom: height - free.y1, left: free.x0 } };
 }
 
 export interface SheetProps {
@@ -108,20 +114,18 @@ export default function Sheet({
       if (isWide) {
         spring.stop();
         if (sheetRef.current) sheetRef.current.style.transform = '';
-        onLayoutRef.current?.({
-          wide: true,
-          free: { x0: PANEL_MARGIN + panelWidth + 28, x1: width - 28, y0: 64, y1: height - 28 },
-        });
+        onLayoutRef.current?.(
+          layoutOf(true, { x0: PANEL_MARGIN + panelWidth + 28, x1: width - 28, y0: 64, y1: height - 28 }, width, height)
+        );
         return;
       }
       const middle = Math.round(height * mid);
       snapsRef.current = [FULL_TOP, middle, height - peek];
       stage.style.setProperty('--sheet-full', `${FULL_TOP}px`);
       spring.set(snapsRef.current[indexRef.current]!);
-      onLayoutRef.current?.({
-        wide: false,
-        free: { x0: 16, x1: width - 16, y0: 64, y1: Math.max(120, middle - 14) },
-      });
+      onLayoutRef.current?.(
+        layoutOf(false, { x0: 16, x1: width - 16, y0: 64, y1: Math.max(120, middle - 14) }, width, height)
+      );
     };
     layout();
     const observer = new ResizeObserver(layout);

@@ -3,6 +3,7 @@
 import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { isWithinPastoServiceArea, PASTO_SERVICE_BOUNDS } from '@/lib/pastoArea';
 import { getPastoMapCenter } from '@/lib/mapCenter';
 import { getPastoMinimumZoom } from '@/lib/mapViewport';
@@ -62,6 +63,26 @@ interface MapLibreRouteMapProps {
   ariaLabel?: string;
   showTraffic?: boolean;
   trafficMarks?: MapTrafficMark[];
+  /** Zona del mapa tapada por la hoja o el panel: la cámara encuadra lo que queda libre. */
+  inset?: MapInset;
+}
+
+export interface MapInset {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+const BASE_FIT_PADDING = 36;
+
+interface MapData {
+  couriers: MapCourier[];
+  pendingPoints: MapDeliveryPoint[];
+  routes: MapRoute[];
+  selectedCoordinate: [number, number] | null;
+  trafficMarks: MapTrafficMark[];
+  inset?: MapInset | undefined;
 }
 
 /** Muestras de TomTom sobre la geometría de la ruta; se pintan encima de la línea verde. */
@@ -112,6 +133,7 @@ export default function MapLibreRouteMap({
   selectedCoordinate = null,
   showTraffic = false,
   trafficMarks = [],
+  inset,
 }: MapLibreRouteMapProps) {
   const t = useT();
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
@@ -121,9 +143,9 @@ export default function MapLibreRouteMap({
   const mapRef = useRef<MapLibreMap | null>(null);
   const retryMapRef = useRef<(() => void) | null>(null);
   const cameraKeyRef = useRef<string | null>(null);
-  const dataRef = useRef({ couriers, pendingPoints, routes, selectedCoordinate, trafficMarks });
+  const dataRef = useRef<MapData>({ couriers, pendingPoints, routes, selectedCoordinate, trafficMarks });
   dataRef.current = {
-    couriers, pendingPoints, routes: selectedRoute ? [selectedRoute] : [], selectedCoordinate, trafficMarks,
+    couriers, pendingPoints, routes: selectedRoute ? [selectedRoute] : [], selectedCoordinate, trafficMarks, inset,
   };
 
   useEffect(() => {
@@ -259,7 +281,7 @@ export default function MapLibreRouteMap({
     }
 
     updateMapData(map, dataRef.current, cameraKeyRef);
-  }, [couriers, pendingPoints, routes, selectedCoordinate, selectedRouteId, trafficMarks]);
+  }, [couriers, pendingPoints, routes, selectedCoordinate, selectedRouteId, trafficMarks, inset?.top, inset?.right, inset?.bottom, inset?.left]);
 
   // Una optimización nueva se dibuja de la salida a la última parada (una vez por sesión).
   const drawKey = selectedRoute?.optimization?.computedAt
@@ -364,6 +386,11 @@ export default function MapLibreRouteMap({
       aria-label={ariaLabel}
       className={`relative isolate overflow-hidden bg-[#17242b] ${className}`}
       role="region"
+      style={
+        inset
+          ? ({ '--map-inset-left': `${inset.left}px`, '--map-inset-bottom': `${inset.bottom}px` } as CSSProperties)
+          : undefined
+      }
     >
       <div
         ref={containerRef}
@@ -391,7 +418,7 @@ export default function MapLibreRouteMap({
         <OptimizationBadge optimization={selectedRoute.optimization} />
       ) : null}
       <button
-        className="rp-button rp-button-map absolute left-3 top-3 z-10"
+        className="rp-button rp-button-map rp-map-center absolute left-3 top-3 z-10"
         data-tip="tip.centerMap"
         onClick={() => {
           const map = mapRef.current;
@@ -623,13 +650,7 @@ function trafficColor(level: string, roadClosure: boolean): string {
 
 function updateMapData(
   map: MapLibreMap,
-  data: {
-    couriers: MapCourier[];
-    pendingPoints: MapDeliveryPoint[];
-    routes: MapRoute[];
-    selectedCoordinate: [number, number] | null;
-    trafficMarks: MapTrafficMark[];
-  },
+  data: MapData,
   cameraKey: { current: string | null }
 ): void {
   const directionFeatures: MapFeature[] = [];
@@ -807,6 +828,7 @@ function updateMapData(
   const nextCameraKey = JSON.stringify({
     routes: data.routes.map((route) => route.id).sort(),
     selection: data.selectedCoordinate,
+    inset: data.inset,
   });
   if (focusCoordinates.length === 0) return;
   if (cameraKey.current === nextCameraKey) return;
@@ -822,7 +844,19 @@ function updateMapData(
       bounds.extend(coordinate);
     }
 
-    map.fitBounds(bounds, { maxZoom: 16, padding: 36, duration: 500 });
+    const inset = data.inset;
+    map.fitBounds(bounds, {
+      maxZoom: 16,
+      padding: inset
+        ? {
+            top: Math.max(BASE_FIT_PADDING, inset.top),
+            right: Math.max(BASE_FIT_PADDING, inset.right),
+            bottom: Math.max(BASE_FIT_PADDING, inset.bottom),
+            left: Math.max(BASE_FIT_PADDING, inset.left),
+          }
+        : BASE_FIT_PADDING,
+      duration: 500,
+    });
   }
 }
 

@@ -93,6 +93,7 @@ const pages = [
   ['acceso', '/acceso', 'desktop'],
   ['dashboard', '/dashboard', 'desktop'],
   ['dashboard-mobile', '/dashboard', 'mobile'],
+  ['hoja-completa', '/dashboard', 'mobile'],
   ['propuesta', '/dashboard', 'desktop'],
   ['pedidos', '/pedidos', 'desktop'],
   ['personal', '/personal', 'desktop'],
@@ -185,8 +186,13 @@ for (const [name, path, kind] of pages) {
     await page.waitForTimeout(1500);
     await page.getByRole('button', { name: 'Analizar asignación' }).click();
   }
+  if (name === 'hoja-completa') {
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: /Cambiar la altura/ }).focus();
+    await page.keyboard.press('ArrowUp');
+  }
   await page.waitForTimeout(2500);
-  await page.screenshot({ path: `${out}/${name}.png`, fullPage: !['propuesta', 'oscuro-propuesta', 'intro', 'tooltip', 'en-dashboard', 'mapa-optimizado', 'solicitar-ia', 'agrupa'].includes(name) });
+  await page.screenshot({ path: `${out}/${name}.png`, fullPage: !['propuesta', 'oscuro-propuesta', 'intro', 'tooltip', 'en-dashboard', 'mapa-optimizado', 'solicitar-ia', 'agrupa', 'hoja-completa'].includes(name) });
   console.log('shot', name);
   await context.close();
 }

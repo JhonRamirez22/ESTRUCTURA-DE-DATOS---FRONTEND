@@ -33,14 +33,22 @@ describe('Sheet', () => {
     stageSize(1200, 760);
     const onLayout = renderSheet();
     expect(screen.getByRole('complementary', { name: 'Panel' }).className).toContain('is-panel');
-    expect(onLayout).toHaveBeenLastCalledWith({ wide: true, free: { x0: 436, x1: 1172, y0: 64, y1: 732 } });
+    expect(onLayout).toHaveBeenLastCalledWith({
+      wide: true,
+      free: { x0: 436, x1: 1172, y0: 64, y1: 732 },
+      inset: { top: 64, right: 28, bottom: 28, left: 436 },
+    });
   });
 
   it('es una hoja en pantallas estrechas y deja libre el mapa sobre la altura media', () => {
     stageSize(390, 700);
     const onLayout = renderSheet();
     expect(screen.getByRole('complementary', { name: 'Panel' }).className).not.toContain('is-panel');
-    expect(onLayout).toHaveBeenLastCalledWith({ wide: false, free: { x0: 16, x1: 374, y0: 64, y1: 350 } });
+    expect(onLayout).toHaveBeenLastCalledWith({
+      wide: false,
+      free: { x0: 16, x1: 374, y0: 64, y1: 350 },
+      inset: { top: 64, right: 16, bottom: 350, left: 16 },
+    });
   });
 
   it('cambia de altura con el teclado y la altura completa habilita el desplazamiento', () => {

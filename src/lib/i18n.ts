@@ -187,6 +187,11 @@ const es = {
 
   // Despacho
   'dash.title': 'Despacho',
+  'dash.tab.orders': 'Pedidos',
+  'dash.tab.routes': 'Rutas',
+  'dash.tab.activity': 'Actividad',
+  'dash.sheet.tabs': 'Secciones del despacho',
+  'dash.sheet.grabber': 'Cambiar la altura del panel. Flechas arriba y abajo.',
   'dash.refresh': 'Actualizar datos',
   'dash.new': 'Nuevo despacho',
   'dash.missingCourier': '¿Falta un repartidor? Agrégalo en Personal',
@@ -556,6 +561,11 @@ const en: Record<MessageKey, string> = {
   'orders.map': 'Pasto · pick a location',
 
   'dash.title': 'Dispatch',
+  'dash.tab.orders': 'Orders',
+  'dash.tab.routes': 'Routes',
+  'dash.tab.activity': 'Activity',
+  'dash.sheet.tabs': 'Dispatch sections',
+  'dash.sheet.grabber': 'Change the panel height. Up and down arrows.',
   'dash.refresh': 'Refresh data',
   'dash.new': 'New dispatch',
   'dash.missingCourier': 'Missing a courier? Add one under Staff',

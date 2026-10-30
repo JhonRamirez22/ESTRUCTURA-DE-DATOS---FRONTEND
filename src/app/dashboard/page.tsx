@@ -16,12 +16,15 @@ import OptimizationFeed from '@/components/OptimizationFeed';
 import { RouteLine, RouteStrip, type StopState } from '@/components/RouteLine';
 import OptimizationLadder from '@/components/OptimizationLadder';
 import AiGroupSuggestions from '@/components/AiGroupSuggestions';
+import Sheet, { type SheetLayout } from '@/components/Sheet';
+import SegmentedTabs from '@/components/SegmentedTabs';
+import type { MapInset } from '@/components/MapLibreRouteMap';
 import type { RouteOptimization } from '@/lib/routeOptimization';
 
 const RouteMap = dynamic(() => import('./RouteMap'), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[min(68vh,680px)] min-h-[400px] items-center justify-center bg-[#17242b] text-sm text-slate-300">
+    <div className="absolute inset-0 flex items-center justify-center bg-[#17242b] text-sm text-slate-300">
       Cargando mapa de Pasto…
     </div>
   ),
@@ -167,6 +170,21 @@ export default function DashboardPage() {
   const [routeActionNotice, setRouteActionNotice] = useState<string | null>(null);
   const [assignmentAiStatus, setAssignmentAiStatus] = useState<AssignmentAiStatus | null>(null);
   const [liveTrafficNotice, setLiveTrafficNotice] = useState<string | null>(null);
+  const [sheetTab, setSheetTab] = useState<'pedidos' | 'rutas' | 'actividad'>('pedidos');
+  const [inset, setInset] = useState<MapInset | undefined>(undefined);
+  const [stageWide, setStageWide] = useState(false);
+  const handleSheetLayout = useCallback((layout: SheetLayout) => {
+    setStageWide(layout.wide);
+    setInset((current) =>
+      current &&
+      current.top === layout.inset.top &&
+      current.right === layout.inset.right &&
+      current.bottom === layout.inset.bottom &&
+      current.left === layout.inset.left
+        ? current
+        : layout.inset
+    );
+  }, []);
   const dashboardRequestId = useRef(0);
   const dashboardController = useRef<AbortController | null>(null);
   const selectionInitialized = useRef(false);
@@ -517,6 +535,7 @@ export default function DashboardPage() {
       setAssignmentPreviewSelectionKey(null);
       setUnassignedDeliveryPointIds([]);
       setSelectedPendingIds([]);
+      setSheetTab('rutas');
       await loadDashboard();
     } catch (dispatchError) {
       setError(
@@ -591,6 +610,32 @@ export default function DashboardPage() {
     },
   ];
 
+  const sheetFoot =
+    sheetTab === 'pedidos' ? (
+      <div className="grid gap-2">
+        {assignmentPreview.length > 0 ? (
+          <button
+            className="rp-button rp-button-go rp-button-block"
+            data-tip="tip.dispatch"
+            disabled={dispatching || !assignmentPreviewIsCurrent}
+            onClick={() => void dispatchAssignments()}
+            type="button"
+          >
+            {dispatching ? t('dash.dispatching') : t('dash.dispatchBtn')}
+          </button>
+        ) : null}
+                <button
+                  className="rp-button rp-button-primary rp-button-block"
+                  data-tip="tip.analyze"
+                  disabled={analyzing || selectedPendingIds.length === 0 || selectedCourierIds.length === 0}
+                  onClick={() => void analyzeAssignments()}
+                  type="button"
+                >
+                  {analyzing ? t('dash.analyzing') : t('dash.analyze')}
+                </button>
+      </div>
+    ) : undefined;
+
   return (
     <AppShell active="dispatch">
       <main className="rp-dashboard">
@@ -630,10 +675,6 @@ export default function DashboardPage() {
             </button>
           </header>
 
-          <nav aria-label="Accesos rápidos del despacho" className="rp-mobile-shortcuts">
-            <a href="#active-routes">Ver rutas activas</a>
-            <a href="#dispatch-orders">Asignar pedidos</a>
-          </nav>
 
           <div className="mb-6 empty:hidden">
             {error ? (
@@ -685,8 +726,48 @@ export default function DashboardPage() {
           </div>
 
           <fieldset disabled={!operationalReady} aria-label="Operación de despacho" className="min-w-0 border-0 p-0">
-
-          <section aria-label="Despachar pedidos" className="rl-section scroll-mt-24" id="dispatch-orders">
+          <section
+            aria-label="Mapa y despacho"
+            className={`rp-stage ${stageWide ? 'is-wide' : ''}`}
+            id="dispatch-orders"
+          >
+            <RouteMap
+              className="absolute inset-0 h-full w-full"
+              couriers={data.couriers}
+              inset={inset}
+              pendingPoints={data.pendingPoints}
+              routes={activeRoutes}
+              showTraffic={activeRoutes.length > 0}
+            />
+            <div className="rp-stage-bar" aria-label={t('dash.map')}>
+              <span className="rp-chip"><span className="h-2 w-2 rounded-full bg-cyan-400" />{t('dash.legend.courier')}</span>
+              <span className="rp-chip"><span className="h-2 w-2 rounded-full bg-amber-500" />{t('dash.legend.pending')}</span>
+              <span className="rp-chip"><span className="h-2 w-2 rounded-full bg-sky-400" />{t('dash.legend.onway')}</span>
+              <span className="rp-chip"><span className="h-2 w-2 rounded-full bg-green-500" />{t('dash.legend.delivered')}</span>
+            </div>
+            <Sheet
+              foot={sheetFoot}
+              grabberLabel={t('dash.sheet.grabber')}
+              head={
+                <SegmentedTabs
+                  idPrefix="dispatch-sheet"
+                  label={t('dash.sheet.tabs')}
+                  onChange={setSheetTab}
+                  tabs={[
+                    { id: 'pedidos', label: t('dash.tab.orders'), count: data.pendingPoints.length },
+                    { id: 'rutas', label: t('dash.tab.routes'), count: activeRoutes.length },
+                    { id: 'actividad', label: t('dash.tab.activity') },
+                  ]}
+                  value={sheetTab}
+                />
+              }
+              label={t('dash.title')}
+              onLayout={handleSheetLayout}
+              peek={176}
+            >
+              <div aria-labelledby={`dispatch-sheet-tab-${sheetTab}`} id="dispatch-sheet-panel" role="tabpanel">
+                {sheetTab === 'pedidos' ? (
+                  <>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-semibold">{t('dash.new')}</h2>
               <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -698,8 +779,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
             </div>
-
-            <div className="rl-columns rl-columns-dispatch items-start gap-y-8">
+                    <div className="grid gap-8">
               <div className="min-w-0">
                 <div className="rl-head">
                   <h3>
@@ -774,7 +854,6 @@ export default function DashboardPage() {
                 )}
                 <AiGroupSuggestions onSelect={(ids) => setSelectedPendingIds(ids)} />
               </div>
-
               <div className="min-w-0">
                 <div className="rl-head">
                   <h3>
@@ -816,19 +895,9 @@ export default function DashboardPage() {
                 <p className="mt-3 text-xs text-[var(--ink-soft)]">
                   {t('dash.multi')}
                 </p>
-                <button
-                  className="rp-button rp-button-primary rp-button-block mt-4"
-                  data-tip="tip.analyze"
-                  disabled={analyzing || selectedPendingIds.length === 0 || selectedCourierIds.length === 0}
-                  onClick={() => void analyzeAssignments()}
-                  type="button"
-                >
-                  {analyzing ? t('dash.analyzing') : t('dash.analyze')}
-                </button>
               </div>
-
               {assignmentPreview.length > 0 || unassignedDeliveryPointIds.length > 0 ? (
-                <aside aria-label="Propuesta" className="rl-board route-proposal min-w-0">
+                <aside aria-label="Propuesta" className="rl-board route-proposal order-first min-w-0">
                   <div className="rl-head">
                     <h3>
                       {assignmentPreview.length > 0 ? t('dash.step3.ready') : t('dash.step3.unassigned')}
@@ -922,20 +991,10 @@ export default function DashboardPage() {
                       {assignmentAiStatus.warning ?? 'La propuesta se calculó con cercanía y balanceo.'}
                     </p>
                   ) : null}
-                  {assignmentPreview.length > 0 ? (
-                    <button
-                      className="rp-button rp-button-go rp-button-block mt-5"
-                      data-tip="tip.dispatch"
-                      disabled={dispatching || !assignmentPreviewIsCurrent}
-                      onClick={() => void dispatchAssignments()}
-                      type="button"
-                    >
-                      {dispatching ? t('dash.dispatching') : t('dash.dispatchBtn')}
-                    </button>
-                  ) : null}
+
                 </aside>
               ) : (
-                <aside aria-label="Propuesta" className="rl-board min-w-0">
+                <aside aria-label="Propuesta" className="rl-board order-last min-w-0">
                   <div className="rl-head">
                     <h3>{t('dash.step3')}</h3>
                   </div>
@@ -945,48 +1004,11 @@ export default function DashboardPage() {
                   </p>
                 </aside>
               )}
-            </div>
-          </section>
-
-          <div className="rl-section mt-14 scroll-mt-24" id="en-vivo">
-            <section
-              aria-label="Mapa y rutas activas"
-              className="mb-10 grid min-w-0 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_360px]"
-            >
-              <div className="rp-map-frame min-w-0">
-                <div className="rp-map-heading">
-                  <div className="min-w-0">
-                    <h2>{t('dash.map')}</h2>
-                    <p className="mt-1 max-w-3xl">{t('dash.map.lead')}</p>
-                  </div>
-                  <div className="rp-map-legend">
-                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                      <span className="h-2 w-2 rounded-full bg-cyan-400" />
-                      {t('dash.legend.courier')}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                      <span className="h-2 w-2 rounded-full bg-amber-500" />
-                      {t('dash.legend.pending')}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                      <span className="h-2 w-2 rounded-full bg-sky-400" />
-                      {t('dash.legend.onway')}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                      <span className="h-2 w-2 rounded-full bg-green-500" />
-                      {t('dash.legend.delivered')}
-                    </span>
-                  </div>
-                </div>
-                <RouteMap
-                  showTraffic={activeRoutes.length > 0}
-                  couriers={data.couriers}
-                  pendingPoints={data.pendingPoints}
-                  routes={activeRoutes}
-                />
-              </div>
-
-              <aside className="rp-route-list min-w-0" id="active-routes">
+                    </div>
+                  </>
+                ) : null}
+                {sheetTab === 'rutas' ? (
+                  <div className="rp-route-list min-w-0" id="active-routes">
                 <div className="rl-head">
                   <h2>
                     {t('dash.activeRoutes')} <small aria-label={`${activeRoutes.length} rutas activas`}>{activeRoutes.length}</small>
@@ -1038,11 +1060,11 @@ export default function DashboardPage() {
                     </div>
                   </details>
                 ) : null}
-              </aside>
-            </section>
-
-            <OptimizationFeed />
-
+                  </div>
+                ) : null}
+                {sheetTab === 'actividad' ? (
+                  <>
+                    <OptimizationFeed />
             {data.notifications.length > 0 ? (
               <section aria-label="Avisos operativos" className="rl-section">
                 <div className="rl-head">
@@ -1069,7 +1091,11 @@ export default function DashboardPage() {
                 </ul>
               </section>
             ) : null}
-          </div>
+                  </>
+                ) : null}
+              </div>
+            </Sheet>
+          </section>
           </fieldset>
         </div>
       </main>

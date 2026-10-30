@@ -3,6 +3,7 @@
 import MapLibreRouteMap, {
   type MapCourier,
   type MapDeliveryPoint,
+  type MapInset,
   type MapRoute,
 } from "@/components/MapLibreRouteMap";
 
@@ -13,6 +14,8 @@ interface RouteMapProps {
   pendingPoints?: MapDeliveryPoint[];
   selectedCoordinate?: [number, number] | null;
   onMapClick?: (coordinate: { lat: number; lng: number }) => void;
+  className?: string;
+  inset?: MapInset;
 }
 
 export default function RouteMap(props: RouteMapProps) {
