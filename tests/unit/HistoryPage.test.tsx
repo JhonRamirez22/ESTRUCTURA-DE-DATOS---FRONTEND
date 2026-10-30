@@ -18,3 +18,23 @@ const item = {
   id: 'p1', orderId: 'RP-1001', address: 'Carrera 25 # 4 sur 65', status: 'DELIVERED',
   courierName: 'Ana Repartidora', createdAt: '2026-11-20T15:00:00Z', deliveredAt: '2026-11-20T16:00:00Z',
   scheduledFor: null, events: 4, lastEventAt: '2026-11-20T16:00:00Z',
+};
+
+beforeEach(() => {
+  jsonMock.mockReset();
+  jsonMock.mockImplementation(async (url: string) => {
+    if (url.includes('/eventos')) {
+      return { events: [
+        { type: 'CREATED', at: '2026-11-20T15:00:00Z', fromStatus: null, toStatus: 'PENDING', actor: 'dispatcher', courierName: null, detail: null },
+        { type: 'DELIVERED', at: '2026-11-20T16:00:00Z', fromStatus: 'EN_ROUTE', toStatus: 'DELIVERED', actor: 'courier', courierName: 'Ana Repartidora', detail: null },
+      ] };
+    }
+    return { total: 1, page: 1, pageSize: 25, items: [item] };
+  });
+});
+afterEach(cleanup);
+
+it('lista los envíos y muestra la línea de tiempo del elegido', async () => {
+  await act(async () => { render(<HistoryPage />); });
+  expect(await screen.findByText('Carrera 25 # 4 sur 65')).toBeTruthy();
+  expect(screen.getByText('1 envíos')).toBeTruthy();
