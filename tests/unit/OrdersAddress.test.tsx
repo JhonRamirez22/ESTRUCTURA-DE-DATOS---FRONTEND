@@ -30,3 +30,35 @@ describe('resolución de direcciones antes de seleccionar un pin', () => {
             ? { candidates: [match], warning: 'Ubicación aproximada' }
             : { deliveryPoints: [] }
         )
+      )
+    );
+  });
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
+  it('consulta texto tras 500ms sin exigir coordenadas y requiere confirmación', async () => {
+    await act(async () => {
+      render(<OrdersPage />);
+    });
+    fireEvent.change(screen.getByLabelText('Dirección'), { target: { value: 'carrera 25 num 3' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(499);
+    });
+    expect(request.mock.calls.filter((call) => String(call[0]).includes('/resolver'))).toHaveLength(
+      0
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    const lookup = request.mock.calls.find((call) => String(call[0]).includes('/resolver'))!;
+    expect(JSON.parse(lookup[1].body)).toEqual({ address: 'carrera 25 num 3' });
+    expect(screen.getByText('Ubicación aproximada')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar ubicación/ }));
+    expect(screen.getByText(/Confirmaste una ubicación aproximada/)).toBeTruthy();
+  });
+
+  it('cancela la búsqueda anterior e ignora respuestas tardías', async () => {
+    let finish!: (response: Response) => void;
+    request.mockImplementation((path: string) =>
