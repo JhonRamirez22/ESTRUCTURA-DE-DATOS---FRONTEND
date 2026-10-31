@@ -29,3 +29,33 @@ vi.mock('next/dynamic', () => ({
 
 afterEach(() => cleanup());
 
+describe('solicitud pública de envío', () => {
+  beforeEach(() => {
+    request.mockReset();
+  });
+
+  it('exige dirección y punto en Pasto antes de enviar, y entrega la guía', async () => {
+    request.mockResolvedValue(
+      Response.json({ trackingGuide: 'guia-123', reference: 'SOL-ABC123', status: 'REQUESTED' }, { status: 201 })
+    );
+    render(<RequestDeliveryPage />);
+    const submit = screen.getByRole('button', { name: 'Enviar solicitud' });
+
+    fireEvent.change(screen.getByLabelText(/Dirección de entrega/), { target: { value: 'Calle 18 # 22-14' } });
+    await act(async () => fireEvent.click(submit));
+    expect(screen.getByRole('alert')).toHaveTextContent('Marca en el mapa');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Punto en Bogotá' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('fuera de la zona de servicio');
+    expect(request).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Punto en Pasto' }));
+    await act(async () => fireEvent.click(submit));
+    const [path, init] = request.mock.calls[0]!;
+    expect(path).toBe('/api/solicitudes');
+    expect(JSON.parse(String(init.body))).toEqual({ address: 'Calle 18 # 22-14', lat: 1.2136, lng: -77.2811 });
+    expect(screen.getByText('guia-123')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Seguir mi pedido' })).toHaveAttribute('href', '/cliente?guia=guia-123');
+  });
+});
+
