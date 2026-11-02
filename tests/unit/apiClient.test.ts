@@ -26,3 +26,31 @@ describe('cliente HTTP versionado', () => {
       .mockResolvedValueOnce(
         Response.json(
           { authenticated: true, redirectTo: '/dashboard', accessToken: 'tok-123' },
+          { headers: { 'X-Session-Role': 'dispatcher' } }
+        )
+      )
+      .mockResolvedValue(Response.json({ ok: true }));
+    const { apiFetch, setSessionRole } = await import('@/lib/apiClient');
+    await apiFetch('/api/auth/login', { method: 'POST', body: '{}' });
+    setSessionRole('dispatcher');
+    await apiFetch('/api/pedidos', { method: 'POST' });
+    expect(network.mock.calls.map((call) => call[0])).toEqual([
+      '/api/v1/auth/login',
+      '/api/v1/pedidos',
+    ]);
+    expect(new Headers(network.mock.calls[1]![1]?.headers).get('Authorization')).toBe(
+      'Bearer tok-123'
+    );
+  });
+
+  it('obtiene la prueba CSRF antes de escribir y la reutiliza en memoria', async () => {
+    network
+      .mockResolvedValueOnce(
+        Response.json({ authenticated: true }, { headers: { 'X-CSRF-Token': 'proof' } })
+      )
+      .mockResolvedValue(Response.json({ ok: true }));
+    const { apiFetch } = await import('@/lib/apiClient');
+    await apiFetch('/api/pedidos', { method: 'POST' });
+    await apiFetch('/api/v1/pedidos/one', { method: 'PATCH' });
+    expect(network.mock.calls.map((call) => call[0])).toEqual([
+      '/api/v1/auth/session',
