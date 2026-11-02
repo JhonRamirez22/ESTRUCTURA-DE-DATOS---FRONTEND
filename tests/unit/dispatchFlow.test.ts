@@ -17,3 +17,22 @@ describe('dispatchFlow', () => {
   });
 
   it('con propuesta vigente el botón despacha; si la selección cambió vuelve a analizar', () => {
+    expect(flow({ hasProposal: true, proposalIsCurrent: true })).toMatchObject({ phase: 'proposal', step: 3, canAct: true, actionIsDispatch: true });
+    expect(flow({ hasProposal: true, proposalIsCurrent: false })).toMatchObject({ phase: 'stale', canAct: true, actionIsDispatch: false });
+    expect(flow({ hasProposal: true, proposalIsCurrent: false, selectedOrders: 0 }).canAct).toBe(false);
+  });
+
+  it('mientras analiza o despacha no se puede pulsar de nuevo', () => {
+    expect(flow({ analyzing: true })).toMatchObject({ phase: 'analyzing', canAct: false });
+    expect(flow({ dispatching: true, hasProposal: true, proposalIsCurrent: true })).toMatchObject({ phase: 'dispatching', step: 3, canAct: false });
+  });
+});
+
+describe('defaultCourierSelection', () => {
+  it('marca todos los disponibles la primera vez', () => {
+    const result = defaultCourierSelection(['a', 'b', 'c'], new Set(), []);
+    expect(result.selection).toEqual(['a', 'b', 'c']);
+  });
+
+  it('respeta lo que el despachador desmarcó y suma solo a los recién disponibles', () => {
+    const first = defaultCourierSelection(['a', 'b'], new Set(), []);
