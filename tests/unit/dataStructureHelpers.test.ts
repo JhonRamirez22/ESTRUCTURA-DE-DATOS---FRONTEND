@@ -22,3 +22,27 @@ describe('LruCache', () => {
     cache.set('k', 'nuevo');
     expect(cache.size).toBe(1);
     now = 149;
+    expect(cache.get('k')).toBe('nuevo');
+    now = 151;
+    expect(cache.get('k')).toBeUndefined();
+    expect(cache.size).toBe(0);
+  });
+
+  it('rechaza una capacidad inválida', () => {
+    expect(() => new LruCache(0, 10)).toThrow();
+  });
+});
+
+describe('nearestStopsByEta', () => {
+  it('devuelve las paradas con menor ETA y descarta valores inválidos', () => {
+    const result = nearestStopsByEta(
+      [
+        { stopId: 'c', estimatedMinutesFromNow: 30 },
+        { stopId: 'a', estimatedMinutesFromNow: 5 },
+        { stopId: 'x', estimatedMinutesFromNow: Number.NaN },
+        { stopId: 'b', estimatedMinutesFromNow: 12 },
+      ],
+      2,
+    );
+    expect(result.map((item) => item.stopId)).toEqual(['a', 'b']);
+    expect(nearestStopsByEta([], 3)).toEqual([]);
