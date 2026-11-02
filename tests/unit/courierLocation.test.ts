@@ -13,3 +13,17 @@ describe("freshness of courier GPS", () => {
         new Date(now.getTime() - COURIER_LOCATION_MAX_AGE_MS),
         now,
       ),
+    ).toBe(true);
+  });
+
+  it("rejects missing, expired, and future positions", () => {
+    expect(isCourierLocationFresh(null, now)).toBe(false);
+    expect(
+      isCourierLocationFresh(
+        new Date(now.getTime() - COURIER_LOCATION_MAX_AGE_MS - 1),
+        now,
+      ),
+    ).toBe(false);
+    expect(isCourierLocationFresh(new Date(now.getTime() + 1), now)).toBe(false);
+  });
+});
