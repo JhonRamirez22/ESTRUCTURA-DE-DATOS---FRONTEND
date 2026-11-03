@@ -20,3 +20,25 @@ describe('history', () => {
     expect(query).toBe('desde=2026-11-01&hasta=2026-11-20&estado=DELIVERED&q=RP-10&programados=true&pagina=1&tamano=25');
   });
 
+  it('cuenta páginas con al menos una', () => {
+    expect(pageCount(0, 25)).toBe(1);
+    expect(pageCount(26, 25)).toBe(2);
+  });
+
+  it('muestra la hora de Bogotá y tolera vacíos', () => {
+    expect(formatBogota(null)).toBe('—');
+    expect(formatBogota('no-fecha')).toBe('—');
+    expect(formatBogota('2026-11-21T20:05:00Z', 'en')).toMatch(/3:05\s?PM/);
+  });
+
+  it('solo acepta datetime-local completo', () => {
+    expect(scheduleToPayload('2026-11-25T15:00')).toBe('2026-11-25T15:00');
+    expect(scheduleToPayload('')).toBeNull();
+    expect(scheduleToPayload('2026-11-25')).toBeNull();
+  });
+
+  it('el rango del selector va de ahora a 60 días en hora de Bogotá', () => {
+    const { min, max } = scheduleBounds(new Date('2026-11-22T03:00:00Z'));
+    expect(min).toBe('2026-11-21T22:00');
+    expect(max).toBe('2027-01-20T22:00');
+  });
