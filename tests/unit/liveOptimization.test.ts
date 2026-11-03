@@ -24,3 +24,28 @@ const proposal = (routes: LiveRouteProposal[]): LiveProposal => ({
 describe('RouteColorAssigner', () => {
   it('gives each route its own colour and keeps it while the route exists', () => {
     const assigner = new RouteColorAssigner();
+    const first = assigner.assign(['a', 'b', 'c']);
+    expect(new Set(Object.values(first)).size).toBe(3);
+    const later = assigner.assign(['a', 'c']);
+    expect(later.a).toBe(first.a);
+    expect(later.c).toBe(first.c);
+    const withNew = assigner.assign(['a', 'c', 'd']);
+    expect(withNew.a).toBe(first.a);
+    expect(withNew.d).toBe(first.b); // the freed colour is reused, nobody else changes
+  });
+
+  it('keeps working with more routes than colours', () => {
+    const ids = Array.from({ length: ROUTE_PALETTE.length + 3 }, (_, i) => `r${i}`);
+    const colours = new RouteColorAssigner().assign(ids);
+    expect(Object.keys(colours)).toHaveLength(ids.length);
+    expect(Object.values(colours).every((c) => ROUTE_PALETTE.includes(c as never))).toBe(true);
+  });
+});
+
+describe('liveOptimization helpers', () => {
+  it('separates pure re-orderings from stop moves and tiny gains', () => {
+    const reorder = route({ changed: true, proposedOrder: ['a', 'c', 'b'], savedMinutes: 2 });
+    const move = route({ routeId: 'r2', changed: true, movedIn: ['x'], savedMinutes: 3 });
+    const tiny = route({ routeId: 'r3', changed: true, proposedOrder: ['a', 'c', 'b'], savedMinutes: 0.1 });
+    expect(isReorderOnly(reorder)).toBe(true);
+    expect(isReorderOnly(move)).toBe(false);
