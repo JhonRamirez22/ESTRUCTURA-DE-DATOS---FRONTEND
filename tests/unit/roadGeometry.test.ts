@@ -6,3 +6,10 @@ describe("isRoadGeometryProvider", () => {
     expect(isRoadGeometryProvider(value)).toBe(true);
   });
 
+  it.each([null, undefined, "", "straight-line", "unknown"])(
+    "rejects unverified provider %s",
+    (value) => {
+      expect(isRoadGeometryProvider(value)).toBe(false);
+    },
+  );
+});
