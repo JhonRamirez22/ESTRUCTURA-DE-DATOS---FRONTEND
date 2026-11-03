@@ -7,3 +7,11 @@ describe('límites del viewport de Pasto', () => {
     const desktop = getPastoMinimumZoom(1200, 600);
     expect(mobile).toBeGreaterThan(11);
     expect(desktop).toBeGreaterThan(mobile);
+    expect(desktop).toBeLessThan(18);
+  });
+  it('maneja canvas sin tamaño, valores inválidos y viewport extremo', () => {
+    expect(getPastoMinimumZoom(0, 0)).toBe(11);
+    expect(getPastoMinimumZoom(NaN, 600)).toBe(11);
+    expect(getPastoMinimumZoom(1e20, 1e20)).toBe(18);
+  });
+});
