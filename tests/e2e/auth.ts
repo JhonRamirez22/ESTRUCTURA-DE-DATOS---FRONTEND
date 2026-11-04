@@ -58,3 +58,32 @@ export async function reportCourierPosition(
   const login = await apiRequest(request, 'POST', '/api/v1/auth/login', {
     data: { email, password: E2E_PASSWORD },
   });
+  if (!login.ok()) {
+    throw new Error('No se pudo iniciar sesión como repartidor para informar GPS.');
+  }
+  const location = await apiRequest(request, 'POST', '/api/v1/repartidores/me/ubicacion', {
+    data: { lat: latitude, lng: longitude, recordedAt: new Date().toISOString() },
+  });
+  const locationPayload = location.ok()
+    ? ((await location.json()) as { accepted?: unknown })
+    : null;
+  await apiRequest(request, 'POST', '/api/v1/auth/logout');
+  if (!location.ok() || locationPayload?.accepted !== true) {
+    throw new Error('El servidor rechazó la ubicación de prueba del repartidor.');
+  }
+}
+
+async function provisionCourierAccount(page: Page, legacyCode: string): Promise<string> {
+  const courierId = legacyCode.split('.')[0]!;
+  const email = `${courierId}@rutas-pasto.example`;
+  const request = page.context().request;
+  const login = await apiRequest(request, 'POST', '/api/v1/auth/login', {
+    data: { email: E2E_EMAIL, password: E2E_PASSWORD },
+  });
+  if (!login.ok()) throw new Error('La cuenta E2E de despacho no está sembrada.');
+  const response = await apiRequest(request, 'PUT', '/api/v1/auth/courier-account', {
+    data: { courierId, email, password: E2E_PASSWORD },
+  });
+  if (!response.ok()) throw new Error('No se pudo preparar la cuenta E2E del repartidor.');
+  return email;
+}
