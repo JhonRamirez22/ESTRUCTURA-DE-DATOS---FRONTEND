@@ -73,3 +73,40 @@ test('CSRF entre sitios: una página atacante no puede crear pedidos con la sesi
         mode: 'cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: 'Calle 1 # 1-1', lat: 1.2136, lng: -77.2811, orderId: 'CSRF-ATAQUE' }),
+      });
+      return { status: response.status };
+    } catch (error) {
+      return { blocked: String(error) };
+    }
+  }, base);
+  // O el navegador bloquea la petición (CORS) o el servidor la rechaza (401/403). Nunca 201.
+  expect(result).not.toMatchObject({ status: 201 });
+  const after = (await (await apiRequest(request, 'GET', '/api/v1/pedidos')).json()) as { deliveryPoints: unknown[] };
+  expect(after.deliveryPoints.length).toBe(before.deliveryPoints.length);
+});
+
+test('formulario hostil: el envío con origen ajeno falla aunque la cookie viaje', async ({ page }) => {
+  await loginAsDispatcher(page);
+  const response = await page.context().request.post('/api/v1/pedidos', {
+    headers: { Origin: 'http://evil.test', 'Content-Type': 'application/json' },
+    data: { address: 'Calle 1 # 1-1', lat: 1.2136, lng: -77.2811, orderId: 'ORIGEN-AJENO' },
+  });
+  expect(response.status()).toBe(403);
+});
+
+test('redirección abierta: el retorno tras iniciar sesión nunca sale del sitio', async ({ page }) => {
+  for (const target of ['https://evil.example/', '//evil.example/', 'javascript:alert(1)', '/\\evil.example']) {
+    await page.goto(`/acceso?retorno=${encodeURIComponent(target)}`);
+    await page.locator('#email').fill(E2E_EMAIL);
+    await page.locator('#password').fill(E2E_PASSWORD);
+    await page.getByRole('button', { name: 'Ingresar' }).click();
+    await page.waitForURL((url) => url.pathname !== '/acceso', { timeout: 15_000 });
+    expect(new URL(page.url()).origin).toBe(new URL(test.info().project.use.baseURL ?? 'http://localhost:3000').origin);
+    await apiRequest(page.context().request, 'POST', '/api/v1/auth/logout');
+  }
+});
+
+test('clickjacking: la aplicación no se deja enmarcar y las cabeceras de seguridad están', async ({ page }) => {
+  const response = await page.goto('/acceso');
+  const headers = response!.headers();
+  expect(headers['x-frame-options']).toBe('DENY');
