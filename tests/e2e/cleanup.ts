@@ -26,3 +26,17 @@ export async function cleanupTestData(ids: TestDataIds): Promise<void> {
   ];
   for (const courierId of ids.courierId ? [ids.courierId] : []) {
     args.push("--courier-id", courierId);
+  }
+  for (const deliveryPointId of ids.deliveryPointIds ?? []) {
+    args.push("--delivery-point-id", deliveryPointId);
+  }
+  for (const orderId of ids.orderIds ?? []) {
+    args.push("--order-id", orderId);
+  }
+
+  try {
+    await executeFile("uv", args, { cwd: backendRoot, timeout: 30_000 });
+  } catch {
+    throw new Error("La limpieza de datos e2e con el backend Python falló.");
+  }
+}
