@@ -29,3 +29,34 @@ describe('service worker', () => {
     });
     await activation;
 
+    expect(deletedCaches).toEqual(['rutas-pasto-shell-v2']);
+  });
+
+  it('deja las respuestas de API fuera de Cache Storage', () => {
+    const { listeners } = loadServiceWorker([]);
+    let intercepted = false;
+
+    listeners.get('fetch')?.({
+      request: new Request('https://rutas-pasto.test/api/rutas'),
+      respondWith: () => {
+        intercepted = true;
+      },
+    });
+
+    expect(intercepted).toBe(false);
+  });
+
+  it('no guarda documentos con nonce: solo la pantalla offline estática', async () => {
+    const { listeners, cachedAssets } = loadServiceWorker([]);
+    let installation: Promise<unknown> | undefined;
+    listeners.get('install')?.({ waitUntil: (promise) => { installation = promise; } });
+    await installation;
+    expect(cachedAssets).toEqual(['/offline.html']);
+  });
+
+  it('deja pasar el worker de MapLibre y los recursos externos del mapa', () => {
+    const { listeners } = loadServiceWorker([]);
+    const interceptedRequests = [
+      new Request('https://rutas-pasto.test/_next/static/media/maplibre-gl-worker.mjs'),
+      new Request('https://tiles.openfreemap.org/planet'),
+    ];
