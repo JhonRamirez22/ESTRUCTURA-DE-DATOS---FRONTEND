@@ -20,3 +20,24 @@ async function login(email) {
 const pathOf = async () => new URL(await driver.getCurrentUrl()).pathname;
 
 describe('flujos clave (Selenium)', () => {
+  before(async () => {
+    const options = new chrome.Options().addArguments('--headless=new', '--window-size=1280,900', '--no-sandbox');
+    driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
+    await driver.manage().setTimeouts({ implicit: 0, pageLoad: 60000 });
+  });
+  after(async () => driver?.quit());
+
+  it('1. el despachador inicia sesión y ve la hoja de despacho', async () => {
+    await login(process.env.DISPATCHER_EMAIL ?? 'd1@carga.co');
+    await driver.wait(async () => (await pathOf()) === '/dashboard', 45000);
+    // La página muestra «Verificando acceso» mientras valida la sesión; se espera al título real.
+    await driver.wait(async () => /Despacho/.test(await driver.findElement(By.css('h1')).getText()), 45000);
+    const tabs = await driver.wait(until.elementLocated(By.css('[role="tablist"]')), 45000);
+    assert.match(await tabs.getText(), /Pedidos/);
+  });
+
+  it('2. el repartidor inicia sesión y ve iniciar ubicación', async () => {
+    await login(process.env.COURIER_EMAIL ?? 'c1@carga.co');
+    await driver.wait(async () => (await pathOf()) === '/repartidor', 45000);
+    const button = await driver.wait(until.elementLocated(By.xpath("//button[contains(., 'Iniciar ubicación')]")), 45000);
+    assert.ok(await button.isDisplayed());
