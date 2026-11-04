@@ -39,3 +39,23 @@ test('el dock tiene destinos reales, foco y magnificación sin desbordar', async
   expect(errors).toEqual([]);
 });
 
+test('reducir movimiento conserva el dock estático y el login funciona', async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/acceso');
+  const dock = page.getByRole('navigation', { name: 'Accesos rápidos', exact: true });
+  const staff = dock.getByRole('link', { name: 'Personal', exact: true });
+  await staff.hover();
+  await expect.poll(async () => (await staff.locator('..').boundingBox())!.width).toBe(44);
+  await page.getByLabel('Contraseña', { exact: true }).fill('contraseña de prueba');
+  await page.getByRole('button', { name: 'Mostrar contraseña' }).click();
+  await expect(page.getByLabel('Contraseña', { exact: true })).toHaveAttribute('type', 'text');
+  await page.getByRole('button', { name: 'Ocultar contraseña' }).click();
+  await expect(page.getByLabel('Contraseña', { exact: true })).toHaveAttribute('type', 'password');
+  await page.evaluate(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  });
+  await page.screenshot({ path: testInfo.outputPath('login-mobile.png'), fullPage: true });
+});
