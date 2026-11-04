@@ -99,3 +99,53 @@ test('el cliente pregunta por su guía y el chat se adapta a móvil', async ({ p
   await privacyDisclosure.click();
   const trackingMap = page.getByRole('region', { name: 'Mapa de seguimiento del pedido' });
   await expect(trackingMap.locator('.maplibregl-canvas')).toBeVisible();
+  await expect(trackingMap.getByRole('status')).toHaveCount(0);
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
+  await page.screenshot({ path: testInfo.outputPath('customer-tracking-desktop.png') });
+  await trackingMap.screenshot({ path: testInfo.outputPath('customer-tracking-map-desktop.png') });
+  await page.locator('.rp-tracking aside').screenshot({ path: testInfo.outputPath('customer-tracking-status-desktop.png') });
+  await page
+    .getByRole('textbox', { name: 'Escribe tu pregunta sobre el pedido' })
+    .fill('¿Ya viene?');
+  await page.getByRole('button', { name: 'Preguntar' }).click();
+  await expect(
+    page.getByText('Tu pedido fue recibido y aún no tiene una ruta asignada.')
+  ).toBeVisible();
+  expect(chatPayload).toEqual({
+    guide: GUIDE,
+    messages: [{ role: 'user', content: '¿Ya viene?' }],
+  });
+  await page
+    .getByRole('heading', { name: '¿Tienes dudas sobre este pedido?' })
+    .scrollIntoViewIfNeeded();
+  await page
+    .locator('section[aria-labelledby="customer-order-chat-title"]')
+    .screenshot({ path: testInfo.outputPath('customer-chat-desktop.png') });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.getByRole('heading', { name: '¿Tienes dudas sobre este pedido?' })
+  ).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390);
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
+  await page.screenshot({ path: testInfo.outputPath('customer-tracking-mobile.png') });
+  await trackingMap.screenshot({ path: testInfo.outputPath('customer-tracking-map-mobile.png') });
+  await page.locator('.rp-tracking aside').screenshot({ path: testInfo.outputPath('customer-tracking-status-mobile.png') });
+  await page
+    .locator('section[aria-labelledby="customer-order-chat-title"]')
+    .screenshot({ path: testInfo.outputPath('customer-chat-mobile.png') });
+});
+
