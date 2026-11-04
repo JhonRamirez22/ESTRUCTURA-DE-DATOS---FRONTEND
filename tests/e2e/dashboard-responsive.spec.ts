@@ -92,3 +92,50 @@ async function mockDashboardData(page: Page): Promise<void> {
       body = {
         metrics: {
           routeCount: 1,
+          completedRouteCount: 0,
+          estimatedDurationMinutes: 18,
+          estimatedDistanceMeters: 2_350,
+          timeSavedMinutes: 4,
+          distanceSavedMeters: 320,
+          routesWithBaseline: 1,
+        },
+      };
+    } else {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
+  });
+}
+
+test('solo el recorrido seleccionado consulta tráfico, sin teselas extra ni recálculos', async ({ page }, testInfo) => {
+  await page.clock.install();
+  await mockDashboardData(page);
+  let consultations = 0;
+  let observedAt = Date.now();
+  const unwanted: string[] = [];
+  page.on('request', (request) => {
+    if (['/trafico/tiles/', '/trafico/estado', '/recalcular'].some((path) => request.url().includes(path))) unwanted.push(request.url());
+  });
+  await page.route('**/api/v1/rutas/e2e-route-001/trafico-vivo', (route) => {
+    consultations += 1;
+    return route.fulfill({ json: {
+      configured: true, available: true,
+      observations: [{ observedAt: new Date(observedAt).toISOString(), cacheStatus: 'LIVE', roadClosure: false }],
+    } });
+  });
+  await loginAsDispatcher(page);
+  await expect(page.getByText(/Tráfico de esta ruta/)).toBeVisible({ timeout: 15000 });
+  const initialConsultations = consultations;
+  expect(initialConsultations).toBeGreaterThanOrEqual(1);
+  await expect(page.getByRole('checkbox', { name: 'Tráfico TomTom' })).toHaveCount(0);
+  observedAt += 90_001;
+  await page.clock.fastForward(90_001);
+  await expect.poll(() => consultations).toBe(initialConsultations + 1);
+  await expect(page.getByText(/Tráfico de esta ruta/)).toBeVisible();
+  expect(unwanted).toEqual([]);
+  await page.screenshot({ path: testInfo.outputPath('solo-ruta-verde.png') });
+});
+
+test('la caída de analítica y avisos no impide analizar pedidos', async ({ page }) => {
