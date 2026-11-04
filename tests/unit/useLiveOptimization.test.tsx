@@ -29,3 +29,34 @@ const flush = async (ms: number) => { await act(async () => { await vi.advanceTi
 
 it('calculates immediately and then every ten seconds', async () => {
   const { result } = renderHook(() => useLiveOptimization(true));
+  await flush(0);
+  expect(apiJson).toHaveBeenCalledTimes(1);
+  expect(result.current.status).toBe('ok');
+  expect(result.current.tick).toBe(1);
+  await flush(5_000);
+  expect(apiJson).toHaveBeenCalledTimes(1);
+  expect(result.current.secondsLeft).toBeLessThanOrEqual(5);
+  await flush(5_500);
+  expect(apiJson).toHaveBeenCalledTimes(2);
+  expect(result.current.tick).toBe(2);
+});
+
+it('never overlaps requests and keeps the last proposal when a tick fails', async () => {
+  let release!: () => void;
+  apiJson.mockImplementationOnce(() => new Promise((resolve) => { release = () => resolve(payload()); }));
+  const { result } = renderHook(() => useLiveOptimization(true));
+  await flush(12_000);
+  expect(apiJson).toHaveBeenCalledTimes(1); // still waiting: no second request
+  expect(result.current.computing).toBe(true);
+  await act(async () => { release(); await Promise.resolve(); });
+  expect(result.current.proposal?.savedMinutes).toBe(1);
+  apiJson.mockRejectedValueOnce(new Error('network'));
+  await flush(600); // the overdue tick fires right away and fails
+  expect(apiJson).toHaveBeenCalledTimes(2);
+  expect(result.current.status).toBe('error');
+  expect(result.current.proposal?.savedMinutes).toBe(1);
+});
+
+it('waits longer after a 429 and pauses while the tab is hidden', async () => {
+  const { ApiRequestError } = await import('@/lib/apiClient');
+  apiJson.mockRejectedValueOnce(new ApiRequestError('slow down', 'req', 429));
