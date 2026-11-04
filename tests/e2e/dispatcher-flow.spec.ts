@@ -81,3 +81,44 @@ test("crea pedidos, optimiza una ruta y la muestra en el mapa", async ({
           id: string;
           status: string;
           geometryProvider: "OSRM" | "ORS" | null;
+          geometry: { coordinates: Array<[number, number]> };
+        };
+      }>;
+    };
+
+    expect(routePayload.routes).toHaveLength(1);
+    expect(routePayload.routes[0]?.matrixSource).toBe("osrm");
+    expect(routePayload.routes[0]?.orderedDeliveryPointIds).toHaveLength(5);
+    expect(routePayload.routes[0]?.route.status).toBe("PLANNED");
+    expect(routePayload.routes[0]?.route.geometryProvider).toBe("OSRM");
+    expect(routePayload.routes[0]?.route.geometry.coordinates.length).toBeGreaterThan(6);
+    const routeId = routePayload.routes[0]?.route.id;
+    expect(routeId).toBeTruthy();
+
+    await page.goto("/dashboard");
+    await expect(
+      page.getByRole("heading", { name: "Despacho", exact: true }),
+    ).toBeVisible();
+    // Las rutas activas viven en la pestaña «Rutas» de la hoja de despacho.
+    await page.getByRole("tab", { name: /Rutas/ }).click();
+    await expect(
+      page.locator("article").filter({ hasText: `E2E courier ${suffix}` }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Mapa de rutas")).toBeVisible();
+    await expect(page.locator(".maplibregl-canvas").first()).toBeVisible();
+
+    const routeSummary = page.locator("article").filter({
+      hasText: `E2E courier ${suffix}`,
+    });
+    await expect(routeSummary.getByText("5", { exact: true })).toBeVisible();
+
+    await loginAsCourier(page, courierAccessCode);
+    const courierOrdersResponse = await page.context().request.get("/api/v1/pedidos");
+    expect(courierOrdersResponse.status()).toBe(403);
+    const courierListResponse = await page.context().request.get("/api/v1/repartidores");
+    expect(courierListResponse.status()).toBe(403);
+    const selfResponse = await page.context().request.get("/api/v1/repartidores/me");
+    expect(selfResponse.status()).toBe(200);
+    const selfProfile = await selfResponse.json() as { courier: Record<string, unknown> };
+    expect(selfProfile.courier).not.toHaveProperty("name");
+    expect(selfProfile.courier).not.toHaveProperty("phone");
