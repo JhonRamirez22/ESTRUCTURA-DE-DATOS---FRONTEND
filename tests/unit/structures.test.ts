@@ -31,3 +31,35 @@ function createInvoker(structure: string): Invoke {
       return (call, args) => callMethod(list, call, args);
     }
     case 'min_heap': {
+      const heap = new MinHeap<Priority, string>(
+        (left, right) => left.priority - right.priority,
+        (item) => item.id,
+      );
+      return (call, args) => callMethod(heap, call, args);
+    }
+    default:
+      throw new Error(`Estructura desconocida en vectores: ${structure}`);
+  }
+}
+
+function isThrowExpectation(expected: unknown): boolean {
+  return typeof expected === 'object' && expected !== null && 'throws' in expected;
+}
+
+describe('vectores compartidos con el backend', () => {
+  for (const vector of vectors.cases) {
+    it(vector.name, () => {
+      const invoke = createInvoker(vector.structure);
+      for (const operation of vector.ops) {
+        const args = (operation.args ?? []) as unknown[];
+        if (isThrowExpectation(operation.expect)) {
+          expect(() => invoke(operation.call, args), operation.call).toThrow();
+          continue;
+        }
+        const result = invoke(operation.call, args) ?? null;
+        expect(result, operation.call).toEqual(operation.expect);
+      }
+    });
+  }
+});
+
