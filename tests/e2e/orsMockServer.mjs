@@ -54,3 +54,31 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  response.writeHead(404);
+  response.end();
+});
+
+server.listen(port, "127.0.0.1");
+
+function readBody(request) {
+  return new Promise((resolve, reject) => {
+    let value = "";
+
+    request.on("data", (chunk) => {
+      value += chunk;
+    });
+    request.on("end", () => {
+      try {
+        resolve(JSON.parse(value));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    request.on("error", reject);
+  });
+}
+
+function readPathCoordinates(path) {
+  const coordinateText = path?.split("/").pop()?.split("?")[0] ?? "";
+
+  return coordinateText.split(";").filter(Boolean).map((coordinate) => {
