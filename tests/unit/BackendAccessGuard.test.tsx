@@ -51,3 +51,29 @@ describe("BackendAccessGuard", () => {
     render(<BackendAccessGuard><p>Contenido privado</p></BackendAccessGuard>);
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith(
+      "/acceso?retorno=%2Fdashboard",
+    ));
+    expect(screen.queryByText("Contenido privado")).toBeNull();
+  });
+
+  it("respeta el destino de rol que devuelve FastAPI", async () => {
+    mockFetch.mockResolvedValue(
+      new Response(JSON.stringify({ allowed: false, redirectTo: "/repartidor" }), { status: 200 }),
+    );
+    render(<BackendAccessGuard><p>Contenido privado</p></BackendAccessGuard>);
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/repartidor"));
+  });
+
+  it("muestra recuperación y permite reintentar si la API no responde", async () => {
+    mockFetch
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ allowed: true, redirectTo: null }), { status: 200 }),
+      );
+    render(<BackendAccessGuard><p>Contenido privado</p></BackendAccessGuard>);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Reintentar" }));
+    await screen.findByText("Contenido privado");
+  });
+});
