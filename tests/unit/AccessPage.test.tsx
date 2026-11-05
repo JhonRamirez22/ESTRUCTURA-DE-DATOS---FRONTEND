@@ -44,3 +44,25 @@ describe("acceso con correo y contraseña", () => {
   });
 
   it("muestra un error recuperable cuando el servidor devuelve texto en vez de JSON", async () => {
+    mockFetch.mockResolvedValue(new Response("Internal Server Error", { status: 500 }));
+    render(<AccessPage />);
+    submit();
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "El servicio de acceso no respondió",
+    );
+    expect((screen.getByRole("button", { name: "Ingresar" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+
+  it("muestra rechazo de credenciales sin navegar", async () => {
+    mockFetch.mockResolvedValue(
+      Response.json({ error: "Correo o contraseña incorrectos." }, { status: 401 }),
+    );
+    render(<AccessPage />);
+    submit();
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Correo o contraseña incorrectos.",
+    );
+  });
+});
