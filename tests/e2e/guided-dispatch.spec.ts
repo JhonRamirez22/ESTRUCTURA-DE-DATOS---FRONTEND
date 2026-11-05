@@ -55,3 +55,31 @@ test('despacho guiado: repartidores marcados por defecto, motivo del botón y re
     await ready.click();
     await expect(page.getByRole('heading', { name: '3. Propuesta lista para despachar' })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Despachar \d+ pedidos? a \d+ repartidores?/ })).toBeEnabled();
+    // El contador de pasos llegó a «Revisar y despachar».
+    await expect(steps.getByRole('listitem').nth(2)).toHaveAttribute('aria-current', 'step');
+  } finally {
+    for (const courierId of courierIds) await cleanupTestData({ courierId, orderIds });
+  }
+});
+
+test('auditoría: el despacho descarga un PDF de repartidor con el periodo elegido', async ({ page }) => {
+  await mockMapStyle(page);
+  await loginAsDispatcher(page);
+  await page.goto('/auditoria');
+  await expect(page.getByRole('heading', { name: 'Auditoría de datos' })).toBeVisible();
+  const download = page.getByRole('button', { name: 'Descargar PDF' });
+  await expect(download).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Despachadores' }).click();
+  await page.getByRole('button', { name: 'Elegir' }).first().click();
+  await expect(download).toBeEnabled();
+  const [file] = await Promise.all([page.waitForEvent('download'), download.click()]);
+  expect(file.suggestedFilename()).toMatch(/^auditoria-account-\d{8}\.pdf$/);
+  const stream = await file.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(chunk as Buffer);
+  const pdf = Buffer.concat(chunks);
+  expect(pdf.subarray(0, 8).toString('latin1')).toBe('%PDF-1.4');
+  expect(pdf.toString('latin1')).toContain('%%EOF');
+  await expect(page.getByText(/Informe descargado/)).toBeVisible();
+});
