@@ -90,3 +90,49 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
       .check();
 
     await page.getByRole('button', { name: /Analizar reparto|Cambió la selección/ }).click();
+    await expect(
+      page.getByRole('heading', { name: '3. Propuesta lista para despachar' })
+    ).toBeVisible();
+    await expect(dispatchSection.getByText('1 parada', { exact: true })).toBeVisible();
+    const dispatchButton = page.getByRole('button', { name: /^Despachar \d+ pedidos? a \d+ repartidor/ });
+    await pendingSection
+      .locator('label')
+      .filter({ hasText: guide })
+      .locator('input[type="checkbox"]')
+      .uncheck();
+    // Cambiar la selección invalida la propuesta: ya no se puede despachar, hay que analizar otra vez.
+    await expect(dispatchButton).toHaveCount(0);
+    // Sin ningún pedido elegido tampoco se puede analizar: el botón sigue bloqueado.
+    await expect(
+      page.getByRole('button', { name: 'Cambió la selección: analizar de nuevo' })
+    ).toBeDisabled();
+    await pendingSection
+      .locator('label')
+      .filter({ hasText: guide })
+      .locator('input[type="checkbox"]')
+      .check();
+    // Al volver a la selección analizada, la propuesta vuelve a ser válida.
+    await expect(dispatchButton).toBeEnabled();
+
+    const routeResponsePromise = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/v1/asignaciones/aplicar' &&
+        response.request().method() === 'POST'
+    );
+    await page.getByRole('button', { name: /^Despachar \d+ pedidos? a \d+ repartidor/ }).click();
+    const routeResponse = await routeResponsePromise;
+    expect(routeResponse.status()).toBe(201);
+    const routePayload = (await routeResponse.json()) as {
+      routes: Array<{
+        orderedDeliveryPointIds: string[];
+        route: {
+          id: string;
+          courierId: string;
+          deliveryPoints: Array<{ address: string }>;
+        };
+      }>;
+      customerNotifications: {
+        queued: number;
+        channels: {
+          email: { queued: number; configured: boolean };
+          sms: { queued: number; configured: boolean };
