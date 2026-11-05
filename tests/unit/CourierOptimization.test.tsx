@@ -68,3 +68,38 @@ it('revisa cada 5 s y aplica sola una mejora real, mostrando el ahorro y las mej
         estimatedDurationMinutes: 12,
         improvementMinutes: 3.2,
         computedAt: new Date().toISOString(),
+        cached: false,
+      });
+    if (url.endsWith('/trafico-vivo'))
+      return Response.json({ observations: [] });
+    if (url.endsWith('/navegacion')) return Response.json({ navigation: null });
+    if (url === '/api/rutas') return Response.json({ routes: [route] });
+    return Response.json({
+      courier: {
+        status: 'AVAILABLE',
+        currentLat: null,
+        currentLng: null,
+        lastLocationAt: null,
+      },
+    });
+  });
+  await act(async () => render(<RepartidorPage />));
+  expect(request).toHaveBeenCalledWith(
+    '/api/rutas/assigned/propuesta',
+    expect.objectContaining({ method: 'POST', body: '{}' })
+  );
+  expect(request).toHaveBeenCalledWith(
+    '/api/rutas/assigned/recalcular',
+    expect.objectContaining({ method: 'POST', body: '{}' })
+  );
+  expect(screen.getByTestId('courier-map').textContent).toBe('second,first');
+  expect(screen.getAllByRole('listitem')[0].textContent).toContain('Dirección second');
+  expect(screen.getByText(/Ruta optimizada automáticamente: ahorras unos 3 min/)).toBeTruthy();
+  expect(screen.getByText('Mejoras aplicadas').nextSibling?.textContent).toBe('1');
+});
+
+it('una mejora menor de 1 min no se aplica sola: queda como propuesta manual', async () => {
+  mockRoute({ worthApplying: true, improvementMinutes: 0.9 });
+  await act(async () => render(<RepartidorPage />));
+  expect(request.mock.calls.some(([url]) => String(url).endsWith('/recalcular'))).toBe(false);
+  expect(screen.getByText(/Ahorras unos 1 min/)).toBeTruthy();
