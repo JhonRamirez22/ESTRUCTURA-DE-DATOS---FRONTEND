@@ -36,3 +36,21 @@ describe('paleta de comandos', () => {
   });
 
   it('se mueve con las flechas y ejecuta la acción elegida con Enter', () => {
+    const { input, onClose } = setup();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(screen.getByRole('option', { name: 'Tema oscuro' }).getAttribute('aria-selected')).toBe('true');
+    act(() => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('las pantallas son enlaces y Escape cierra', () => {
+    const { input, onClose } = setup();
+    expect(screen.getByRole('option', { name: 'Personal' }).getAttribute('href')).toBe('/personal');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalled();
+  });
+});
