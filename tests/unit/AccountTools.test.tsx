@@ -52,3 +52,29 @@ it('cambiar contraseña valida en pantalla y envía solo cuando todo cuadra', as
   expect(onChanged).toHaveBeenCalled();
 });
 
+it('muestra el error del servidor si la contraseña actual es incorrecta', async () => {
+  fetchMock.mockResolvedValue(Response.json({ error: 'La contraseña actual no es correcta.' }, { status: 403 }));
+  const onChanged = vi.fn();
+  render(<PasswordChangeForm onChanged={onChanged} />);
+  fireEvent.change(screen.getByLabelText('Contraseña actual'), { target: { value: 'equivocada' } });
+  fireEvent.change(screen.getByLabelText('Contraseña nueva'), { target: { value: 'una-contraseña-nueva-2027' } });
+  fireEvent.change(screen.getByLabelText('Repite la contraseña nueva'), { target: { value: 'una-contraseña-nueva-2027' } });
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Cambiar contraseña' })); });
+  expect(screen.getByRole('alert').textContent).toContain('no es correcta');
+  expect(onChanged).not.toHaveBeenCalled();
+});
+
+it('la propuesta de mejora solo se aplica si el despachador acepta', async () => {
+  const onApply = vi.fn().mockResolvedValue(undefined);
+  fetchMock.mockResolvedValue(Response.json({ changed: true, worthApplying: true, improvementMinutes: 4.2, baselineDurationMinutes: 30, estimatedDurationMinutes: 26 }));
+  render(<RouteImprovementCheck canCheck onApply={onApply} routeId="r1" />);
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Buscar una mejor ruta' })); });
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/rutas/r1/propuesta');
+  expect(screen.getByText(/Ahorrarías unos 4 min/)).toBeTruthy();
+  expect(screen.getByText('De 30 a 26 min.')).toBeTruthy();
+  expect(onApply).not.toHaveBeenCalled();
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Aplicar el nuevo orden' })); });
+  expect(onApply).toHaveBeenCalledWith('r1');
+});
+
+it('si no hay mejora lo dice, y «Ahora no» la descarta sin aplicar', async () => {
