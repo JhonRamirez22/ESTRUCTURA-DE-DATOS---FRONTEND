@@ -23,3 +23,15 @@ export async function mockMapStyle(page: Page): Promise<void> {
             type: 'raster',
             tiles: ['https://tiles.openfreemap.org/e2e-raster/{z}/{x}/{y}.png'],
             tileSize: 256,
+            maxzoom: 0,
+          },
+        },
+        layers: [
+          { id: 'background', type: 'background', paint: { 'background-color': '#17242b' } },
+          { id: 'e2e-raster', type: 'raster', source: 'e2e-raster' },
+        ],
+      },
+    }),
+  );
+  await page.route('https://a.basemaps.cartocdn.com/**', (route) => route.abort());
+}
