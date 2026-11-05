@@ -46,3 +46,26 @@ test('la portada separa el acceso operativo del seguimiento y se adapta a móvil
     await expect(page.locator('.rp-brand')).toHaveCount(1);
     await page.evaluate(async () => {
       await document.fonts.ready;
+      window.scrollTo(0, 0);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+    await page.screenshot({ path: testInfo.outputPath(`home-${name}.png`), fullPage: true, animations: 'disabled' });
+  }
+});
+
+test('respeta reducir movimiento sin quitar el feedback de color de las acciones', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+
+  const action = page.getByRole('link', { name: /Soy repartidor o despachador/ });
+  const arrow = action.locator('.rp-entry-arrow');
+  await expect(action).toBeVisible();
+  await expect
+    .poll(() => arrow.evaluate((element) => getComputedStyle(element).transitionProperty))
+    .toBe('none');
+  await expect
+    .poll(() => action.evaluate((element) => getComputedStyle(element).transitionDuration))
+    .toBe('0.2s');
+});
