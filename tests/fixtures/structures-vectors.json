@@ -64,3 +64,36 @@
     },
     {
       "name": "min-heap: orden de prioridad con swaps y decrease_key por ID",
+      "structure": "min_heap",
+      "ops": [
+        { "call": "insert", "args": [{ "id": "a", "priority": 10 }], "expect": null },
+        { "call": "insert", "args": [{ "id": "b", "priority": 4 }], "expect": null },
+        { "call": "insert", "args": [{ "id": "c", "priority": 8 }], "expect": null },
+        { "call": "insert", "args": [{ "id": "d", "priority": 2 }], "expect": null },
+        { "call": "insert", "args": [{ "id": "e", "priority": 6 }], "expect": null },
+        { "call": "extract_min", "expect": { "id": "d", "priority": 2 } },
+        { "call": "extract_min", "expect": { "id": "b", "priority": 4 } },
+        { "call": "decrease_key", "args": ["a", { "id": "a", "priority": 1 }], "expect": null },
+        { "call": "extract_min", "expect": { "id": "a", "priority": 1 } },
+        { "call": "extract_min", "expect": { "id": "e", "priority": 6 } },
+        { "call": "extract_min", "expect": { "id": "c", "priority": 8 } },
+        { "call": "extract_min", "expect": null },
+        { "call": "is_empty", "expect": true }
+      ]
+    },
+    {
+      "name": "min-heap: IDs duplicados, IDs inexistentes e incrementos de prioridad fallan",
+      "structure": "min_heap",
+      "ops": [
+        { "call": "insert", "args": [{ "id": "a", "priority": 1 }], "expect": null },
+        { "call": "insert", "args": [{ "id": "a", "priority": 5 }], "expect": { "throws": true } },
+        { "call": "insert", "args": [{ "id": "c", "priority": 3 }], "expect": null },
+        { "call": "decrease_key", "args": ["zz", { "id": "zz", "priority": 0 }], "expect": { "throws": true } },
+        { "call": "decrease_key", "args": ["a", { "id": "b", "priority": 0 }], "expect": { "throws": true } },
+        { "call": "decrease_key", "args": ["c", { "id": "c", "priority": 9 }], "expect": { "throws": true } },
+        { "call": "size", "expect": 2 },
+        { "call": "extract_min", "expect": { "id": "a", "priority": 1 } }
+      ]
+    }
+  ]
+}
