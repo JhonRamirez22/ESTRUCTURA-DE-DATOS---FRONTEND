@@ -49,3 +49,28 @@ describe('Sheet', () => {
       free: { x0: 16, x1: 374, y0: 64, y1: 350 },
       inset: { top: 64, right: 16, bottom: 350, left: 16 },
     });
+  });
+
+  it('cambia de altura con el teclado y la altura completa habilita el desplazamiento', () => {
+    stageSize(390, 700);
+    renderSheet();
+    const sheet = screen.getByRole('complementary', { name: 'Panel' });
+    const grabber = screen.getByRole('button', { name: 'Cambiar altura' });
+    expect(sheet.className).not.toContain('is-full');
+    act(() => {
+      fireEvent.keyDown(grabber, { key: 'ArrowUp' });
+    });
+    expect(sheet.className).toContain('is-full');
+    act(() => {
+      fireEvent.keyDown(grabber, { key: 'ArrowDown' });
+    });
+    expect(sheet.className).not.toContain('is-full');
+  });
+
+  it('mantiene la acción principal visible y accesible junto al encabezado', () => {
+    stageSize(390, 700);
+    renderSheet();
+    expect(screen.getByRole('button', { name: 'Acción principal' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Despacho' })).toBeTruthy();
+  });
+});
