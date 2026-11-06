@@ -47,3 +47,27 @@ it('applies every pure re-ordering at once, and not stop moves', () => {
 });
 
 it('says the routes are fine, warns offline and approximate data, and hides when disabled or empty', () => {
+  const calm = proposal([route({})], { changed: false });
+  const { rerender } = render(<LiveOptimizationHud applying={false} onApplyAll={vi.fn()} routes={routes} state={state(calm)} />);
+  expect(screen.getByText(/Las rutas ya están bien ordenadas/)).toBeInTheDocument();
+  rerender(<LiveOptimizationHud applying={false} onApplyAll={vi.fn()} routes={routes} state={state(proposal([route({})], { approximate: true }), { status: 'error' })} />);
+  expect(screen.getByText('Sin conexión: se conserva el último cálculo')).toBeInTheDocument();
+  expect(screen.getByText('Tiempos aproximados: sin datos de calles')).toBeInTheDocument();
+  rerender(<LiveOptimizationHud applying={false} onApplyAll={vi.fn()} routes={routes} state={state(null, { status: 'disabled' })} />);
+  expect(screen.queryByText('Recalculando en vivo')).toBeNull();
+  rerender(<LiveOptimizationHud applying={false} onApplyAll={vi.fn()} routes={[]} state={state(calm)} />);
+  expect(screen.queryByText('Recalculando en vivo')).toBeNull();
+});
+
+it('a route card offers the new order only for a real re-ordering', () => {
+  const onApply = vi.fn();
+  const { rerender } = render(<LiveRouteSuggestion applying={false} onApply={onApply} proposal={route({ changed: true, proposedOrder: ['b', 'a'], savedMinutes: 3.4, currentMinutes: 12, proposedMinutes: 8.6 })} />);
+  expect(screen.getByText('Nuevo orden: −3,4 min (de 12 a 8,6 min)')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Aplicar el nuevo orden' }));
+  expect(onApply).toHaveBeenCalledTimes(1);
+  rerender(<LiveRouteSuggestion applying={false} onApply={onApply} proposal={route({ changed: true, movedOut: ['x'], savedMinutes: 2 })} />);
+  expect(screen.queryByRole('button', { name: 'Aplicar el nuevo orden' })).toBeNull();
+  expect(screen.getByText(/Se sugiere mover 1 parada\(s\) entre repartidores/)).toBeInTheDocument();
+  rerender(<LiveRouteSuggestion applying={false} onApply={onApply} proposal={route({})} />);
+  expect(screen.getByText(/Ya es la mejor con el tráfico de ahora/)).toBeInTheDocument();
+});
