@@ -90,3 +90,49 @@ describe("MapLibreRouteMap camera", () => {
     );
   });
 
+  it("finaliza la carga aunque style.load llegue antes de cargar las teselas", () => {
+    map.isStyleLoaded.mockReturnValueOnce(false).mockReturnValue(true);
+    render(<MapLibreRouteMap couriers={[courier]} routes={[]} />);
+    act(() => listeners.get("style.load")?.());
+    act(() => listeners.get("idle")?.());
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("no pierde un idle emitido mientras instala las capas del estilo", () => {
+    map.getSource.mockReturnValue(null);
+    map.addLayer.mockImplementationOnce(() => listeners.get("idle")?.());
+    render(<MapLibreRouteMap couriers={[courier]} routes={[]} />);
+    act(() => listeners.get("style.load")?.());
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("instala las capas si el estilo terminó antes de registrar style.load", () => {
+    map.getSource.mockReturnValue(null);
+    map.addLayer.mockImplementationOnce(() => listeners.get("idle")?.());
+    render(<MapLibreRouteMap couriers={[courier]} routes={[]} />);
+    expect(map.addSource).toHaveBeenCalledWith(
+      'delivery-directions',
+      expect.objectContaining({ type: 'geojson' }),
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("quita el overlay en el primer render sin esperar al idle de todas las teselas", () => {
+    render(<MapLibreRouteMap couriers={[]} routes={[]} />);
+    act(() => listeners.get("style.load")?.());
+    expect(screen.getByRole("status")).toBeTruthy();
+    act(() => listeners.get("render")?.());
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("abandona un estilo principal no autorizado por el estilo oscuro sin clave", () => {
+    render(<MapLibreRouteMap couriers={[]} routes={[]} />);
+    act(() => listeners.get("error")?.({ error: { status: 403 } }));
+    expect(map.setStyle).toHaveBeenCalledWith("https://tiles.openfreemap.org/styles/dark");
+  });
+
+  it("muestra recuperación manual cuando no carga el estilo de respaldo", () => {
+    vi.useFakeTimers();
+    map.isStyleLoaded.mockReturnValue(false);
+    render(<MapLibreRouteMap couriers={[]} routes={[]} />);
+    act(() => vi.advanceTimersByTime(20_000));
