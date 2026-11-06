@@ -84,3 +84,46 @@ describe('CustomerOrderChat', () => {
     ).toBeTruthy();
     expect(
       screen.getByText(/TomTom, si está disponible, solo cubre parte del primer tramo/i)
+    ).toBeTruthy();
+    expect(screen.getByText(/el texto original no se comparte/i)).toBeTruthy();
+    expect(
+      screen.getByText(/no se envían guía, dirección, coordenadas, nombre, teléfono ni IDs/i)
+    ).toBeTruthy();
+  });
+
+  it('shows the backend recovery message when the assistant is not configured', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ configured: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    mockFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error:
+            'El asistente no está configurado. Puedes seguir consultando el pedido con tu guía.',
+        }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    render(<CustomerOrderChat guide="private-tracking-guide" />);
+
+    const input = await screen.findByRole('textbox', {
+      name: 'Escribe tu pregunta sobre el pedido',
+    });
+    fireEvent.change(input, {
+      target: { value: '¿Ya viene?' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preguntar' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('El asistente no está configurado');
+    expect(alert.textContent).toContain('Puedes seguir consultando el pedido con tu guía.');
+    expect((input as HTMLInputElement).value).toBe('¿Ya viene?');
+  });
+
+  it('restores the failed question and retries it without duplicating conversation history', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ configured: true }), {
+        status: 200,
