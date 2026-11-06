@@ -62,3 +62,35 @@ describe('resolución de direcciones antes de seleccionar un pin', () => {
   it('cancela la búsqueda anterior e ignora respuestas tardías', async () => {
     let finish!: (response: Response) => void;
     request.mockImplementation((path: string) =>
+      path.includes('/resolver')
+        ? new Promise<Response>((resolve) => {
+            finish = resolve;
+          })
+        : Promise.resolve(Response.json({ deliveryPoints: [] }))
+    );
+    await act(async () => {
+      render(<OrdersPage />);
+    });
+    fireEvent.change(screen.getByLabelText('Dirección'), { target: { value: 'Carrera 25 num 3' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    const first = request.mock.calls.find((call) => String(call[0]).includes('/resolver'))!;
+    fireEvent.change(screen.getByLabelText('Dirección'), { target: { value: 'Calle 10' } });
+    expect(first[1].signal.aborted).toBe(true);
+    await act(async () => {
+      finish(Response.json({ candidates: [match] }));
+    });
+    expect(screen.queryByRole('button', { name: /Confirmar ubicación/ })).toBeNull();
+    expect((screen.getByLabelText('Dirección') as HTMLInputElement).value).toBe('Calle 10');
+  });
+
+  it('conserva el texto y permite continuar si TomTom limita solicitudes', async () => {
+    request.mockImplementation((path: string) =>
+      Promise.resolve(
+        path.includes('/resolver')
+          ? Response.json({ detail: 'TomTom alcanzó su límite' }, { status: 429 })
+          : Response.json({ deliveryPoints: [] })
+      )
+    );
+    await act(async () => {
