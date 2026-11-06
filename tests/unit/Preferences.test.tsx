@@ -54,3 +54,31 @@ describe('preferencias de la interfaz', () => {
     vi.useFakeTimers();
     renderShell();
     const help = screen.getByRole('button', { name: 'Cómo funciona' });
+    fireEvent.pointerOver(help, { pointerType: 'mouse' });
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Muestra la introducción');
+    expect(help).toHaveAttribute('aria-describedby', 'rl-tooltip');
+    fireEvent.pointerOut(help, { pointerType: 'mouse' });
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('no describe con toques en pantalla táctil', () => {
+    vi.useFakeTimers();
+    renderShell();
+    fireEvent.pointerOver(screen.getByRole('button', { name: 'Cómo funciona' }), { pointerType: 'touch' });
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('el diccionario inglés cubre todas las claves del español', () => {
+    const missing = Object.keys(DICTIONARY.es).filter(
+      (key) => !DICTIONARY.en[key as keyof typeof DICTIONARY.en]
+    );
+    expect(missing).toEqual([]);
+  });
+});
