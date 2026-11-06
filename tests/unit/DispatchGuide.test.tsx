@@ -40,3 +40,24 @@ it('con propuesta vigente despacha lo propuesto y deja cambiar la selección', (
 
 it('si la selección cambió pide analizar de nuevo y no despacha', () => {
   render(<DispatchAction counts={counts} flow={dispatchFlow({ ...base, hasProposal: true, proposalIsCurrent: false })} onAct={vi.fn()} onBack={vi.fn()} />);
+  expect(screen.getByRole('button', { name: 'Cambió la selección: analizar de nuevo' })).toBeEnabled();
+  expect(screen.queryByRole('button', { name: /^Despachar/ })).toBeNull();
+});
+
+it('mientras despacha muestra el contador y no deja pulsar otra vez', () => {
+  render(<DispatchAction counts={counts} flow={dispatchFlow({ ...base, hasProposal: true, proposalIsCurrent: true, dispatching: true })} onAct={vi.fn()} onBack={vi.fn()} />);
+  const button = screen.getByRole('button', { name: /^Despachando… \d+ s$/ });
+  expect(button).toBeDisabled();
+  expect(button).toHaveAttribute('aria-busy', 'true');
+  expect(screen.getByRole('status').textContent).toContain('No cierres esta pestaña');
+});
+
+it('los pasos marcan el actual, los hechos y los pendientes', () => {
+  render(<DispatchSteps counts={counts} flow={dispatchFlow({ ...base, selectedCouriers: 0 })} />);
+  const items = screen.getAllByRole('listitem');
+  expect(items).toHaveLength(3);
+  expect(items[0].className).toContain('is-done');
+  expect(items[1].className).toContain('is-current');
+  expect(items[1]).toHaveAttribute('aria-current', 'step');
+  expect(items[2].className).toContain('is-todo');
+});
