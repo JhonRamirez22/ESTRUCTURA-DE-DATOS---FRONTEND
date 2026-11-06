@@ -29,3 +29,18 @@ test('un aviso sin acción solo se puede descartar y un fallo de red no rompe na
   await screen.findByText(/Beto no envía/);
   expect(screen.getAllByRole('button', { name: /Descartar aviso/i }).length).toBe(2);
   cleanup();
+  vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('red'); }));
+  const { container } = render(<DispatchSuggestions onSelect={vi.fn()} refreshKey={1} />);
+  await act(async () => { await Promise.resolve(); });
+  expect(container.textContent).toBe('');
+});
+
+test('el resumen del turno lee las tarjetas de su propio endpoint', async () => {
+  const cards = { enabled: true, cards: [{ id: 'shift_summary', kind: 'shift_summary', severity: 'info', text: 'Hoy: 2 rutas y 5 entregas.', source: 'deterministic', action: null }] };
+  const fetchMock = vi.fn(async () => new Response(JSON.stringify(cards), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+  vi.stubGlobal('fetch', fetchMock);
+  render(<DispatchSuggestions endpoint="/api/inteligencia/resumen-turno" onSelect={vi.fn()} refreshKey={0} titleKey="shift.title" />);
+  expect(await screen.findByText(/Hoy: 2 rutas/)).toBeTruthy();
+  expect(screen.getByText('Resumen del turno')).toBeTruthy();
+  expect(String((fetchMock.mock.calls as unknown[][])[0][0])).toContain('/inteligencia/resumen-turno');
+});
