@@ -68,3 +68,37 @@ it('refresca cada 90 segundos, solo con la pestaña visible, sin optimizar de nu
   await act(async () => fireEvent(document, new Event('visibilitychange')));
   expect(request).toHaveBeenCalledTimes(3);
   expect(request.mock.calls.every(([, options]) => !options.method)).toBe(true);
+});
+
+it('al cambiar de ruta cancela e ignora una respuesta anterior', async () => {
+  let finish!: (response: Response) => void;
+  request.mockImplementationOnce(
+    () =>
+      new Promise<Response>((resolve) => {
+        finish = resolve;
+      })
+  );
+  const { rerender } = render(<TrafficOverlay routeId="old" />);
+  const oldSignal = request.mock.calls[0][1].signal;
+  await act(async () => rerender(<TrafficOverlay routeId="current" />));
+  expect(oldSignal.aborted).toBe(true);
+  await act(async () => {
+    finish(Response.json({ configured: false, observations: [] }));
+  });
+  expect(screen.getByText(/Tráfico de esta ruta/)).toBeTruthy();
+  expect(request).toHaveBeenLastCalledWith('/api/v1/rutas/current/trafico-vivo', expect.anything());
+});
+
+it('distingue datos anteriores, falta de cobertura y cuota', async () => {
+  request.mockImplementationOnce(async () => sample('STALE'));
+  const { rerender } = await act(async () => render(<TrafficOverlay routeId="stale" />));
+  expect(screen.getByText(/Datos anteriores de esta ruta/)).toBeTruthy();
+  request.mockResolvedValueOnce(
+    Response.json({ configured: true, available: false, observations: [] })
+  );
+  await act(async () => rerender(<TrafficOverlay routeId="uncovered" />));
+  expect(screen.getByText(/Sin cobertura utilizable en esta ruta/)).toBeTruthy();
+  request.mockResolvedValueOnce(Response.json({ error: 'quota' }, { status: 429 }));
+  await act(async () => rerender(<TrafficOverlay routeId="limited" />));
+  expect(screen.getByText(/Tráfico no disponible/)).toBeTruthy();
+});
