@@ -65,3 +65,36 @@ it('lista el equipo y registra un repartidor con su cuenta', async () => {
   expect(screen.getByText('Camila Ramírez')).toBeInTheDocument();
 });
 
+it('no envía nada si el correo o la contraseña no cumplen', async () => {
+  const request = mockApi();
+  await act(async () => render(<StaffPage />));
+  fill('Nombre completo', 'Camila Ramírez');
+  fill('Teléfono', '3001234567');
+  fill('Correo electrónico', 'camila-sin-arroba');
+  fill('Contraseña', 'corta');
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Registrar repartidor' })));
+
+  expect(screen.getByRole('alert')).toHaveTextContent('correo válido');
+  expect(request.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+});
+
+it('elimina un repartidor solo tras confirmar y explica cuando tiene historial', async () => {
+  const request = mockApi();
+  await act(async () => render(<StaffPage />));
+  const deletes = () => request.mock.calls.filter(([, init]) => init?.method === 'DELETE');
+
+  fireEvent.click(screen.getByRole('button', { name: 'Eliminar a Laura Pérez' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Conservar' }));
+  expect(deletes()).toHaveLength(0);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Eliminar a Laura Pérez' }));
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Sí, eliminar' })));
+  expect(deletes()).toHaveLength(1);
+  expect(screen.getByRole('status')).toHaveTextContent('Laura Pérez fue eliminado');
+  expect(screen.queryByText('Laura Pérez')).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Eliminar a Andrés Rosero' }));
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Sí, eliminar' })));
+  expect(screen.getByRole('alert')).toHaveTextContent('tiene rutas en su historial');
+  expect(screen.getByText('Andrés Rosero')).toBeInTheDocument();
+});
