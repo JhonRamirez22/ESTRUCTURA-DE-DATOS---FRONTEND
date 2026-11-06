@@ -63,3 +63,35 @@ it('conserva los últimos datos pero impide despachar si falla una consulta esen
 });
 
 it('ante una sesión vencida retira los datos privados y ofrece volver a ingresar', async () => {
+  const request = mockResponses('');
+  await act(async () => render(<DashboardPage />));
+  request.mockResolvedValue(Response.json({}, { status: 401 }));
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Actualizar datos' })));
+  expect(screen.queryByText('Calle de prueba en Pasto')).toBeNull();
+  expect(screen.getByRole('alert').textContent).toContain('La sesión expiró');
+  expect(screen.getByRole('link', { name: 'Volver a ingresar' })).toHaveAttribute('href', '/acceso?retorno=%2Fdashboard');
+});
+
+it('un payload esencial malformado tampoco permite actuar sobre datos anteriores', async () => {
+  const request = mockResponses('');
+  await act(async () => render(<DashboardPage />));
+  const successful = request.getMockImplementation()!;
+  request.mockImplementation(async (url: string) => url.endsWith('/repartidores')
+    ? Response.json({ couriers: [null] }) : successful(url));
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Actualizar datos' })));
+  expect(screen.getByRole('button', { name: /Analizar reparto/ })).toBeDisabled();
+});
+
+it('no solapa refrescos y cancela consultas al salir de la pantalla', async () => {
+  vi.useFakeTimers();
+  const request = mockResponses('');
+  let finish!: (response: Response) => void;
+  request.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  const { unmount } = await act(async () => render(<DashboardPage />));
+  const signal = vi.mocked(fetch).mock.calls[0][1]!.signal!;
+  await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
+  expect(request).toHaveBeenCalledTimes(5);
+  unmount();
+  expect(signal.aborted).toBe(true);
+  await act(async () => finish(Response.json({ couriers: [] })));
+});
