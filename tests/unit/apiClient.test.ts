@@ -54,3 +54,31 @@ describe('cliente HTTP versionado', () => {
     await apiFetch('/api/v1/pedidos/one', { method: 'PATCH' });
     expect(network.mock.calls.map((call) => call[0])).toEqual([
       '/api/v1/auth/session',
+      '/api/v1/pedidos',
+      '/api/v1/pedidos/one',
+    ]);
+    expect(new Headers(network.mock.calls[1]![1]?.headers).get('X-CSRF-Token')).toBe('proof');
+  });
+
+  it('rechaza sesión ausente antes de enviar la mutación', async () => {
+    network.mockResolvedValue(Response.json({ authenticated: false }));
+    const { apiFetch } = await import('@/lib/apiClient');
+    await expect(apiFetch('/api/pedidos', { method: 'POST' })).rejects.toThrow('sesión expiró');
+    expect(network).toHaveBeenCalledTimes(1);
+  });
+
+  it('limpia CSRF al salir y exige comprobar una nueva sesión', async () => {
+    network
+      .mockResolvedValueOnce(Response.json({}, { headers: { 'X-CSRF-Token': 'proof' } }))
+      .mockResolvedValueOnce(Response.json({ ok: true }))
+      .mockResolvedValue(Response.json({ authenticated: false }));
+    const { apiFetch } = await import('@/lib/apiClient');
+    await apiFetch('/api/auth/logout', { method: 'POST' });
+    await expect(apiFetch('/api/pedidos', { method: 'POST' })).rejects.toThrow('sesión expiró');
+    expect(network.mock.calls[2]![0]).toBe('/api/v1/auth/session');
+  });
+
+  it('no envía cookies ni credenciales a direcciones externas', async () => {
+    const { apiFetch } = await import('@/lib/apiClient');
+    await expect(apiFetch('https://evil.example/api/')).rejects.toThrow('internas');
+    expect(network).not.toHaveBeenCalled();
