@@ -38,3 +38,22 @@ it('desaparece a los 6 s sin deshacer', () => {
     vi.advanceTimersByTime(5900);
   });
   expect(screen.queryByRole('status')).not.toBeNull();
+  act(() => {
+    vi.advanceTimersByTime(200);
+  });
+  expect(screen.queryByRole('status')).toBeNull();
+  expect(onUndo).not.toHaveBeenCalled();
+});
+
+it('un aviso nuevo reemplaza al anterior y reinicia el plazo', () => {
+  render(<Harness onUndo={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'limpiar' }));
+  act(() => {
+    vi.advanceTimersByTime(4000);
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'limpiar' }));
+  act(() => {
+    vi.advanceTimersByTime(4000);
+  });
+  expect(screen.getAllByRole('status')).toHaveLength(1);
+});
