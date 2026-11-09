@@ -49,3 +49,28 @@ describe('liveOptimization helpers', () => {
     const tiny = route({ routeId: 'r3', changed: true, proposedOrder: ['a', 'c', 'b'], savedMinutes: 0.1 });
     expect(isReorderOnly(reorder)).toBe(true);
     expect(isReorderOnly(move)).toBe(false);
+    expect(appliableRoutes(proposal([reorder, move, tiny])).map((r) => r.routeId)).toEqual(['r1']);
+    expect(appliableRoutes(null)).toEqual([]);
+  });
+
+  it('lists the stops that change position', () => {
+    const changed = route({ changed: true, proposedOrder: ['a', 'c', 'b'] });
+    expect([...changedStopIds(proposal([changed]))].sort()).toEqual(['b', 'c']);
+    expect(changedStopIds(proposal([route({})])).size).toBe(0);
+    expect(changedStopIds(null).size).toBe(0);
+  });
+
+  it('keeps the same signature while the proposal does not change', () => {
+    const a = proposal([route({ changed: true, proposedOrder: ['a', 'c', 'b'], savedMinutes: 2 })]);
+    const b = proposal([route({ changed: true, proposedOrder: ['a', 'c', 'b'], savedMinutes: 2.4 })]);
+    expect(proposalSignature(a)).toBe(proposalSignature(b));
+    expect(proposalSignature(proposal([route({})]))).toBe('[]');
+    expect(proposalSignature(null)).toBe('');
+  });
+
+  it('counts down in whole seconds and never goes negative', () => {
+    expect(secondsUntil(10_000, 0)).toBe(10);
+    expect(secondsUntil(10_000, 9_001)).toBe(1);
+    expect(secondsUntil(10_000, 12_000)).toBe(0);
+  });
+});
