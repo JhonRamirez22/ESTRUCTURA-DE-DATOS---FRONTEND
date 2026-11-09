@@ -36,3 +36,22 @@ describe('defaultCourierSelection', () => {
 
   it('respeta lo que el despachador desmarcó y suma solo a los recién disponibles', () => {
     const first = defaultCourierSelection(['a', 'b'], new Set(), []);
+    const afterUncheck = defaultCourierSelection(['a', 'b'], first.known, ['a']);
+    expect(afterUncheck.selection).toEqual(['a']);
+    const withNewcomer = defaultCourierSelection(['a', 'b', 'c'], afterUncheck.known, ['a']);
+    expect(withNewcomer.selection).toEqual(['a', 'c']);
+  });
+
+  it('quien pierde el GPS y vuelve se marca otra vez', () => {
+    const online = defaultCourierSelection(['a', 'b'], new Set(), []);
+    const offline = defaultCourierSelection([], online.known, online.selection);
+    expect(offline.selection).toEqual([]);
+    const back = defaultCourierSelection(['a', 'b'], offline.known, offline.selection);
+    expect(back.selection).toEqual(['a', 'b']);
+  });
+
+  it('quita a quien dejó de estar disponible', () => {
+    const result = defaultCourierSelection(['a'], new Set(['a', 'b']), ['a', 'b']);
+    expect(result.selection).toEqual(['a']);
+  });
+});
