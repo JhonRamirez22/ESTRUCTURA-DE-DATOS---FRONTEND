@@ -29,3 +29,18 @@ describe('proxy de /api con secreto de origen', () => {
     const response = middleware(new NextRequest('https://app.example.test/api/v1/health'));
     const visible = [...response.headers.entries()].filter(([name]) => !name.startsWith('x-middleware-'));
     expect(JSON.stringify(visible)).not.toContain(SECRET);
+  });
+
+  it('sin secreto deja que next.config reenvíe (desarrollo local)', () => {
+    delete process.env.ORIGIN_AUTH_SECRET;
+    const response = middleware(new NextRequest('http://localhost:3000/api/v1/health'));
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(response.headers.get('x-middleware-next')).toBe('1');
+  });
+
+  it('las páginas siguen recibiendo la CSP y no pasan por el backend', () => {
+    const response = middleware(new NextRequest('https://app.example.test/dashboard'));
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(response.headers.get('Content-Security-Policy-Report-Only') ?? response.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+  });
+});
