@@ -60,3 +60,34 @@ describe('service worker', () => {
       new Request('https://rutas-pasto.test/_next/static/media/maplibre-gl-worker.mjs'),
       new Request('https://tiles.openfreemap.org/planet'),
     ];
+
+    for (const request of interceptedRequests) {
+      let intercepted = false;
+      listeners.get('fetch')?.({ request, respondWith: () => (intercepted = true) });
+      expect(intercepted).toBe(false);
+    }
+  });
+
+  it('responde con un 503 válido si falla la red y no hay copia en caché', async () => {
+    const { listeners } = loadServiceWorker([], async () => {
+      throw new TypeError('network unavailable');
+    });
+    let response: Promise<Response> | undefined;
+
+    listeners.get('fetch')?.({
+      request: new Request('https://rutas-pasto.test/dashboard'),
+      respondWith: (value) => {
+        response = value as Promise<Response>;
+      },
+    });
+
+    await expect(response).resolves.toMatchObject({ status: 503 });
+  });
+});
+
+function loadServiceWorker(
+  cacheNames: string[],
+  fetchImpl: typeof fetch = fetch,
+): {
+  deletedCaches: string[];
+  listeners: Map<string, ServiceWorkerListener>;
