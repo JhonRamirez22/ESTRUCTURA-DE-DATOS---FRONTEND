@@ -63,3 +63,35 @@ describe('vectores compartidos con el backend', () => {
   }
 });
 
+describe('DoublyLinkedList (sin vectores: nodos retenidos por el llamador)', () => {
+  it('retira y mueve nodos conocidos en orden correcto', () => {
+    const list = new DoublyLinkedList<string>();
+    const first = list.append('first');
+    list.append('middle');
+    const last = list.append('last');
+    list.moveToFront(last);
+    expect(list.toArray()).toEqual(['last', 'first', 'middle']);
+    expect(list.remove(first)).toBe('first');
+    expect(list.popFront()).toBe('last');
+    expect(list.popBack()).toBe('middle');
+    expect(list.isEmpty()).toBe(true);
+  });
+
+  it('rechaza nodos de otra lista y nodos ya retirados', () => {
+    const owner = new DoublyLinkedList<number>();
+    const other = new DoublyLinkedList<number>();
+    const node = owner.append(7);
+    expect(() => other.moveToFront(node)).toThrow('no pertenece');
+    owner.remove(node);
+    expect(() => owner.remove(node)).toThrow('no pertenece');
+  });
+
+  it('agrega al inicio y maneja lista vacía', () => {
+    const list = new DoublyLinkedList<number>();
+    expect(list.popFront()).toBeUndefined();
+    list.appendLeft(2);
+    list.appendLeft(1);
+    expect(list.toArray()).toEqual([1, 2]);
+    expect(list.size()).toBe(2);
+  });
+});
