@@ -57,7 +57,9 @@ export default function OptimizationLadder({
               : step.proposed
                 ? t('opt.ai.rejected')
                 : t('opt.ai.off')
-            : null;
+            : step.step === 'refine'
+              ? refineStatus(step, t)
+              : null;
           return (
             <li key={step.step} style={{ '--rung-delay': `${index * 70}ms` } as React.CSSProperties}>
               <span className="rl-ladder-label">
@@ -79,7 +81,7 @@ export default function OptimizationLadder({
           <p className="rl-ladder-title">{t('opt.alternatives')}</p>
           <ul className="mt-1 grid gap-1 text-xs text-[var(--ink-soft)]">
             {optimization.alternatives
-              .filter((item) => item.step !== 'orOpt' || item.deltaMinutes !== 0)
+              .filter((item) => item.step !== 'refine' && (item.step !== 'orOpt' || item.deltaMinutes !== 0))
               .map((item) => (
                 <li key={item.step} className="flex justify-between gap-3">
                   <span>{t(`opt.step.${item.step}` as MessageKey)}</span>
@@ -122,4 +124,17 @@ export default function OptimizationLadder({
       </p>
     </section>
   );
+}
+
+/** Sello del refinamiento: óptimo demostrado, o cuánto puede quedar sobre la cota inferior. */
+function refineStatus(
+  step: RouteOptimization['ladder'][number],
+  t: ReturnType<typeof useT>
+): string | null {
+  if (step.provenOptimal) return t('opt.refine.optimal');
+  if (step.minutes !== null && step.lowerBoundMinutes) {
+    const gap = Math.max(0, ((step.minutes - step.lowerBoundMinutes) / step.lowerBoundMinutes) * 100);
+    return t('opt.refine.bound', { pct: Math.round(gap).toLocaleString('es-CO') });
+  }
+  return null;
 }

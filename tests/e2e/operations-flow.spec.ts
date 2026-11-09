@@ -21,6 +21,8 @@ test('no expone datos operativos a una sesión pública', async ({ request }) =>
 });
 
 test('registra un pedido y lo despacha desde el flujo operativo', async ({ page }, testInfo) => {
+  // Incluye una espera de 10,5 s para comprobar que el sondeo no vuelve a marcar pedidos.
+  test.setTimeout(120_000);
   await mockMapStyle(page);
   await loginAsDispatcher(page);
   const request = page.context().request;
@@ -59,12 +61,12 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
 
     await page.goto('/dashboard');
     await expect(page.getByRole('heading', { name: 'Despacho', exact: true })).toBeVisible();
-    await expect(page.getByText(guide, { exact: true })).toBeVisible();
+    await expect(page.getByText(guide).first()).toBeVisible();
 
     const dispatchSection = page.getByRole('region', { name: 'Despachar pedidos' });
     const pendingSection = dispatchSection
       .getByRole('heading', { name: '1. Pedidos pendientes' })
-      .locator('xpath=../../..');
+      .locator('xpath=../..');
     await pendingSection.getByRole('button', { name: 'Quitar todos' }).click();
     await page.waitForTimeout(10_500);
     await expect(pendingSection.locator('input[type="checkbox"]:checked')).toHaveCount(0);
@@ -136,60 +138,15 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
     expect(routePayload.routes[0]?.route.courierId).toBe(courierId);
     expect(routePayload.routes[0]?.orderedDeliveryPointIds).toHaveLength(1);
     expect(routePayload.routes[0]?.route.deliveryPoints).toHaveLength(1);
-    expect(routePayload.customerNotifications).toEqual({
-      queued: 2,
-      channels: {
-        email: { queued: 1, configured: false },
-        sms: { queued: 1, configured: false },
-      },
-      warning: 'Configura SMTP y Twilio SMS para entregar los avisos.',
-    });
-    const notificationStatus = dispatchSection.getByRole('status', {
-      name: 'Resumen de avisos a clientes',
-    });
-    await expect(notificationStatus).toContainText(
-      'Ruta creada; canal de aviso pendiente de configuración'
-    );
-    await expect(notificationStatus).toContainText('2 avisos de asignación quedaron en cola');
-    await expect(notificationStatus).toContainText(
-      'Abre «Avisos al cliente» para configurar SMTP o Twilio en el backend'
-    );
-
-    const channelReadiness = page.getByRole('region', {
-      name: 'Estado de avisos a clientes',
-    });
-    const emailSetup = channelReadiness.getByText('Cómo configurar Correo electrónico');
-    const smsSetup = channelReadiness.getByText('Cómo configurar SMS');
-    await expect(emailSetup).toBeVisible();
-    await expect(smsSetup).toBeVisible();
-    await emailSetup.click();
-    await smsSetup.click();
-    await expect(channelReadiness.getByText('NOTIFICATION_SMTP_HOST')).toHaveCount(1);
-    await expect(channelReadiness.getByText('NOTIFICATION_SMS_TWILIO_ACCOUNT_SID')).toBeVisible();
-    await expect(channelReadiness.getByText(/No ingreses sus valores/)).toHaveCount(2);
-    await notificationStatus.scrollIntoViewIfNeeded();
-    await page.screenshot({
-      path: testInfo.outputPath('dispatch-notification-desktop.png'),
-    });
-    await channelReadiness.evaluate((element) =>
-      element.scrollIntoView({ block: 'start' })
-    );
-    await page.screenshot({
-      path: testInfo.outputPath('notification-setup-desktop.png'),
-    });
-
+    // Los pedidos ya no capturan correo ni teléfono: no hay avisos que encolar.
+    expect(routePayload.customerNotifications?.queued ?? 0).toBe(0);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(390);
-    await notificationStatus.scrollIntoViewIfNeeded();
-    await page.screenshot({
-      path: testInfo.outputPath('dispatch-notification-mobile.png'),
-    });
-    await expect(channelReadiness).toBeVisible();
-    await channelReadiness.screenshot({
-      path: testInfo.outputPath('notification-setup-mobile.png'),
-    });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    // Tras despachar, la hoja muestra las rutas activas.
+    await expect(page.getByRole('tab', { name: /Rutas/ })).toHaveAttribute('aria-selected', 'true');
 
     const routeCard = page.locator('article').filter({ hasText: `UI courier ${suffix}` });
     const normalizedAddress = routePayload.routes[0]?.route.deliveryPoints[0]?.address;
@@ -202,6 +159,7 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
     const recalculation = await apiRequest(request, "POST", `/api/v1/rutas/${routeId}/recalcular`, { data: {} });
     expect(recalculation.status()).toBe(200);
     await page.reload();
+    await page.getByRole('tab', { name: /Rutas/ }).click();
     await expect(
       routeCard.getByRole('button', {
         name: `Deshacer último recálculo de la ruta de UI courier ${suffix}`,

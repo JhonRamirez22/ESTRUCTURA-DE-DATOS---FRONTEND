@@ -185,7 +185,7 @@ test("el dashboard no se desborda en móviles estrechos", async ({ page }) => {
   }
 });
 
-test("el mapa domina el dashboard antes de métricas y despacho", async ({ page }, testInfo) => {
+test("el mapa es el escenario del despacho y la hoja flota sobre él", async ({ page }, testInfo) => {
   await mockDashboardData(page);
   await loginAsDispatcher(page);
 
@@ -197,27 +197,21 @@ test("el mapa domina el dashboard antes de métricas y despacho", async ({ page 
     timeout: 15_000,
   });
   await expect(page.getByRole("region", { name: "Despachar pedidos" })).toBeVisible();
-  const mapPrecedesSummary = await page.evaluate(() => {
-    const map = document.querySelector('[aria-label="Mapa y rutas activas"]');
+  // El resumen operativo precede al escenario, y el panel de despacho vive dentro de él.
+  const layout = await page.evaluate(() => {
+    const stage = document.querySelector('[aria-label="Mapa y rutas activas"]');
     const metrics = document.querySelector('[aria-label="Resumen operativo"]');
-    return Boolean(
-      map &&
-        metrics &&
-        (map.compareDocumentPosition(metrics) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
-    );
-  });
-  const mapPrecedesDispatch = await page.evaluate(() => {
-    const map = document.querySelector('[aria-label="Mapa y rutas activas"]');
     const dispatch = document.querySelector('[aria-label="Despachar pedidos"]');
-    return Boolean(
-      map &&
-        dispatch &&
-        (map.compareDocumentPosition(dispatch) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
-    );
+    return {
+      metricsBeforeStage: Boolean(
+        stage && metrics && (metrics.compareDocumentPosition(stage) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+      ),
+      dispatchInsideStage: Boolean(stage && dispatch && stage.contains(dispatch)),
+      mapInsideStage: Boolean(stage && stage.querySelector('[aria-label="Mapa de rutas"]')),
+    };
   });
 
-  expect(mapPrecedesSummary).toBe(true);
-  expect(mapPrecedesDispatch).toBe(true);
+  expect(layout).toEqual({ metricsBeforeStage: true, dispatchInsideStage: true, mapInsideStage: true });
   await page.setViewportSize({ width: 1440, height: 960 });
   expect((await page.locator('.rp-shell-header').boundingBox())?.width).toBe(1440);
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -233,13 +227,12 @@ test("el mapa domina el dashboard antes de métricas y despacho", async ({ page 
 
   await page.setViewportSize({ width: 390, height: 844 });
   expect((await page.locator('.rp-shell-header').boundingBox())?.width).toBe(390);
-  const shortcuts = page.getByRole('navigation', { name: 'Accesos rápidos del despacho' });
-  await expect(shortcuts).toBeVisible();
-  await expect(shortcuts.getByRole('link', { name: 'Ver rutas activas' })).toHaveAttribute('href', '#active-routes');
-  await expect(shortcuts.getByRole('link', { name: 'Asignar pedidos' })).toHaveAttribute('href', '#dispatch-orders');
-  const shortcutBounds = await shortcuts.boundingBox();
-  expect(shortcutBounds!.y + shortcutBounds!.height).toBeLessThan(844);
-  await expect(page.locator('#active-routes ol')).toContainText('Calle de Prueba 10 # 2-03, Pasto');
+  // En móvil el despacho es una hoja con pestañas, no una página larga con anclas.
+  const tabs = page.getByRole('tablist', { name: 'Secciones del despacho' });
+  await expect(tabs).toBeVisible();
+  await expect(tabs.getByRole('tab', { name: /Pedidos/ })).toHaveAttribute('aria-selected', 'true');
+  await tabs.getByRole('tab', { name: /Rutas/ }).click();
+  await expect(page.locator('#active-routes ol.rl-line')).toContainText('Calle de Prueba 10 # 2-03, Pasto');
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath("dashboard-dispatcher-mobile.png") });
   await expect(page.getByText("Centro del mapa:")).toHaveCount(0);

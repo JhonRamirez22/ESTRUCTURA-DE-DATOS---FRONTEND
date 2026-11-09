@@ -99,6 +99,8 @@ test("crea pedidos, optimiza una ruta y la muestra en el mapa", async ({
     await expect(
       page.getByRole("heading", { name: "Despacho", exact: true }),
     ).toBeVisible();
+    // Las rutas activas viven en la pestaña «Rutas» de la hoja de despacho.
+    await page.getByRole("tab", { name: /Rutas/ }).click();
     await expect(
       page.locator("article").filter({ hasText: `E2E courier ${suffix}` }),
     ).toBeVisible();
@@ -122,7 +124,7 @@ test("crea pedidos, optimiza una ruta y la muestra en el mapa", async ({
     expect(selfProfile.courier).not.toHaveProperty("phone");
     await page.getByRole("button", { name: "Cargar ruta asignada" }).click();
     await expect(page.getByText("Ruta asignada", { exact: true })).toBeVisible();
-    await expect(page.getByText("E2E parada 1", { exact: true })).toBeVisible();
+    await expect(page.getByText("E2E parada 1").first()).toBeVisible();
     expect(
       await page.evaluate(() =>
         Object.keys(localStorage).filter((key) => key.startsWith("rutas-pasto:assigned-route:")),
@@ -143,6 +145,7 @@ test("crea pedidos, optimiza una ruta y la muestra en el mapa", async ({
     expect(cancelResponse.status()).toBe(200);
 
     await page.goto("/dashboard");
+    await page.getByRole("tab", { name: /Rutas/ }).click();
     const routeHistory = page.getByLabel("Historial de rutas");
     await expect(routeHistory).toBeVisible();
     await expect(routeHistory).not.toHaveAttribute("open", "");

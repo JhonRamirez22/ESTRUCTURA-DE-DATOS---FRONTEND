@@ -1,6 +1,6 @@
 import { MinHeap } from '@/core/structures/MinHeap';
 
-export type OptimizationStep = 'nearestNeighbor' | 'twoOpt' | 'orOpt' | 'aiOrder';
+export type OptimizationStep = 'nearestNeighbor' | 'twoOpt' | 'orOpt' | 'refine' | 'aiOrder';
 
 export interface TrafficPoint {
   point: [number, number] | null;
@@ -26,7 +26,16 @@ export interface RouteAlternative {
 export interface RouteOptimization {
   legs: RouteLeg[];
   alternatives: RouteAlternative[];
-  ladder: Array<{ step: OptimizationStep; minutes: number | null; accepted?: boolean; proposed?: boolean }>;
+  ladder: Array<{
+    step: OptimizationStep;
+    minutes: number | null;
+    accepted?: boolean;
+    proposed?: boolean;
+    /** Solo en `refine`: exacto (Held-Karp) o búsqueda local iterada. */
+    kind?: 'exact' | 'ils' | 'none';
+    provenOptimal?: boolean;
+    lowerBoundMinutes?: number | null;
+  }>;
   baselineMinutes: number | null;
   optimizedMinutes: number | null;
   savedMinutes: number | null;

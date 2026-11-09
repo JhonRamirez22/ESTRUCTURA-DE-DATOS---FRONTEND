@@ -758,7 +758,7 @@ export default function DashboardPage() {
 
           <fieldset disabled={!operationalReady} aria-label="Operación de despacho" className="min-w-0 border-0 p-0">
           <section
-            aria-label="Mapa y despacho"
+            aria-label="Mapa y rutas activas"
             className={`rp-stage ${stageWide ? 'is-wide' : ''}`}
             id="dispatch-orders"
           >
@@ -798,7 +798,7 @@ export default function DashboardPage() {
             >
               <div aria-labelledby={`dispatch-sheet-tab-${sheetTab}`} id="dispatch-sheet-panel" role="tabpanel">
                 {sheetTab === 'pedidos' ? (
-                  <>
+                  <section aria-label="Despachar pedidos">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-semibold">{t('dash.new')}</h2>
               <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -1053,7 +1053,7 @@ export default function DashboardPage() {
                 </aside>
               )}
                     </div>
-                  </>
+                  </section>
                 ) : null}
                 {sheetTab === 'rutas' ? (
                   <div className="rp-route-list min-w-0" id="active-routes">
