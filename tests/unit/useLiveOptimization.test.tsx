@@ -60,3 +60,33 @@ it('never overlaps requests and keeps the last proposal when a tick fails', asyn
 it('waits longer after a 429 and pauses while the tab is hidden', async () => {
   const { ApiRequestError } = await import('@/lib/apiClient');
   apiJson.mockRejectedValueOnce(new ApiRequestError('slow down', 'req', 429));
+  renderHook(() => useLiveOptimization(true));
+  await flush(0);
+  await flush(20_000);
+  expect(apiJson).toHaveBeenCalledTimes(1); // backing off for 30 s
+  await flush(11_000);
+  expect(apiJson).toHaveBeenCalledTimes(2);
+  Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+  await flush(30_000);
+  expect(apiJson).toHaveBeenCalledTimes(2);
+  Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+  act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+  await flush(0);
+  expect(apiJson).toHaveBeenCalledTimes(3);
+});
+
+it('does nothing while disabled, stops when disabled, and refresh recomputes now', async () => {
+  const { result, rerender } = renderHook(({ on }) => useLiveOptimization(on), { initialProps: { on: false } });
+  await flush(15_000);
+  expect(apiJson).not.toHaveBeenCalled();
+  rerender({ on: true });
+  await flush(0);
+  expect(apiJson).toHaveBeenCalledTimes(1);
+  act(() => result.current.refresh());
+  await flush(0);
+  expect(apiJson).toHaveBeenCalledTimes(2);
+  rerender({ on: false });
+  await flush(30_000);
+  expect(apiJson).toHaveBeenCalledTimes(2);
+  expect(result.current.proposal).toBeNull();
+});
