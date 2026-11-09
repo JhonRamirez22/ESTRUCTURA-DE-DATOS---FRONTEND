@@ -42,3 +42,25 @@ describe('history', () => {
     expect(min).toBe('2026-11-21T22:00');
     expect(max).toBe('2027-01-20T22:00');
   });
+
+  it('ordena la cola: vencidos, próximos, prioridad y hora', () => {
+    const ordered = queueOrder([
+      { id: 'n', priority: 1 },
+      { id: 'u', priority: 3 },
+      { id: 'soon', priority: 1, scheduleState: 'due-soon' as const, scheduledFor: '2026-11-22T21:00:00Z' },
+      { id: 'late', priority: 1, scheduleState: 'overdue' as const, scheduledFor: '2026-11-22T15:00:00Z' },
+    ]);
+    expect(ordered.map((p) => p.id)).toEqual(['late', 'soon', 'u', 'n']);
+  });
+
+  it('separa los programados lejanos de los listos', () => {
+    const { ready, waiting } = splitSchedule([
+      { id: 'a', scheduleState: 'scheduled' as const, scheduledFor: '2026-11-30T15:00:00Z' },
+      { id: 'b', scheduleState: 'scheduled' as const, scheduledFor: '2026-11-25T15:00:00Z' },
+      { id: 'c', scheduleState: null },
+      { id: 'd', scheduleState: 'overdue' as const, scheduledFor: '2026-11-21T15:00:00Z' },
+    ]);
+    expect(waiting.map((p) => p.id)).toEqual(['b', 'a']);
+    expect(ready.map((p) => p.id)).toEqual(['d', 'c']);
+  });
+});
