@@ -81,3 +81,44 @@ describe('clase Spring', () => {
     return { spring, updates, run, pending: () => queued !== null };
   }
 
+  it('anima hasta el destino y se detiene', () => {
+    const { spring, run, pending } = harness();
+    spring.to(200, { response: 0.3 });
+    run(400);
+    expect(spring.value).toBe(200);
+    expect(pending()).toBe(false);
+  });
+
+  it('con movimiento reducido salta directo al destino', () => {
+    const { spring, updates, pending } = harness(true);
+    spring.to(120);
+    expect(spring.value).toBe(120);
+    expect(updates).toEqual([120]);
+    expect(pending()).toBe(false);
+  });
+
+  it('al agarrarla parte del valor visible y no del destino', () => {
+    const { spring, run } = harness();
+    spring.to(300, { response: 0.4 });
+    run(8);
+    const visible = spring.value;
+    expect(visible).toBeGreaterThan(0);
+    expect(visible).toBeLessThan(300);
+    spring.stop();
+    spring.drag(visible + 20);
+    spring.to(0, { velocity: 0, response: 0.4 });
+    run(1);
+    expect(Math.abs(spring.value - (visible + 20))).toBeLessThan(40);
+  });
+
+  it('un nuevo destino conserva la velocidad en curso', () => {
+    const { spring, run } = harness();
+    spring.to(300, { response: 0.4 });
+    run(6);
+    const speed = spring.velocity;
+    spring.to(0, { response: 0.4 });
+    expect(spring.velocity).toBe(speed);
+  });
+});
+
+describe('proyección, resistencia y puntos de reposo', () => {
