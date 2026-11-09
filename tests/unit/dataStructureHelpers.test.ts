@@ -46,3 +46,26 @@ describe('nearestStopsByEta', () => {
     );
     expect(result.map((item) => item.stopId)).toEqual(['a', 'b']);
     expect(nearestStopsByEta([], 3)).toEqual([]);
+  });
+});
+
+describe('OfflineQueue', () => {
+  it('reenvía en orden FIFO y se detiene en el primer fallo sin perder acciones', async () => {
+    const queue = new OfflineQueue<string>();
+    ['uno', 'dos', 'tres'].forEach((item) => queue.enqueue(item));
+    const sent: string[] = [];
+    let failedOnce = false;
+    const flaky = async (item: string) => {
+      if (item === 'dos' && !failedOnce) {
+        failedOnce = true;
+        throw new Error('sin red');
+      }
+      sent.push(item);
+    };
+    expect(await queue.flush(flaky)).toBe(1);
+    expect(queue.size).toBe(2);
+    expect(await queue.flush(flaky)).toBe(2);
+    expect(sent).toEqual(['uno', 'dos', 'tres']);
+    expect(queue.size).toBe(0);
+  });
+});
