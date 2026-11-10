@@ -82,3 +82,30 @@ function readPathCoordinates(path) {
   const coordinateText = path?.split("/").pop()?.split("?")[0] ?? "";
 
   return coordinateText.split(";").filter(Boolean).map((coordinate) => {
+    const [lng, lat] = coordinate.split(",").map(Number);
+    return [lng, lat];
+  });
+}
+
+function buildRoadGeometry(coordinates) {
+  if (coordinates.length < 2) {
+    return coordinates;
+  }
+
+  const geometry = [coordinates[0]];
+  for (let index = 1; index < coordinates.length; index += 1) {
+    const from = coordinates[index - 1];
+    const to = coordinates[index];
+    const corner = [from[0], to[1]];
+    if (corner[0] !== from[0] || corner[1] !== from[1]) {
+      geometry.push(corner);
+    }
+    geometry.push(to);
+  }
+  return geometry;
+}
+
+function writeJson(response, body) {
+  response.writeHead(200, { "Content-Type": "application/json" });
+  response.end(JSON.stringify(body));
+}
