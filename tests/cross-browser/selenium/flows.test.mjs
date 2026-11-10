@@ -41,3 +41,24 @@ describe('flujos clave (Selenium)', () => {
     await driver.wait(async () => (await pathOf()) === '/repartidor', 45000);
     const button = await driver.wait(until.elementLocated(By.xpath("//button[contains(., 'Iniciar ubicación')]")), 45000);
     assert.ok(await button.isDisplayed());
+  });
+
+  it('3. un cliente sigue su pedido con la guía', async () => {
+    await driver.manage().deleteAllCookies();
+    await driver.get(`${BASE}/cliente?guia=guia-carga-1-0`);
+    const address = await driver.wait(until.elementLocated(By.xpath("//*[contains(text(), 'Calle 1 # 0-10')]")), 45000);
+    assert.ok(await address.isDisplayed());
+  });
+
+  it('4. la solicitud pública muestra el formulario de entrega', async () => {
+    await driver.get(`${BASE}/solicitar`);
+    const form = await driver.wait(until.elementLocated(By.css('form#request-form')), 45000);
+    assert.ok(await form.isDisplayed());
+  });
+
+  it('5. sin sesión, /dashboard redirige al acceso', async () => {
+    await driver.manage().deleteAllCookies();
+    await driver.get(`${BASE}/dashboard`);
+    await driver.wait(async () => ['/acceso', '/'].includes(await pathOf()), 45000);
+  });
+});
