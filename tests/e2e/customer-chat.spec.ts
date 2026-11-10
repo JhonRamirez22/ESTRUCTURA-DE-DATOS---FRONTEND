@@ -149,3 +149,53 @@ test('el cliente pregunta por su guía y el chat se adapta a móvil', async ({ p
     .screenshot({ path: testInfo.outputPath('customer-chat-mobile.png') });
 });
 
+test('el seguimiento sigue disponible cuando el asistente está apagado', async ({ page }) => {
+  const guide = 'E2E-CHAT-UNAVAILABLE';
+
+  await page.route('https://tiles.openfreemap.org/styles/fiord', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        version: 8,
+        name: 'estilo de mapa para prueba',
+        sources: {},
+        layers: [
+          { id: 'background', type: 'background', paint: { 'background-color': '#17242b' } },
+        ],
+      }),
+    })
+  );
+  await page.route('**/api/v1/seguimiento**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        tracking: {
+          guide,
+          status: 'PENDING',
+          address: 'Carrera 25 # 4 sur 65',
+          coordinates: { lat: 1.2136, lng: -77.2811 },
+          route: null,
+        },
+      }),
+    })
+  );
+  await page.route('**/api/v1/cliente/chat/estado', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ configured: false }),
+    })
+  );
+
+  await page.goto('/cliente');
+  await page.getByRole('textbox', { name: 'Número de guía' }).fill(guide);
+  await page.getByRole('button', { name: 'Buscar pedido' }).click();
+
+  await expect(
+    page.getByRole('heading', { name: '¿Tienes dudas sobre este pedido?' })
+  ).toBeVisible();
+  await expect(page.getByText('Carrera 25 # 4 sur 65')).toBeVisible();
+  await expect(page.getByText(/El asistente no está configurado por ahora/)).toBeVisible();
+  await expect(
