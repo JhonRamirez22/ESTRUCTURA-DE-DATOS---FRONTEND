@@ -122,3 +122,44 @@ test("crea pedidos, optimiza una ruta y la muestra en el mapa", async ({
     const selfProfile = await selfResponse.json() as { courier: Record<string, unknown> };
     expect(selfProfile.courier).not.toHaveProperty("name");
     expect(selfProfile.courier).not.toHaveProperty("phone");
+    await page.getByRole("button", { name: "Cargar ruta asignada" }).click();
+    await expect(page.getByText("Ruta asignada", { exact: true })).toBeVisible();
+    await expect(page.getByText("E2E parada 1").first()).toBeVisible();
+    expect(
+      await page.evaluate(() =>
+        Object.keys(localStorage).filter((key) => key.startsWith("rutas-pasto:assigned-route:")),
+      ),
+    ).toEqual([]);
+    await page.getByRole("button", { name: "Iniciar ruta" }).click();
+    await expect(page.getByText("En curso")).toBeVisible();
+    // La parada actual (la que el optimizador puso primero) se entrega desde la acción principal
+    // de la hoja, en la zona del pulgar.
+    const nextStopText = await page.locator("p").filter({ hasText: "Próxima parada:" }).first().innerText();
+    const currentAddress = nextStopText.replace("Próxima parada:", "").trim();
+    expect(currentAddress).toMatch(/^E2E parada \d/);
+    const currentStop = page.locator("ol li").filter({ hasText: currentAddress });
+    await expect(currentStop).toHaveCount(1);
+    await page.getByRole("button", { name: "Marcar entregada" }).click();
+    await expect(currentStop).toHaveCount(0, { timeout: 15_000 });
+    await page.getByRole("button", { name: "Salir" }).click();
+    await page.waitForURL("**/");
+    await loginAsDispatcher(page);
+
+    const cancelResponse = await apiRequest(request, "PATCH", `/api/v1/rutas/${routeId}`, {
+      data: { status: "CANCELLED" },
+    });
+    expect(cancelResponse.status()).toBe(200);
+
+    await page.goto("/dashboard");
+    await page.getByRole("tab", { name: /Rutas/ }).click();
+    const routeHistory = page.getByLabel("Historial de rutas");
+    await expect(routeHistory).toBeVisible();
+    await expect(routeHistory).not.toHaveAttribute("open", "");
+    await routeHistory.locator("summary").click();
+    await expect(
+      routeHistory.locator("article").filter({ hasText: `E2E courier ${suffix}` }),
+    ).toBeVisible();
+  } finally {
+    await cleanupTestData({ courierId, deliveryPointIds, orderIds });
+  }
+});
