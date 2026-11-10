@@ -136,3 +136,48 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
         channels: {
           email: { queued: number; configured: boolean };
           sms: { queued: number; configured: boolean };
+        };
+        warning: string | null;
+      };
+    };
+    expect(routePayload.routes).toHaveLength(1);
+    expect(routePayload.routes[0]?.route.courierId).toBe(courierId);
+    expect(routePayload.routes[0]?.orderedDeliveryPointIds).toHaveLength(1);
+    expect(routePayload.routes[0]?.route.deliveryPoints).toHaveLength(1);
+    // Los pedidos ya no capturan correo ni teléfono: no hay avisos que encolar.
+    expect(routePayload.customerNotifications?.queued ?? 0).toBe(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(390);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    // Tras despachar, la hoja muestra las rutas activas.
+    await expect(page.getByRole('tab', { name: /Rutas/ })).toHaveAttribute('aria-selected', 'true');
+
+    const routeCard = page.locator('article').filter({ hasText: `UI courier ${suffix}` });
+    const normalizedAddress = routePayload.routes[0]?.route.deliveryPoints[0]?.address;
+    expect(normalizedAddress).toBeTruthy();
+    await expect(routeCard).toContainText(normalizedAddress!);
+    await expect(routeCard.getByText('Sin paradas')).toHaveCount(0);
+
+    const routeId = routePayload.routes[0]?.route.id;
+    expect(routeId).toBeTruthy();
+    const recalculation = await apiRequest(request, "POST", `/api/v1/rutas/${routeId}/recalcular`, { data: {} });
+    expect(recalculation.status()).toBe(200);
+    await page.reload();
+    await page.getByRole('tab', { name: /Rutas/ }).click();
+    await expect(
+      routeCard.getByRole('button', {
+        name: `Deshacer último recálculo de la ruta de UI courier ${suffix}`,
+      })
+    ).toBeVisible();
+    await routeCard
+      .getByRole('button', {
+        name: `Deshacer último recálculo de la ruta de UI courier ${suffix}`,
+      })
+      .click();
+    await expect(page.getByText('Se restauró el recálculo anterior de la ruta.', { exact: true }))
+      .toBeVisible();
+    await expect(
+      routeCard.getByRole('button', {
+        name: `Deshacer último recálculo de la ruta de UI courier ${suffix}`,
