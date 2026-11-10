@@ -136,3 +136,49 @@ describe("MapLibreRouteMap camera", () => {
     map.isStyleLoaded.mockReturnValue(false);
     render(<MapLibreRouteMap couriers={[]} routes={[]} />);
     act(() => vi.advanceTimersByTime(20_000));
+    const retry = screen.getByRole("button", { name: "Reintentar mapa" });
+    act(() => retry.click());
+    expect(map.setStyle).toHaveBeenCalledWith("https://tiles.openfreemap.org/styles/fiord");
+  });
+
+  it("preserva el zoom manual cuando el polling o el GPS actualizan los mismos puntos", () => {
+    const { rerender } = render(
+      <MapLibreRouteMap couriers={[courier]} routes={[]} pendingPoints={[point]} />,
+    );
+    act(() => listeners.get("style.load")?.());
+    expect(map.fitBounds).toHaveBeenCalledTimes(1);
+    rerender(
+      <MapLibreRouteMap
+        couriers={[{ ...courier, currentLat: 1.221 }]}
+        routes={[]}
+        pendingPoints={[{ ...point }]}
+      />,
+    );
+    expect(map.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it("solo reencuadra ante selección explícita, no por nuevas paradas del polling", () => {
+    const { rerender } = render(<MapLibreRouteMap couriers={[courier]} routes={[]} />);
+    act(() => listeners.get("style.load")?.());
+    expect(map.setZoom).toHaveBeenCalledTimes(1);
+    rerender(<MapLibreRouteMap couriers={[courier]} routes={[]} pendingPoints={[point]} />);
+    expect(map.fitBounds).not.toHaveBeenCalled();
+    rerender(
+      <MapLibreRouteMap
+        couriers={[courier]}
+        routes={[]}
+        pendingPoints={[point]}
+        selectedCoordinate={[1.24, -77.3]}
+      />,
+    );
+    expect(map.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignora posiciones fuera de Pasto y reajusta el canvas cuando cambia el panel", () => {
+    render(
+      <MapLibreRouteMap couriers={[{ ...courier, currentLat: 0, currentLng: 0 }]} routes={[]} />,
+    );
+    act(() => listeners.get("style.load")?.());
+    expect(map.setCenter).not.toHaveBeenCalled();
+    expect(map.fitBounds).not.toHaveBeenCalled();
+    act(() => resizeObservers[0]?.());
