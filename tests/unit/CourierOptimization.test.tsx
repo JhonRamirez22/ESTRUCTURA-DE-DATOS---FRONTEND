@@ -103,3 +103,38 @@ it('una mejora menor de 1 min no se aplica sola: queda como propuesta manual', a
   await act(async () => render(<RepartidorPage />));
   expect(request.mock.calls.some(([url]) => String(url).endsWith('/recalcular'))).toBe(false);
   expect(screen.getByText(/Ahorras unos 1 min/)).toBeTruthy();
+});
+
+it('sin ruta asignada no ofrece optimización ni crea recorridos', async () => {
+  vi.stubGlobal('localStorage', { removeItem: vi.fn() });
+  request.mockReset();
+  request.mockImplementation(async (url: string) =>
+    Response.json(url === '/api/rutas' ? { routes: [] } : {
+      courier: { status: 'AVAILABLE', currentLat: null, currentLng: null, lastLocationAt: null },
+    })
+  );
+  await act(async () => render(<RepartidorPage />));
+  expect(screen.queryByRole('button', { name: 'Optimizar con tráfico e IA' })).toBeNull();
+  expect(screen.queryByTestId('courier-map')).toBeNull();
+  expect(request.mock.calls.every(([, options]) => !options?.method || options.method === 'GET')).toBe(true);
+});
+
+function mockRoute(proposal: Record<string, unknown>): void {
+  request.mockReset();
+  vi.stubGlobal('localStorage', { removeItem: vi.fn() });
+  const points = ['first', 'second'].map((id, sequenceIndex) => ({
+    id, sequenceIndex, address: `Dirección ${id}`, lat: 1.21, lng: -77.28, status: 'PENDING',
+  }));
+  const route = {
+    id: 'assigned', status: 'PLANNED', courier: { currentLat: 1.21, currentLng: -77.28 },
+    geometryProvider: 'OSRM', geometry: { type: 'LineString', coordinates: [[-77.28, 1.21], [-77.27, 1.22]] },
+    deliveryPoints: points,
+  };
+  request.mockImplementation(async (url: string) => {
+    if (url.endsWith('/propuesta'))
+      return Response.json({
+        orderedDeliveryPointIds: ['second', 'first'], currentDeliveryPointIds: ['first', 'second'],
+        changed: true, estimatedDurationMinutes: 12, improvementMinutes: 3.2,
+        computedAt: new Date().toISOString(), cached: false, ...proposal,
+      });
+    if (url.endsWith('/trafico-vivo')) return Response.json({ observations: [] });
