@@ -78,3 +78,29 @@ it('la propuesta de mejora solo se aplica si el despachador acepta', async () =>
 });
 
 it('si no hay mejora lo dice, y «Ahora no» la descarta sin aplicar', async () => {
+  const onApply = vi.fn();
+  fetchMock.mockResolvedValueOnce(Response.json({ changed: false, worthApplying: false, improvementMinutes: 0, estimatedDurationMinutes: 20 }));
+  const { unmount } = render(<RouteImprovementCheck canCheck onApply={onApply} routeId="r1" />);
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Buscar una mejor ruta' })); });
+  expect(screen.getByRole('status').textContent).toContain('ya es la mejor');
+  unmount();
+  fetchMock.mockResolvedValueOnce(Response.json({ changed: true, worthApplying: true, improvementMinutes: 3, estimatedDurationMinutes: 20 }));
+  render(<RouteImprovementCheck canCheck onApply={onApply} routeId="r2" />);
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Buscar una mejor ruta' })); });
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Ahora no' })); });
+  expect(onApply).not.toHaveBeenCalled();
+  expect(screen.queryByRole('button', { name: 'Aplicar el nuevo orden' })).toBeNull();
+});
+
+it('sin GPS reciente no ofrece buscar mejoras', () => {
+  const { container } = render(<RouteImprovementCheck canCheck={false} onApply={vi.fn()} routeId="r1" />);
+  expect(container.textContent).toBe('');
+});
+
+it('las etiquetas del pedido muestran prioridad no normal y ventana', () => {
+  const labels = { high: 'Alta', urgent: 'Urgente' };
+  expect(orderBadges({ priority: 1 }, labels)).toEqual([]);
+  expect(orderBadges({ priority: 3, timeWindow: { start: '09:00', end: '12:00' } }, labels)).toEqual(['Urgente', '09:00–12:00']);
+  expect(orderBadges({ priority: 2, timeWindow: { end: '10:30' } }, labels)).toEqual(['Alta', '…–10:30']);
+  expect(orderBadges({ timeWindow: {} }, labels)).toEqual([]);
+});
