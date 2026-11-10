@@ -127,3 +127,46 @@ describe('CustomerOrderChat', () => {
     mockFetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ configured: true }), {
         status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    mockFetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'El asistente tardó demasiado.' }), {
+          status: 504,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ reply: 'Tu pedido sigue pendiente de asignación.' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    render(<CustomerOrderChat guide="private-tracking-guide" />);
+
+    const input = await screen.findByRole('textbox', {
+      name: 'Escribe tu pregunta sobre el pedido',
+    });
+    fireEvent.change(input, { target: { value: '¿Ya fue asignado?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Preguntar' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'El asistente tardó demasiado.'
+    );
+    expect((input as HTMLInputElement).value).toBe('¿Ya fue asignado?');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preguntar' }));
+
+    expect(await screen.findByText('Tu pedido sigue pendiente de asignación.')).toBeTruthy();
+    const firstRequest = mockFetch.mock.calls[1]?.[1] as RequestInit;
+    const retryRequest = mockFetch.mock.calls[2]?.[1] as RequestInit;
+    expect(JSON.parse(String(firstRequest?.body)).messages).toEqual([
+      { role: 'user', content: '¿Ya fue asignado?' },
+    ]);
+    expect(JSON.parse(String(retryRequest?.body)).messages).toEqual([
+      { role: 'user', content: '¿Ya fue asignado?' },
+    ]);
+  });
+
+  it('explains when the assistant is not configured and keeps its chat form hidden', async () => {
