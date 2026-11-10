@@ -110,3 +110,40 @@ test('clickjacking: la aplicación no se deja enmarcar y las cabeceras de seguri
   const response = await page.goto('/acceso');
   const headers = response!.headers();
   expect(headers['x-frame-options']).toBe('DENY');
+  expect(headers['x-content-type-options']).toBe('nosniff');
+  expect(headers['referrer-policy']).toBe('no-referrer');
+  expect(headers['strict-transport-security']).toContain('max-age=');
+  const policy = headers['content-security-policy'] ?? headers['content-security-policy-report-only'];
+  expect(policy).toContain("frame-ancestors 'none'");
+  expect(policy).toContain("object-src 'none'");
+  const attacker = await page.context().newPage();
+  await attacker.route('http://evil.test/', (route) =>
+    route.fulfill({ contentType: 'text/html', body: `<iframe id="f" src="${new URL(page.url()).origin}/acceso"></iframe>` })
+  );
+  await attacker.goto('http://evil.test/');
+  await attacker.waitForTimeout(1500);
+  const framed = await attacker.evaluate(() => {
+    const frame = document.getElementById('f') as HTMLIFrameElement;
+    try {
+      return frame.contentDocument?.body?.innerText.length ?? 0;
+    } catch {
+      return 0;
+    }
+  });
+  expect(framed).toBe(0);
+});
+
+test('la API no revela detalles internos ante entradas rotas', async ({ page }) => {
+  await loginAsDispatcher(page);
+  const request = page.context().request;
+  const bodies = ['{"address":', '[]', 'null', '"x"', '{"address": {"$gt": ""}}', '\u0000'.repeat(10)];
+  for (const body of bodies) {
+    const response = await apiRequest(request, 'POST', '/api/v1/pedidos', {
+      headers: { 'Content-Type': 'application/json' },
+      data: body,
+    });
+    expect(response.status()).toBeLessThan(500);
+    const text = await response.text();
+    expect(text).not.toMatch(/Traceback|sqlalchemy|asyncpg|File "|\/app\/|postgres/i);
+  }
+});
