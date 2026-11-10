@@ -139,3 +139,49 @@ test('solo el recorrido seleccionado consulta tráfico, sin teselas extra ni rec
 });
 
 test('la caída de analítica y avisos no impide analizar pedidos', async ({ page }) => {
+  await mockDashboardData(page);
+  for (const path of ['analitica', 'notificaciones']) {
+    await page.route(`**/api/v1/${path}*`, (route) => route.fulfill({ status: 503, json: {} }));
+  }
+  await loginAsDispatcher(page);
+  await expect(page.getByText('Avenida de Prueba 5 # 8-12, Pasto')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Analizar reparto|Cambió la selección/ })).toBeEnabled();
+  await expect(page.getByText(/Analítica: El servicio no está disponible/)).toBeVisible();
+});
+
+test('una caída esencial conserva el mapa pero bloquea despachar hasta recuperar datos', async ({ page }) => {
+  await mockDashboardData(page);
+  await loginAsDispatcher(page);
+  await expect(page.getByText('Avenida de Prueba 5 # 8-12, Pasto')).toBeVisible();
+  await page.route('**/api/v1/rutas', (route) => route.fulfill({
+    status: 503, json: {}, headers: { 'X-Request-ID': 'e2e-safe-reference' },
+  }));
+  await page.getByRole('button', { name: 'Actualizar datos' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Rutas:' })).toContainText('e2e-safe-reference');
+  await expect(page.getByRole('button', { name: /Analizar reparto|Cambió la selección/ })).toBeDisabled();
+  await expect(page.getByText('Avenida de Prueba 5 # 8-12, Pasto')).toBeVisible();
+  await page.unroute('**/api/v1/rutas');
+  await page.getByRole('button', { name: 'Actualizar datos' }).click();
+  await expect(page.getByRole('button', { name: /Analizar reparto|Cambió la selección/ })).toBeEnabled();
+});
+
+test("el dashboard no se desborda en móviles estrechos", async ({ page }) => {
+  await mockDashboardData(page);
+  await loginAsDispatcher(page);
+
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(width);
+    await expect
+      .poll(() =>
+        page
+          .getByRole("region", { name: "Mapa de rutas" })
+          .locator(".maplibregl-map")
+          .evaluate((map) => map.clientHeight),
+      )
+      .toBeGreaterThan(0);
+  }
+});
+
