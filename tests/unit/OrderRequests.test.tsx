@@ -89,3 +89,33 @@ describe('la IA ayuda a deducir la dirección', () => {
     expect(JSON.parse(String(init.body))).toEqual({ address: 'cll 18 nro 22 14' });
     expect(screen.getByText(/La IA \(Groq\) interpretó tu texto/)).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole('button', { name: /Calle 18 # 22-14, Pasto/ }));
+    expect(screen.getByLabelText(/Dirección de entrega/)).toHaveValue('Calle 18 # 22-14, Pasto');
+    expect(screen.getByText('1.213600, -77.281100')).toBeInTheDocument();
+  });
+});
+
+describe('bandeja de solicitudes del despacho', () => {
+  beforeEach(() => {
+    request.mockReset();
+  });
+
+  it('acepta una solicitud y recarga pendientes y solicitudes', async () => {
+    let requested = [{ id: 'r1', orderId: 'SOL-ABC123', address: 'Calle 18 # 22-14', lat: 1.2136, lng: -77.2811 }];
+    request.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/solicitudes/r1/aceptar' && init?.method === 'POST') {
+        requested = [];
+        return Promise.resolve(Response.json({ ok: true }));
+      }
+      if (path.includes('status=REQUESTED')) return Promise.resolve(Response.json({ deliveryPoints: requested }));
+      return Promise.resolve(Response.json({ deliveryPoints: [] }));
+    });
+    await act(async () => render(<OrdersPage />));
+    expect(screen.getByRole('region', { name: 'Solicitudes de clientes' })).toBeInTheDocument();
+
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: /Aceptar solicitud/ })));
+    expect(request.mock.calls.some(([path]) => path === '/api/solicitudes/r1/aceptar')).toBe(true);
+    expect(screen.getByText(/aceptada: ya está en pendientes/)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Solicitudes de clientes' })).toBeNull();
+  });
+});
