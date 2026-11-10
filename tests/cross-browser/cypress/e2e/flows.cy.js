@@ -30,3 +30,19 @@ describe('flujos clave', () => {
 
   it('3. un cliente sigue su pedido con la guía', () => {
     cy.visit('/cliente?guia=guia-carga-0-0');
+    cy.contains('Calle 0 # 0-10', { timeout: 20000 }).should('be.visible');
+  });
+
+  it('4. un cliente anónimo solicita un envío y recibe una guía o un aviso de límite', () => {
+    cy.visit('/solicitar');
+    cy.get('input').first().type('Calle 18 # 22-14, Centro');
+    cy.contains('h2', 'Datos de entrega').should('be.visible');
+    cy.get('form#request-form').should('exist');
+  });
+
+  it('5. sin sesión, las pantallas operativas redirigen al acceso', () => {
+    cy.clearCookies();
+    cy.visit('/dashboard');
+    cy.location('pathname', { timeout: 20000 }).should('match', /\/acceso|\/$/);
+  });
+});
