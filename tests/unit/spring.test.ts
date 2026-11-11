@@ -122,3 +122,44 @@ describe('clase Spring', () => {
 });
 
 describe('proyección, resistencia y puntos de reposo', () => {
+  it('proyecta más lejos cuanto más rápido sale el gesto, y en su dirección', () => {
+    expect(project(0)).toBe(0);
+    expect(project(1000)).toBeCloseTo(499, 0);
+    expect(project(-1000)).toBeCloseTo(-499, 0);
+    expect(project(2000)).toBeGreaterThan(project(1000));
+  });
+
+  it('la resistencia crece con el exceso y nunca iguala al dedo', () => {
+    const small = rubberband(40, 220);
+    const large = rubberband(400, 220);
+    expect(small).toBeLessThan(40);
+    expect(large).toBeLessThan(400);
+    expect(large / 400).toBeLessThan(small / 40);
+  });
+
+  it('constrainDrag es libre dentro de los extremos y resiste fuera', () => {
+    expect(constrainDrag(300, 56, 600)).toBe(300);
+    expect(constrainDrag(20, 56, 600)).toBeLessThan(56);
+    expect(constrainDrag(20, 56, 600)).toBeGreaterThan(56 - 36);
+    expect(constrainDrag(640, 56, 600)).toBeGreaterThan(600);
+  });
+
+  it('elige el punto de reposo más cercano a la posición proyectada', () => {
+    const snaps = [56, 340, 520];
+    expect(nearestSnap(snaps, 300)).toBe(1);
+    expect(nearestSnap(snaps, 450)).toBe(2);
+    expect(nearestSnap(snaps, 340 + project(-1500))).toBe(0);
+  });
+
+  it('calcula la velocidad de suelta y trata la ausencia de movimiento como cero', () => {
+    expect(releaseVelocity([])).toBe(0);
+    expect(releaseVelocity([{ time: 0, y: 300 }])).toBe(0);
+    expect(releaseVelocity([{ time: 1000, y: 300 }, { time: 1050, y: 250 }])).toBeCloseTo(-1000, 5);
+    expect(releaseVelocity([{ time: 1000, y: 300 }, { time: 1002, y: 290 }])).toBe(0);
+  });
+
+  it('solo rebota cuando el gesto traía impulso', () => {
+    expect(dampingForRelease(100)).toBe(1);
+    expect(dampingForRelease(-900)).toBe(0.8);
+  });
+});
