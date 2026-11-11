@@ -181,3 +181,48 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
     await expect(
       routeCard.getByRole('button', {
         name: `Deshacer último recálculo de la ruta de UI courier ${suffix}`,
+      })
+    ).toHaveCount(0);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await routeCard.scrollIntoViewIfNeeded();
+    await routeCard.screenshot({ path: testInfo.outputPath('route-undo-desktop.png') });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await routeCard.screenshot({ path: testInfo.outputPath('route-undo-mobile.png') });
+  } finally {
+    await cleanupTestData({ courierId, orderIds: [guide] });
+  }
+});
+
+test('permite borrar desde despacho solo después de confirmar', async ({ page }) => {
+  await mockMapStyle(page);
+  await loginAsDispatcher(page);
+  const request = page.context().request;
+  const orderId = `DELETE-${randomUUID()}`;
+  const created = await apiRequest(request, 'POST', '/api/v1/pedidos', {
+    data: { address: 'Carrera 25 # 4 sur 65', lat: 1.2136, lng: -77.2811, orderId },
+  });
+  expect(created.status()).toBe(201);
+  const { deliveryPoint } = (await created.json()) as { deliveryPoint: { id: string } };
+
+  try {
+    await page.goto('/dashboard');
+    const dispatch = page.getByRole('region', { name: 'Despachar pedidos' });
+    const deleteButton = dispatch.getByRole('button', { name: `Eliminar pedido ${orderId}` });
+    await expect(deleteButton).toBeVisible();
+
+    page.once('dialog', (dialog) => void dialog.dismiss());
+    await deleteButton.click();
+    await expect(deleteButton).toBeVisible();
+
+    const deletion = page.waitForResponse(
+      (response) => response.url().includes(`/api/v1/pedidos/${deliveryPoint.id}`)
+        && response.request().method() === 'DELETE',
+    );
+    page.once('dialog', (dialog) => void dialog.accept());
+    await deleteButton.click();
+    expect((await deletion).status()).toBe(204);
+    await expect(dispatch.getByText(orderId, { exact: true })).toHaveCount(0);
+  } finally {
+    await apiRequest(request, 'DELETE', `/api/v1/pedidos/${deliveryPoint.id}`).catch(() => undefined);
+  }
+});
