@@ -170,3 +170,45 @@ describe('CustomerOrderChat', () => {
   });
 
   it('explains when the assistant is not configured and keeps its chat form hidden', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ configured: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    render(<CustomerOrderChat guide="private-tracking-guide" />);
+
+    expect(
+      await screen.findByText(
+        'El asistente no está configurado por ahora. Puedes seguir consultando el estado del pedido y su ubicación con esta misma guía.'
+      )
+    ).toBeTruthy();
+    expect(screen.getByText('IA sin configurar')).toBeTruthy();
+    expect(
+      screen.queryByRole('textbox', { name: 'Escribe tu pregunta sobre el pedido' })
+    ).toBeNull();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows a chat attempt when the availability check itself fails', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('availability check failed')).mockResolvedValueOnce(
+      new Response(JSON.stringify({ reply: 'Tu guía continúa en seguimiento.' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    render(<CustomerOrderChat guide="private-tracking-guide" />);
+
+    expect(
+      await screen.findByText(
+        'No pudimos confirmar si el asistente está configurado. Puedes intentar enviar tu pregunta.'
+      )
+    ).toBeTruthy();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Escribe tu pregunta sobre el pedido' }), {
+      target: { value: '¿Ya viene?' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preguntar' }));
+
+    expect(await screen.findByText('Tu guía continúa en seguimiento.')).toBeTruthy();
+  });
+});
