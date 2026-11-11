@@ -82,3 +82,31 @@ describe('cliente HTTP versionado', () => {
     const { apiFetch } = await import('@/lib/apiClient');
     await expect(apiFetch('https://evil.example/api/')).rejects.toThrow('internas');
     expect(network).not.toHaveBeenCalled();
+  });
+
+  it('conserva cancelación y da un error uniforme de red', async () => {
+    const { apiFetch, ApiRequestError } = await import('@/lib/apiClient');
+    network.mockRejectedValue(new TypeError('network'));
+    await expect(apiFetch('/api/pedidos')).rejects.toBeInstanceOf(ApiRequestError);
+    const controller = new AbortController();
+    controller.abort();
+    const cause = new DOMException('cancelled', 'AbortError');
+    network.mockRejectedValue(cause);
+    await expect(apiFetch('/api/pedidos', { signal: controller.signal })).rejects.toBe(cause);
+  });
+
+  it.each([401, 403, 409, 429, 500, 502])('preserva el estado %s y la referencia sin exponer HTML', async (status) => {
+    network.mockResolvedValue(new Response('<html>private upstream error</html>', {
+      status, headers: { 'Content-Type': 'text/html', 'X-Request-ID': 'safe-reference' },
+    }));
+    const { apiJson } = await import('@/lib/apiClient');
+    await expect(apiJson('/api/rutas')).rejects.toMatchObject({ status, requestId: 'safe-reference' });
+    await expect(apiJson('/api/rutas')).rejects.not.toThrow('private upstream');
+  });
+
+  it('normaliza también un HTTP 200 que no contiene JSON válido', async () => {
+    network.mockImplementation(async () => new Response('upstream HTML', { status: 200 }));
+    const { apiJson } = await import('@/lib/apiClient');
+    await expect(apiJson('/api/rutas')).rejects.toThrow('respuesta inválida');
+  });
+});
