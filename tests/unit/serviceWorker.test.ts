@@ -91,3 +91,34 @@ function loadServiceWorker(
 ): {
   deletedCaches: string[];
   listeners: Map<string, ServiceWorkerListener>;
+  cachedAssets: string[];
+} {
+  const listeners = new Map<string, ServiceWorkerListener>();
+  const deletedCaches: string[] = [];
+  const cachedAssets: string[] = [];
+
+  runInNewContext(serviceWorkerSource, {
+    caches: {
+      delete: async (name: string) => {
+        deletedCaches.push(name);
+        return true;
+      },
+      keys: async () => cacheNames,
+      match: async () => undefined,
+      open: async () => ({ add: async (asset: string) => { cachedAssets.push(asset); } }),
+    },
+    fetch: fetchImpl,
+    Response,
+    self: {
+      addEventListener: (name: string, listener: ServiceWorkerListener) => {
+        listeners.set(name, listener);
+      },
+      clients: { claim: async () => undefined },
+      location: { origin: 'https://rutas-pasto.test' },
+      skipWaiting: async () => undefined,
+    },
+    URL,
+  });
+
+  return { deletedCaches, listeners, cachedAssets };
+}
