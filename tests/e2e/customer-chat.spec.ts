@@ -249,3 +249,53 @@ test('conserva el último seguimiento cuando falla una actualización', async ({
           status: 'PENDING',
           address: 'Carrera 25 # 4 sur 65',
           coordinates: { lat: 1.2136, lng: -77.2811 },
+          route: null,
+        },
+      }),
+    });
+  });
+  await page.route('**/api/v1/cliente/chat/estado', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ configured: false }),
+    })
+  );
+
+  await page.goto('/cliente');
+  await page.getByRole('textbox', { name: 'Número de guía' }).fill(guide);
+  await page.getByRole('button', { name: 'Buscar pedido' }).click();
+
+  await expect(page.getByText('Carrera 25 # 4 sur 65')).toBeVisible();
+  await expect(page.getByText(/Última consulta/)).toBeVisible();
+  await page.getByRole('button', { name: 'Actualizar ubicación' }).click();
+
+  await expect(page.getByText(/No pudimos actualizar ahora\. Conservamos la última información/)).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('customer-tracking-stale-desktop.png'),
+    fullPage: true,
+  });
+  await expect(page.getByText('Carrera 25 # 4 sur 65')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Mapa de seguimiento del pedido' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: '¿Tienes dudas sobre este pedido?' })
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Actualizar ubicación' })).toBeEnabled();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByText('Carrera 25 # 4 sur 65')).toBeVisible();
+  await expect(
+    page.getByText(/No pudimos actualizar ahora\. Conservamos la última información/)
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('customer-tracking-stale-mobile.png'),
+    fullPage: true,
+  });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390);
+
+  await page.getByRole('button', { name: 'Actualizar ubicación' }).click();
+  await expect(page.getByText('La guía ya no está disponible.')).toBeVisible();
+  await expect(page.getByText('Carrera 25 # 4 sur 65')).toHaveCount(0);
+});
