@@ -138,3 +138,37 @@ function mockRoute(proposal: Record<string, unknown>): void {
         computedAt: new Date().toISOString(), cached: false, ...proposal,
       });
     if (url.endsWith('/trafico-vivo')) return Response.json({ observations: [] });
+    if (url.endsWith('/navegacion')) return Response.json({ navigation: null });
+    if (url === '/api/rutas') return Response.json({ routes: [route] });
+    return Response.json({ courier: { status: 'AVAILABLE', currentLat: null, currentLng: null, lastLocationAt: null } });
+  });
+}
+
+it('una mejora por debajo del mínimo no molesta al repartidor', async () => {
+  mockRoute({ worthApplying: false, improvementMinutes: 0.4 });
+  await act(async () => render(<RepartidorPage />));
+  expect(screen.queryByRole('button', { name: 'Aplicar ruta' })).toBeNull();
+});
+
+it('«Ahora no» oculta la propuesta sin recalcular la ruta', async () => {
+  mockRoute({ worthApplying: true, improvementMinutes: 0.9 });
+  await act(async () => render(<RepartidorPage />));
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Ahora no' })));
+  expect(screen.queryByRole('button', { name: 'Aplicar ruta' })).toBeNull();
+  expect(request.mock.calls.some(([url]) => String(url).endsWith('/recalcular'))).toBe(false);
+});
+
+it('muestra el ETA histórico solo si viene y lo marca como simulado', async () => {
+  mockRoute({ worthApplying: false });
+  const original = request.getMockImplementation()!;
+  request.mockImplementation(async (url: string) => {
+    if (String(url).endsWith('/eta'))
+      return Response.json({
+        etas: [{ stopId: 'first', estimatedMinutesFromNow: 6, historicalMinutesFromNow: 12 }],
+        historical: { simulatedShare: 1 },
+      });
+    return original(url);
+  });
+  await act(async () => render(<RepartidorPage />));
+  expect(await screen.findByText(/≈12 min con el tráfico habitual · datos simulados/)).toBeTruthy();
+});
