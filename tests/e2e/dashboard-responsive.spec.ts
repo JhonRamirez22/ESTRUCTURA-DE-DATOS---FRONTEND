@@ -185,3 +185,49 @@ test("el dashboard no se desborda en móviles estrechos", async ({ page }) => {
   }
 });
 
+test("el mapa es el escenario del despacho y la hoja flota sobre él", async ({ page }, testInfo) => {
+  await mockDashboardData(page);
+  await loginAsDispatcher(page);
+
+  const mapSection = page.getByRole("region", { name: "Mapa y rutas activas" });
+  await expect(mapSection).toBeVisible();
+  const map = page.getByRole("region", { name: "Mapa de rutas" });
+  await expect(map).toBeVisible();
+  await expect(map.getByRole("status", { name: "Carga del mapa" })).toHaveCount(0, {
+    timeout: 15_000,
+  });
+  await expect(page.getByRole("region", { name: "Despachar pedidos" })).toBeVisible();
+  // El resumen operativo precede al escenario, y el panel de despacho vive dentro de él.
+  const layout = await page.evaluate(() => {
+    const stage = document.querySelector('[aria-label="Mapa y rutas activas"]');
+    const metrics = document.querySelector('[aria-label="Resumen operativo"]');
+    const dispatch = document.querySelector('[aria-label="Despachar pedidos"]');
+    return {
+      metricsBeforeStage: Boolean(
+        stage && metrics && (metrics.compareDocumentPosition(stage) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+      ),
+      dispatchInsideStage: Boolean(stage && dispatch && stage.contains(dispatch)),
+      mapInsideStage: Boolean(stage && stage.querySelector('[aria-label="Mapa de rutas"]')),
+    };
+  });
+
+  expect(layout).toEqual({ metricsBeforeStage: true, dispatchInsideStage: true, mapInsideStage: true });
+  await page.setViewportSize({ width: 1440, height: 960 });
+  expect((await page.locator('.rp-shell-header').boundingBox())?.width).toBe(1440);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect
+    .poll(() =>
+      mapSection
+        .getByLabel("Mapa de rutas")
+        .locator(".maplibregl-map")
+        .evaluate((map) => map.clientHeight),
+    )
+    .toBeGreaterThan(400);
+  await page.screenshot({ path: testInfo.outputPath("dashboard-dispatcher-desktop.png") });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect((await page.locator('.rp-shell-header').boundingBox())?.width).toBe(390);
+  // En móvil el despacho es una hoja con pestañas, no una página larga con anclas.
+  const tabs = page.getByRole('tablist', { name: 'Secciones del despacho' });
+  await expect(tabs).toBeVisible();
+  await expect(tabs.getByRole('tab', { name: /Pedidos/ })).toHaveAttribute('aria-selected', 'true');
