@@ -231,3 +231,49 @@ test("el mapa es el escenario del despacho y la hoja flota sobre él", async ({ 
   const tabs = page.getByRole('tablist', { name: 'Secciones del despacho' });
   await expect(tabs).toBeVisible();
   await expect(tabs.getByRole('tab', { name: /Pedidos/ })).toHaveAttribute('aria-selected', 'true');
+  await tabs.getByRole('tab', { name: /Rutas/ }).click();
+  await expect(page.locator('#active-routes ol.rl-line')).toContainText('Calle de Prueba 10 # 2-03, Pasto');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: testInfo.outputPath("dashboard-dispatcher-mobile.png") });
+  await expect(page.getByText("Centro del mapa:")).toHaveCount(0);
+});
+
+test('el recálculo en vivo se repite cada 10 s, muestra el ahorro y no cambia nada por sí solo', async ({ page }) => {
+  await page.clock.install();
+  await mockDashboardData(page);
+  const calls: string[] = [];
+  const unsafe: string[] = [];
+  page.on('request', (request) => {
+    if (['/recalcular', '/aplicar', '/propuesta'].some((part) => request.url().includes(part))) unsafe.push(request.url());
+  });
+  await page.route('**/api/v1/optimizaciones/en-vivo', (route) => {
+    calls.push(new Date().toISOString());
+    const score = (total: number, longest: number, crossings: number) => ({
+      totalMinutes: total, longestMinutes: longest, balance: 1.4, crossings, lowerBoundGap: 0.2,
+    });
+    return route.fulfill({ json: {
+      enabled: true, tickSeconds: 10, computedAt: new Date().toISOString(), matrixSource: 'osrm',
+      approximate: false, cached: false, skippedRoutes: [], moves: [], changed: true, savedMinutes: 6.4,
+      scoreBefore: score(40, 20, 3), scoreAfter: score(33.6, 15, 0),
+      routes: [{
+        routeId: 'e2e-route-001', changed: true, currentOrder: ['e2e-active-stop'], proposedOrder: ['e2e-active-stop'],
+        movedIn: [], movedOut: [], currentMinutes: 20, proposedMinutes: 15, savedMinutes: 5, geometry: null,
+      }],
+    } });
+  });
+  await loginAsDispatcher(page);
+  const hud = page.getByRole('status', { name: 'Recalculando en vivo' });
+  await expect(hud).toBeVisible({ timeout: 15000 });
+  await expect(hud).toContainText('Mejora posible: −6,4 min');
+  await expect(hud).toContainText('Ruta más larga 20 → 15 min');
+  await expect(hud).toContainText('Cruces 3 → 0');
+  await expect(hud.getByText('Repartidor de prueba')).toBeVisible();
+  const first = calls.length;
+  expect(first).toBeGreaterThanOrEqual(1);
+  await page.clock.fastForward(10_500);
+  await expect.poll(() => calls.length).toBe(first + 1);
+  await page.clock.fastForward(10_500);
+  await expect.poll(() => calls.length).toBe(first + 2);
+  // Es una propuesta: ninguna llamada aplica ni recalcula la ruta por sí sola.
+  expect(unsafe).toEqual([]);
+});
