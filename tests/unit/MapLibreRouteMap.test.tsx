@@ -227,3 +227,48 @@ describe("MapLibreRouteMap camera", () => {
 
   it('pinta la ruta propuesta en vivo y las paradas que cambian de repartidor', () => {
     const sources = new Map<string, NonNullable<ReturnType<typeof map.getSource>>>();
+    map.getSource.mockImplementation((id: string) => sources.get(id) ?? null);
+    map.addSource.mockImplementation((id: string) => sources.set(id, { setData: vi.fn() }));
+    const route = (id: string, courierId: string, points: typeof point[]) => ({
+      id, courier: { ...courier, id: courierId }, deliveryPoints: points, geometryProvider: 'OSRM' as const,
+      geometry: { type: 'LineString' as const, coordinates: [[-77.28, 1.22], [-77.29, 1.23]] as [number, number][] },
+    });
+    const moved = { ...point, id: 'moved-stop', lat: 1.231, lng: -77.291 };
+    const live = {
+      enabled: true, tickSeconds: 10, computedAt: '', matrixSource: 'osrm', approximate: false, cached: false,
+      moves: [{ stopId: 'moved-stop', fromRouteId: 'a', toRouteId: 'b', gainMinutes: 3 }],
+      scoreBefore: null, scoreAfter: null, savedMinutes: 3, changed: true, skippedRoutes: [],
+      routes: [
+        { routeId: 'a', changed: true, currentOrder: ['moved-stop'], proposedOrder: [], movedIn: [], movedOut: ['moved-stop'],
+          currentMinutes: 9, proposedMinutes: 5, savedMinutes: 4, geometry: null },
+        { routeId: 'b', changed: true, currentOrder: ['p2'], proposedOrder: ['p2', 'moved-stop'], movedIn: ['moved-stop'], movedOut: [],
+          currentMinutes: 5, proposedMinutes: 6, savedMinutes: -1,
+          geometry: { type: 'LineString' as const, coordinates: [[-77.28, 1.22], [-77.285, 1.226], [-77.29, 1.23]] as [number, number][] } },
+      ],
+    };
+    render(
+      <MapLibreRouteMap
+        couriers={[courier]}
+        liveProposal={live}
+        routeColors={{ a: '#55f26b', b: '#38bdf8' }}
+        routes={[route('a', 'c1', [moved]), route('b', 'c2', [{ ...point, id: 'p2' }])]}
+      />,
+    );
+    const proposal = sources.get('live-proposal')!.setData.mock.lastCall![0];
+    expect(proposal.features).toHaveLength(1); // solo la ruta con geometría propuesta
+    expect(proposal.features[0].properties).toEqual({ color: '#38bdf8', routeId: 'b' });
+    const stops = sources.get('live-stops')!.setData.mock.lastCall![0];
+    const movedStop = stops.features.find((f: { properties: { kind: string } }) => f.properties.kind === 'moved');
+    expect(movedStop.properties.color).toBe('#38bdf8'); // toma el color del repartidor que la recibe
+    expect(movedStop.geometry.coordinates).toEqual([-77.291, 1.231]);
+  });
+
+  it('sin propuesta en vivo las capas se vacían', () => {
+    const sources = new Map<string, NonNullable<ReturnType<typeof map.getSource>>>();
+    map.getSource.mockImplementation((id: string) => sources.get(id) ?? null);
+    map.addSource.mockImplementation((id: string) => sources.set(id, { setData: vi.fn() }));
+    render(<MapLibreRouteMap couriers={[courier]} routes={[]} />);
+    expect(sources.get('live-proposal')!.setData.mock.lastCall![0].features).toEqual([]);
+    expect(sources.get('live-stops')!.setData.mock.lastCall![0].features).toEqual([]);
+  });
+});
