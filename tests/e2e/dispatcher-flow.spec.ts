@@ -132,9 +132,15 @@ test("crea pedidos, optimiza una ruta y la muestra en el mapa", async ({
     ).toEqual([]);
     await page.getByRole("button", { name: "Iniciar ruta" }).click();
     await expect(page.getByText("En curso")).toBeVisible();
-    const firstStop = page.locator("ol li").filter({ hasText: "E2E parada 1" });
-    await firstStop.getByRole("button", { name: "Entregada" }).click();
-    await expect(firstStop).toHaveCount(0);
+    // La parada actual (la que el optimizador puso primero) se entrega desde la acción principal
+    // de la hoja, en la zona del pulgar.
+    const nextStopText = await page.locator("p").filter({ hasText: "Próxima parada:" }).first().innerText();
+    const currentAddress = nextStopText.replace("Próxima parada:", "").trim();
+    expect(currentAddress).toMatch(/^E2E parada \d/);
+    const currentStop = page.locator("ol li").filter({ hasText: currentAddress });
+    await expect(currentStop).toHaveCount(1);
+    await page.getByRole("button", { name: "Marcar entregada" }).click();
+    await expect(currentStop).toHaveCount(0, { timeout: 15_000 });
     await page.getByRole("button", { name: "Salir" }).click();
     await page.waitForURL("**/");
     await loginAsDispatcher(page);
