@@ -77,3 +77,82 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .brand-mark { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--board-ink); display: grid; place-items: center; position: relative; }
 .brand-mark::after { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--on-board-route); }
 .brand small { font: var(--t-micro); letter-spacing: .04em; color: var(--board-soft); text-transform: uppercase; }
+.nav { display: flex; gap: 2px; overflow-x: auto; flex: 1 1 360px; min-width: 0; scrollbar-width: none; padding-block: 2px; }
+.nav::-webkit-scrollbar { display: none; }
+.nav button { background: none; border: 0; color: var(--board-soft); padding: 0 12px; min-height: 40px; border-radius: 6px; font: var(--t-small); letter-spacing: .005em; white-space: nowrap; position: relative; transition: color 120ms; }
+.nav button:hover { color: var(--board-ink); }
+.nav button[aria-current="page"] { color: var(--board-ink); font-weight: 650; }
+.nav button[aria-current="page"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 2px; height: 4px; border-radius: 2px; background: var(--route); }
+.nav .sep { width: 1px; background: color-mix(in srgb, var(--board-soft) 40%, transparent); margin: 8px 6px; flex: none; }
+.tools { display: flex; gap: 4px; margin-left: auto; }
+.tool { width: 40px; height: 40px; border-radius: 8px; border: 0; background: none; color: var(--board-soft); display: grid; place-items: center; transition: background 120ms, color 120ms, transform 100ms var(--ease); }
+.tool:hover { background: color-mix(in srgb, var(--board-ink) 12%, transparent); color: var(--board-ink); }
+.tool:active { transform: scale(.94); }
+.tool[aria-pressed="true"] { color: var(--on-board-route); }
+.kbd { font: var(--t-micro); border: 1px solid color-mix(in srgb, var(--board-soft) 55%, transparent); border-radius: 4px; padding: 1px 5px; margin-left: 6px; color: var(--board-soft); }
+.tool-search { width: auto; padding: 0 10px; gap: 4px; display: flex; align-items: center; }
+
+/* ---------- estructura de pantalla ---------- */
+main { max-width: 1280px; margin: 0 auto; padding-top: 20px; }
+.view-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 24px; margin-bottom: 16px; }
+.view-head h1 { font: var(--t-display); letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+.view-head p { margin: 0; color: var(--fg-soft); max-width: 62ch; }
+.try { margin: 16px 0 0; color: var(--fg-soft); font: var(--t-small); max-width: 90ch; }
+.try b { color: var(--fg); font-weight: 650; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.layout.with-phone { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+.page { max-width: 880px; margin-inline: auto; }
+
+/* ---------- el escenario: mapa a pantalla completa + hoja ---------- */
+.stage { position: relative; overflow: hidden; border-radius: 16px; background: var(--map-bg); isolation: isolate;
+  height: min(78vh, 760px); min-height: 540px; contain: layout paint; }
+.phone { width: min(100%, 390px); margin-inline: auto; transition: width 360ms var(--ease); }
+.phone.land { width: min(100%, 800px); }
+.phone .stage { height: min(780px, calc(100dvh - 130px)); min-height: 560px; }
+.phone.land .stage { height: 400px; min-height: 0; }
+@media (min-width: 560px) {
+  .phone { padding: 10px; border-radius: 44px; background: #0e0b09; box-shadow: 0 24px 60px rgba(18, 10, 5, .35), inset 0 0 0 1.5px #3d332b; }
+  .phone .stage { border-radius: 34px; }
+}
+.map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.map .st-minor { stroke: #2b2622; fill: none; stroke-linecap: round; }
+.map .st-major { stroke: #3b352e; fill: none; stroke-linecap: round; }
+.map .lbl { fill: #6f655a; font: 600 1px var(--font); letter-spacing: .06em; text-anchor: middle; }
+.map .r-base { stroke: #8a7f72; fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity 300ms var(--ease); }
+.map .r-base.on { opacity: .85; }
+.map .r-halo { stroke: #d65a5a; fill: none; opacity: .35; stroke-linecap: round; stroke-linejoin: round; }
+.map .r-line { stroke: var(--route); fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.map .r-hit { stroke: transparent; fill: none; stroke-linecap: round; cursor: help; }
+.map .mk-ring { fill: none; stroke: var(--on-board-route); stroke-width: 2; opacity: 0; }
+.map .mk-dot { fill: #fffcf7; stroke: #1b1815; stroke-width: 3; }
+.map .mk-n { fill: #32261f; font: 700 12px var(--font); text-anchor: middle; dominant-baseline: central; font-variant-numeric: tabular-nums; pointer-events: none; }
+.map .mk.is-done .mk-dot { fill: var(--route); stroke: #1b1815; }
+.map .mk.is-done .mk-n { fill: #0d2a1c; }
+.map .mk.is-current .mk-ring { opacity: 1; }
+.map .mk.is-current .mk-dot { fill: #32261f; stroke: #fffcf7; }
+.map .mk.is-current .mk-n { fill: #fffcf7; }
+.map .mk { transition: opacity 240ms; }
+.map .pin .mk-dot { fill: var(--on-board-route); }
+.map .courier-pulse { fill: #8fdcb1; opacity: .35; transform-box: fill-box; transform-origin: center; animation: pulse 2.4s var(--ease) infinite; }
+:root.rm .map .courier-pulse { animation: none; opacity: .25; }
+.map .courier-dot { fill: #8fdcb1; stroke: #1b1815; stroke-width: 3; }
+.map .fuzz { fill: #8fdcb1; opacity: .16; stroke: #8fdcb1; stroke-opacity: .5; stroke-width: 1.5; stroke-dasharray: 4 4; }
+@keyframes pulse { 0% { transform: scale(.7); opacity: .5; } 100% { transform: scale(2.3); opacity: 0; } }
+.map-tip { position: absolute; z-index: 5; pointer-events: none; padding: 7px 10px; border-radius: 8px; background: var(--glass-1); border: 1px solid var(--glass-edge);
+  backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%); font: var(--t-small); box-shadow: var(--shadow-pop);
+  opacity: 0; transform: translateY(4px); transition: opacity 120ms; white-space: nowrap; }
+.map-tip.on { opacity: 1; transform: none; }
+
+/* barra flotante del escenario: material ligero, nunca apilado sobre vidrio claro */
+.stage-bar { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; pointer-events: none; }
+.stage.wide .stage-bar { left: 424px; }
+.stage-bar > * { pointer-events: auto; }
+.chip { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--glass-edge); background: var(--glass-2);
+  backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%); font: var(--t-small); font-weight: 600; color: var(--fg); box-shadow: 0 2px 10px rgba(18, 10, 5, .22);
+  transition: transform 100ms var(--ease), background 150ms; }
+button.chip:active { transform: scale(.96); }
+button.chip[aria-pressed="true"] { background: var(--board); color: var(--board-ink); border-color: transparent; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--route); flex: none; }
+.dot.warn { background: var(--warn); } .dot.off { background: var(--line-strong); }
+.dot.red { background: #d65a5a; }
+
