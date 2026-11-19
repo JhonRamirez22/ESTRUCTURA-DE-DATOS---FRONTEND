@@ -80,3 +80,44 @@ function body(path, method, search) {
   if (path === '/api/v1/analitica') return { metrics: { routeCount: 3, completedRouteCount: 1, estimatedDurationMinutes: 61, estimatedDistanceMeters: 9100, timeSavedMinutes: 6.8, distanceSavedMeters: 900, routesWithBaseline: 3 } };
   if (path === '/api/v1/optimizaciones/recientes') return { events: [{ at: iso(5), kind: 'propuesta', routeAlias: 'Ruta de Carlos', changed: false, improvementMinutes: 2.4, trafficSegments: 3, aiApplied: true, aiOrderAccepted: true, aiOrderSavingMinutes: 2.4 }, { at: iso(65), kind: 'aplicada', routeAlias: 'Ruta de Laura', changed: true, improvementMinutes: 3.1, trafficSegments: 5, aiApplied: true }], incidents: [], stats: { proposals: 42, cacheHits: 30, applied: 3, trafficSegments: 18, savedMinutes: 6.8 }, summaryCooldownSeconds: 0 };
   if (path === '/api/v1/seguimiento') return { tracking: { guide: search.get('guia'), status: 'EN_ROUTE', address: 'Avenida Idema #5-30, Las Lunas', coordinates: { lat: 1.2172, lng: -77.2744 }, route: { id: 'r1', status: 'IN_PROGRESS', courier: { currentLat: 1.215, currentLng: -77.2798, lastLocationAt: iso(6) }, geometry, geometryProvider: 'OSRM', estimatedMinutesFromNow: 14, distanceFromCourierMeters: 2300, estimateNote: 'Estimado por calles con tráfico del primer tramo.' } } };
+  if (path.endsWith('/explicar')) return { text: 'El orden base tardaba 34.6 min y el final 27.1 min, un ahorro de 7.5 min con la misma matriz de tiempos.', source: 'groq-validated' };
+  if (path === '/api/v1/inteligencia/agrupaciones') return { groups: [{ ids: ['p1', 'p2'], spreadMeters: 180, source: 'groq-validated', reason: 'Misma cuadra del centro' }, { ids: ['p3', 'p4', 'p5'], spreadMeters: 340, source: 'deterministic', reason: null }], ai: { source: 'groq-validated', proposed: true, accepted: 1 } };
+  if (path === '/api/v1/solicitudes/direccion') return { candidates: [{ address: 'Calle 18 # 22-14, Centro, Pasto', lat: 1.215, lng: -77.2798, precision: 'address' }, { address: 'Calle 18 # 22, Pasto', lat: 1.2151, lng: -77.2796, precision: 'intersection' }], source: 'ai+tomtom', normalizedAddress: 'Calle 18 # 22-14', warning: null, cached: false };
+  if (path === '/api/v1/solicitudes') return { trackingGuide: '5b1f0c2e-8d4a-4c6e-9f1a-2e7d3c9b8a41', reference: 'SOL-7F3A9C', status: 'REQUESTED' };
+  if (path === '/api/v1/asignaciones') return { assignments: [{ courierId: 'c2', deliveryPointIds: ['p2', 'p4', 'p1'] }], unassignedDeliveryPointIds: ['p3'], ai: { source: 'deterministic', applied: false } };
+  if (path === '/api/v1/cliente/chat/estado') return { available: true };
+  return method === 'GET' ? {} : { ok: true };
+}
+
+const pages = [
+  ['acceso', '/acceso', 'desktop'],
+  ['dashboard', '/dashboard', 'desktop'],
+  ['dashboard-mobile', '/dashboard', 'mobile'],
+  ['paleta', '/dashboard', 'desktop'],
+  ['hoja-completa', '/dashboard', 'mobile'],
+  ['propuesta', '/dashboard', 'desktop'],
+  ['pedidos', '/pedidos', 'desktop'],
+  ['personal', '/personal', 'desktop'],
+  ['personal-borrar', '/personal', 'desktop'],
+  ['repartidor', '/repartidor', 'mobile'],
+  ['cliente', '/cliente?guia=RP-7F3A-9C21', 'mobile'],
+  ['inicio', '/', 'desktop'],
+  ['solicitar', '/solicitar', 'desktop'],
+  ['intro', '/', 'desktop'],
+  ['oscuro-dashboard', '/dashboard', 'desktop'],
+  ['oscuro-propuesta', '/dashboard', 'desktop'],
+  ['oscuro-repartidor', '/repartidor', 'mobile'],
+  ['oscuro-cliente', '/cliente?guia=RP-7F3A-9C21', 'mobile'],
+  ['en-dashboard', '/dashboard', 'desktop'],
+  ['tooltip', '/dashboard', 'desktop'],
+  ['mapa-optimizado', '/dashboard', 'desktop'],
+  ['agrupa', '/dashboard', 'desktop'],
+  ['solicitar-ia', '/solicitar', 'desktop'],
+  ['solicitar-ok', '/solicitar', 'desktop'],
+  ['solicitar-movil', '/solicitar', 'mobile'],
+].filter(([name]) => only.length === 0 || only.includes(name));
+
+const browser = await chromium.launch({ channel: 'chrome' });
+for (const [name, path, kind] of pages) {
+  const context = await browser.newContext({
+    viewport: kind === 'mobile' ? { width: 390, height: 844 } : { width: 1440, height: 900 },
