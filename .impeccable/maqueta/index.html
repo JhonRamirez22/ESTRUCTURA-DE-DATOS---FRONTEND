@@ -942,3 +942,81 @@ function viewPedidos(host) {
   host.addEventListener('click', (e) => {
     const b = e.target.closest('[data-del]'); if (!b) return; const o = ORDERS.find((x) => x.id === b.dataset.del);
     popConfirm(b, { text: L(`¿Eliminar ${o.guide}?`, `Delete ${o.guide}?`), confirm: L('Sí, eliminar', 'Yes, delete'), onConfirm: () => { ORDERS = ORDERS.filter((x) => x !== o); list(); toast(L('Pedido eliminado', 'Order deleted')); } });
+  });
+  const refresh = () => { host.querySelector('h1').textContent = L('Pedidos', 'Orders'); $('#q', host).placeholder = L('Buscar por guía o dirección', 'Search by code or address'); seg.render(false); list(); };
+  seg.render(false); list();
+  return { refresh, destroy() { closePop(false); } };
+}
+
+/* ====================================================================== pantalla: Personal */
+function viewPersonal(host) {
+  let team = COURIERS.map((c) => ({ ...c })), email = '', pass = '', touched = false;
+  host.innerHTML = `<div class="page"><div class="view-head"><h1>${L('Personal', 'Staff')}</h1><p>${L('Registra repartidores y administra quién puede salir a ruta.', 'Register couriers and manage who can go out on a route.')}</p></div><div class="split"><section><ul class="rows" id="team" role="list"></ul><div id="msg" role="status"></div></section>
+    <form class="form" id="reg" novalidate><h2 style="margin:0;font:var(--t-head)">${L('Registrar repartidor', 'Register courier')}</h2>
+      <div class="field"><label for="n">${L('Nombre', 'Name')}</label><input class="input" id="n" autocomplete="off"></div>
+      <div class="field"><label for="e">${L('Correo electrónico', 'Email')}</label><input class="input" id="e" type="email" autocomplete="off" aria-describedby="eh"><p class="hint" id="eh"></p></div>
+      <div class="field"><label for="pw">${L('Contraseña', 'Password')}</label><input class="input" id="pw" type="password" autocomplete="new-password" aria-describedby="ph"><p class="hint" id="ph">${L('Mínimo 10 caracteres.', 'At least 10 characters.')}</p></div>
+      <button class="btn btn-primary" type="submit" id="go" disabled>${L('Registrar repartidor', 'Register courier')}</button></form></div></div>`;
+  const status = (s) => ({ AVAILABLE: [L('Libre', 'Free'), ''], ON_ROUTE: [L('En ruta', 'On route'), ''], OFFLINE: [L('Sin conexión', 'Offline'), 'off'] }[s]);
+  function draw() {
+    $('#team', host).innerHTML = team.map((c) => `<li class="row" style="grid-template-columns:minmax(0,1fr) auto auto;padding:0 6px;gap:14px;min-height:64px"><span><span class="row-title">${c.name}</span><span class="row-meta">${c.phone}</span></span><span class="state"><i class="dot ${status(c.status)[1]}"></i>${status(c.status)[0]}</span><button class="btn btn-ghost" data-del="${c.id}" type="button" aria-label="${L('Eliminar a', 'Delete')} ${c.name}" data-tip="${L('Eliminar repartidor', 'Delete courier')}">${icon('trash')}</button></li>`).join('');
+  }
+  const valid = () => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+  function check() {
+    const eh = $('#eh', host), e = $('#e', host), bad = touched && email && !valid();
+    e.setAttribute('aria-invalid', bad); eh.className = 'hint' + (bad ? ' err' : ''); eh.textContent = bad ? L('Escribe un correo válido, como nombre@dominio.com.', 'Enter a valid email, like name@domain.com.') : L('Usa el correo con el que ingresará.', 'The email they will sign in with.');
+    $('#go', host).disabled = !($('#n', host).value.trim() && valid() && pass.length >= 10);
+  }
+  host.addEventListener('input', (e) => { if (e.target.id === 'e') email = e.target.value; if (e.target.id === 'pw') pass = e.target.value; check(); });
+  host.addEventListener('focusout', (e) => { if (e.target.id === 'e') { touched = true; check(); } });
+  $('#reg', host).addEventListener('submit', (e) => { e.preventDefault(); team.push({ id: 'c' + (team.length + 5), name: $('#n', host).value.trim(), phone: '—', status: 'OFFLINE' }); e.target.reset(); email = pass = ''; touched = false; check(); draw(); toast(L('Repartidor registrado', 'Courier registered')); });
+  host.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-del]'); if (!b) return; const c = team.find((x) => x.id === b.dataset.del);
+    popConfirm(b, { text: L(`¿Eliminar a ${c.name}?`, `Delete ${c.name}?`), confirm: L('Sí, eliminar', 'Yes, delete'), onConfirm: () => {
+      const m = $('#msg', host);
+      if (c.history) { m.innerHTML = `<div class="notice is-error" role="alert"><span><b>${c.name}</b> ${L('tiene rutas en su historial y no se puede eliminar. Puedes dejarlo sin conexión.', 'has routes in their history and cannot be deleted. You can leave them offline.')}</span></div>`; return; }
+      team = team.filter((x) => x !== c); draw(); m.innerHTML = ''; toast(L(`${c.name} fue eliminado`, `${c.name} was deleted`));
+    } });
+  });
+  draw(); check();
+  return { refresh() { const keep = { n: $('#n', host).value }; host.innerHTML = ''; const v = viewPersonal(host); return v; }, destroy() { closePop(false); } };
+}
+
+/* ====================================================================== pantalla: Acceso */
+function viewAcceso(host) {
+  let touched = false;
+  host.innerHTML = `<div class="login-wrap"><form class="login" id="lf" novalidate><h1>${L('Ingresa a Rutas Pasto', 'Sign in to Rutas Pasto')}</h1>
+    <ol class="rl-line" aria-label="${L('Pasos para ingresar', 'Sign-in steps')}"><li class="rl-stop is-current"><span class="rl-dot"></span><span class="rl-text">${L('Tu correo y contraseña', 'Your email and password')}</span><span></span></li><li class="rl-stop is-pending"><span class="rl-dot"></span><span class="rl-text">${L('Tu panel según tu rol', 'Your panel for your role')}</span><span></span></li></ol>
+    <div class="field"><label for="le">${L('Correo electrónico', 'Email')}</label><input class="input" id="le" type="email" autocomplete="username" aria-describedby="leh"><p class="hint" id="leh"></p></div>
+    <div class="field"><label for="lp">${L('Contraseña', 'Password')}</label><input class="input" id="lp" type="password" autocomplete="current-password"></div>
+    <button class="btn btn-primary btn-block" id="lb" type="submit" disabled>${L('Ingresar', 'Sign in')}</button></form></div>`;
+  const ok = () => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test($('#le', host).value);
+  function check() { const bad = touched && $('#le', host).value && !ok(), h = $('#leh', host); $('#le', host).setAttribute('aria-invalid', bad); h.className = 'hint' + (bad ? ' err' : ''); h.textContent = bad ? L('Falta el dominio. Ejemplo: nombre@correo.com', 'The domain is missing. Example: name@mail.com') : ''; $('#lb', host).disabled = !(ok() && $('#lp', host).value.length >= 8); }
+  host.addEventListener('input', check); host.addEventListener('focusout', (e) => { if (e.target.id === 'le') { touched = true; check(); } });
+  $('#lf', host).addEventListener('submit', (e) => { e.preventDefault(); const b = $('#lb', host); b.innerHTML = '<i class="spin"></i>'; b.disabled = true; setTimeout(() => { b.textContent = L('Ingresar', 'Sign in'); b.disabled = false; toast(L('Esto es una maqueta: no hay acceso real.', 'This is a mockup: there is no real sign-in.')); }, 900); });
+  return { refresh() { host.innerHTML = ''; viewAcceso(host); }, destroy() {} };
+}
+
+/* ====================================================================== shell del documento */
+const VIEWS = [
+  { id: 'despacho', t: () => L('Despacho', 'Dispatch'), fn: viewDespacho, g: 'a', title: () => L('Despacho', 'Dispatch'), sub: () => L('El mapa es el escenario; el panel es una hoja de vidrio.', 'The map is the stage; the panel is a glass sheet.'),
+    try: () => L('<b>Prueba:</b> arrastra la hoja del móvil (en escritorio es un panel) · marca pedidos y pulsa Analizar · descarta la propuesta y toca Deshacer · pasa el puntero sobre un tramo del mapa · activa Orden base · <b>⌘K</b> para buscar.', '<b>Try:</b> drag the mobile sheet (on desktop it is a side panel) · tick orders and press Analyze · discard the proposal and tap Undo · hover a map leg · toggle Base order · <b>⌘K</b> to search.') },
+  { id: 'pedidos', t: () => L('Pedidos', 'Orders'), fn: viewPedidos, g: 'a' },
+  { id: 'personal', t: () => L('Personal', 'Staff'), fn: viewPersonal, g: 'a' },
+  { id: 'repartidor', t: () => L('Repartidor', 'Courier'), fn: viewRepartidor, g: 'b', title: () => L('Repartidor', 'Courier'), sub: () => L('Una acción grande, a una mano, en la zona del pulgar.', 'One big action, one-handed, in the thumb zone.'),
+    try: () => L('<b>Prueba:</b> arrastra la hoja y suéltala con impulso (rebota solo si el gesto traía velocidad) · toca Marcar entregado · gira el teléfono con el botón de arriba.', '<b>Try:</b> drag the sheet and release with momentum (it only bounces when the gesture carried speed) · tap Mark delivered · rotate the phone with the button above.') },
+  { id: 'seguimiento', t: () => L('Seguimiento', 'Tracking'), fn: viewSeguimiento, g: 'c', title: () => L('Seguimiento del cliente', 'Customer tracking'), sub: () => L('Una hora de llegada clara y una línea de estado.', 'A clear arrival time and a status line.'), try: () => L('<b>Prueba:</b> arrastra la hoja para ver más o menos mapa. El cliente solo ve su envío y una ubicación aproximada.', '<b>Try:</b> drag the sheet to see more or less map. Customers only see their own delivery and an approximate position.') },
+  { id: 'solicitar', t: () => L('Solicitar', 'Request'), fn: viewSolicitar, g: 'c', title: () => L('Solicitar un envío', 'Request a delivery'), sub: () => L('La IA ayuda a deducir la dirección mientras escribes.', 'The AI helps infer the address as you type.'), try: () => L('<b>Prueba:</b> escribe «cll 18 nro 22 14», espera medio segundo y elige una dirección.', '<b>Try:</b> type “cll 18 nro 22 14”, wait half a second and pick an address.') },
+  { id: 'acceso', t: () => L('Acceso', 'Sign in'), fn: viewAcceso, g: 'c' },
+];
+let current = null, curDef = null;
+function go(id, replace) {
+  closePop(false); current?.destroy?.();
+  curDef = VIEWS.find((v) => v.id === id) || VIEWS[0]; state.view = curDef.id;
+  if (!replace) safe(() => history.replaceState(null, '', '#' + curDef.id));
+  const main = $('#view'); main.innerHTML = '';
+  const wrap = document.createElement('div'); const host = document.createElement('div');
+  if (curDef.title) {
+    wrap.innerHTML = `<div class="view-head"><h1>${curDef.title()}</h1><p>${curDef.sub()}</p></div>`;
+  }
+  wrap.className = 'layout'; wrap.append(host);
