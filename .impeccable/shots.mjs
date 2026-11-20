@@ -121,3 +121,44 @@ const browser = await chromium.launch({ channel: 'chrome' });
 for (const [name, path, kind] of pages) {
   const context = await browser.newContext({
     viewport: kind === 'mobile' ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+    serviceWorkers: 'block',
+    reducedMotion: name === 'intro' ? 'no-preference' : 'reduce',
+    permissions: ['geolocation'],
+    geolocation: { latitude: 1.2142, longitude: -77.2804 },
+  });
+  const page = await context.newPage();
+  if (name.startsWith('oscuro')) await page.addInitScript(() => localStorage.setItem('rutas-pasto:theme', 'dark'));
+  else await page.addInitScript(() => localStorage.setItem('rutas-pasto:theme', 'light'));
+  if (name.startsWith('en-')) await page.addInitScript(() => localStorage.setItem('rutas-pasto:lang', 'en'));
+  page.on('crash', () => console.log('CRASH', name));
+  page.on('pageerror', (e) => console.log('PAGEERROR', name, e.message.slice(0, 160)));
+  await page.route('**/api/v1/**', (r) => {
+    const url = new URL(r.request().url());
+    const headers = { 'X-CSRF-Token': 'proof', 'X-Session-Role': path.startsWith('/repartidor') ? 'courier' : 'dispatcher' };
+    return r.fulfill({ contentType: 'application/json', headers, body: JSON.stringify(body(url.pathname, r.request().method(), url.searchParams)) });
+  });
+  await page.goto(base + path, { waitUntil: 'networkidle' }).catch(() => {});
+  if (name === 'cliente') {
+    const input = page.locator('#tracking-guide');
+    if (await input.count()) { await input.fill('RP-7F3A-9C21'); await page.keyboard.press('Enter'); }
+  }
+  if (name === 'personal-borrar') {
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: 'Eliminar a Carlos Muñoz' }).click();
+  }
+  if (name === 'solicitar-ok') {
+    await page.waitForTimeout(3000);
+    await page.getByLabel(/Dirección de entrega/).fill('Calle 16 #24-30, Centro');
+    const map = page.locator('.maplibregl-canvas').first();
+    const box = await map.boundingBox();
+    if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: 'Enviar solicitud' }).click();
+  }
+  if (name === 'intro') {
+    await page.waitForTimeout(1200);
+    await page.getByRole('button', { name: 'Cómo funciona' }).click();
+    await page.waitForTimeout(900);
+  }
+  if (name === 'mapa-optimizado') {
