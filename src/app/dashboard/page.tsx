@@ -16,6 +16,7 @@ import OptimizationFeed from '@/components/OptimizationFeed';
 import { RouteLine, RouteStrip, type StopState } from '@/components/RouteLine';
 import OptimizationLadder from '@/components/OptimizationLadder';
 import AiGroupSuggestions from '@/components/AiGroupSuggestions';
+import DispatchSuggestions from '@/components/DispatchSuggestions';
 import Sheet, { type SheetLayout } from '@/components/Sheet';
 import SegmentedTabs from '@/components/SegmentedTabs';
 import { useUndoToast } from '@/components/UndoToast';
@@ -907,6 +908,7 @@ export default function DashboardPage() {
                     })}
                   </ul>
                 )}
+                <DispatchSuggestions onSelect={(ids) => setSelectedPendingIds(ids)} refreshKey={data.pendingPoints.length} />
                 <AiGroupSuggestions onSelect={(ids) => setSelectedPendingIds(ids)} />
               </div>
               <div className="min-w-0">
