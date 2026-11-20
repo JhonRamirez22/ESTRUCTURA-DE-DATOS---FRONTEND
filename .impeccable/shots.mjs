@@ -162,3 +162,44 @@ for (const [name, path, kind] of pages) {
     await page.waitForTimeout(900);
   }
   if (name === 'mapa-optimizado') {
+    await page.waitForTimeout(1500);
+    await page.locator('#active-routes').scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollBy(0, -80));
+    await page.waitForTimeout(1500);
+  }
+  if (name === 'agrupa') {
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: 'Ver agrupaciones IA' }).click();
+    await page.waitForTimeout(1200);
+    await page.locator('section[aria-label="Sugerencias"], section[aria-label="Agrupaciones sugeridas"]').first().scrollIntoViewIfNeeded().catch(() => {});
+  }
+  if (name === 'solicitar-ia') {
+    await page.waitForTimeout(1500);
+    await page.getByLabel(/Dirección de entrega/).fill('cll 18 nro 22 14 centro');
+    await page.waitForTimeout(1500);
+  }
+  if (name === 'tooltip') {
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: 'Analizar asignación' }).hover();
+    await page.waitForTimeout(700);
+  }
+  if (name === 'propuesta' || name === 'oscuro-propuesta') {
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: 'Analizar asignación' }).click();
+  }
+  if (name === 'paleta') {
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('Control+k');
+    await page.keyboard.type('ped');
+  }
+  if (name === 'hoja-completa') {
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: /Cambiar la altura/ }).focus();
+    await page.keyboard.press('ArrowUp');
+  }
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: `${out}/${name}.png`, fullPage: !['propuesta', 'oscuro-propuesta', 'intro', 'tooltip', 'en-dashboard', 'mapa-optimizado', 'solicitar-ia', 'agrupa', 'hoja-completa', 'paleta'].includes(name) });
+  console.log('shot', name);
+  await context.close();
+}
+await browser.close();
