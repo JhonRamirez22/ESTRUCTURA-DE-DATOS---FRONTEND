@@ -864,3 +864,81 @@ function viewRepartidor(host) {
 }
 
 /* ====================================================================== pantalla: Seguimiento del cliente */
+function viewSeguimiento(host) {
+  const s5 = STOPS[4];
+  const stage = makeStage(host, { frame: true, label: L('Seguimiento del cliente', 'Customer tracking'), sheetLabel: L('Estado del pedido', 'Order status'), snap: 1, peek: 170, mid: 0.5,
+    map: { stops: [{ ...s5, label: '', state: 'current' }], legs: [{ from: 'S4', to: 'S5', ...LEGS[4] }], courier: true, fuzz: true, cust: true, drawn: true } });
+  stage.map.courierTo(stage.map.legLen[0] * 0.5, { response: 0.1 });
+  stage.bar.innerHTML = `<span class="chip">${icon('shield')}${L('Ubicación aproximada', 'Approximate location')}</span>`;
+  const steps = [[L('Pedido recibido', 'Order received'), '09:41', 'done'], [L('Asignado a un repartidor', 'Assigned to a courier'), '09:52', 'done'], [L('En camino', 'On the way'), '10:06', 'current'], [L('Cerca de ti', 'Near you'), '', 'pending'], [L('Entregado', 'Delivered'), '', 'pending']];
+  function refresh() {
+    stage.head.innerHTML = `<div class="head-row"><h1>${L('Tu pedido', 'Your order')}</h1><p class="figures num">DEMO-013</p></div>`;
+    stage.foot.innerHTML = `<section class="board"><p>${L('Llega aproximadamente a las', 'Arrives around')}</p><p class="eta">10:24<small>${L('en 8 min', 'in 8 min')}</small></p><p>${L('Calculado con el tráfico medido hace un momento.', 'Estimated from traffic measured moments ago.')}</p></section>`;
+    stage.body.innerHTML = `<ol class="rl-line" aria-label="${L('Estado del pedido', 'Order status')}">${steps.map(([t, h, s]) => `<li class="rl-stop is-${s}"><span class="rl-dot"></span><span class="rl-text"><span class="sr-only">${s}: </span>${t}</span><span class="rl-aside">${h}</span></li>`).join('')}</ol>
+      <div class="notice"><span>${L('Solo ves tu envío. Los demás pedidos del repartidor no se muestran.', 'You only see your delivery. The courier\'s other orders are not shown.')}</span></div>
+      <button class="btn btn-secondary btn-block" type="button" style="min-height:48px">${L('Escribir al despachador', 'Message the dispatcher')}</button>`;
+  }
+  refresh();
+  return { refresh, destroy: () => stage.destroy() };
+}
+
+/* ====================================================================== pantalla: Solicitar envío */
+function viewSolicitar(host) {
+  const S = { q: '', loading: false, cands: [], ai: false, chosen: null, sent: false };
+  const stage = makeStage(host, { label: L('Solicitar un envío', 'Request a delivery'), sheetLabel: L('Formulario de solicitud', 'Request form'), snap: 1, peek: 150,
+    map: { stops: [{ id: 'S1', c: 4, r: 3, label: '', pin: true, state: 'pending', addr: '' }], legs: [] } });
+  stage.map.setStopPos('S1', 4, 3);
+  const CANDS = [{ a: 'Calle 18 #22-14, Pasto', c: 5, r: 4, p: L('Dirección exacta', 'Exact address') }, { a: 'Calle 18 #22-14 Sur, Pasto', c: 3, r: 6, p: L('Aproximada', 'Approximate') }];
+  let timer = 0;
+  function render(keepInput) {
+    stage.head.innerHTML = `<h1 style="margin-bottom:4px">${L('Solicitar un envío', 'Request a delivery')}</h1><p class="hint">${L('Solo enviamos dentro de Pasto. Un despachador revisa y acepta tu solicitud.', 'We only deliver inside Pasto. A dispatcher reviews and accepts your request.')}</p>`;
+    stage.foot.innerHTML = '';
+    if (S.sent) { stage.body.innerHTML = `<section class="board"><h2>${L('Solicitud enviada', 'Request sent')}</h2><p class="lead">${L('Guarda tu guía para seguir el pedido:', 'Keep your tracking code:')} <b class="num">DEMO-052</b></p><button class="btn btn-go" data-act="track" type="button">${L('Seguir mi pedido', 'Track my order')}</button></section>`; return; }
+    stage.body.innerHTML = `<form class="form" id="req" novalidate><div class="field"><label for="addr">${L('Dirección de entrega', 'Delivery address')}</label><input class="input" id="addr" autocomplete="off" inputmode="text" placeholder="${L('Ej. cll 18 nro 22 14', 'E.g. cll 18 nro 22 14')}" value="${S.q.replace(/"/g, '&quot;')}"><p class="hint" id="h">${L('Escribe como la dices. Entiende abreviaturas.', 'Type it your way. Abbreviations are understood.')}</p></div>
+      <div id="sug" aria-live="polite"></div><button class="btn btn-go btn-block" type="submit" ${S.chosen ? '' : 'disabled'}>${L('Enviar solicitud', 'Send request')}</button></form>`;
+    sug();
+    if (keepInput) { const i = $('#addr', stage.body); i.focus(); i.setSelectionRange(S.q.length, S.q.length); }
+  }
+  function sug() {
+    const el = $('#sug', stage.body); if (!el) return;
+    if (S.loading) { el.innerHTML = '<div class="skel" style="height:52px;margin-top:6px"></div><div class="skel" style="height:52px;margin-top:6px"></div>'; return; }
+    if (!S.cands.length) { el.innerHTML = ''; return; }
+    el.innerHTML = (S.ai ? `<div class="notice is-ok"><span><b>${L('La IA (Groq) interpretó tu texto', 'The AI (Groq) interpreted your text')}</b> ${L('como «Calle 18 # 22-14». Elige la dirección correcta.', 'as “Calle 18 # 22-14”. Pick the right address.')}</span></div>` : '')
+      + `<ul class="suggest" role="list">${S.cands.map((c, i) => `<li><button type="button" data-i="${i}"><span>${c.a}</span><small>${c.p}</small></button></li>`).join('')}</ul>`;
+  }
+  stage.body.addEventListener('input', (e) => {
+    if (e.target.id !== 'addr') return;
+    S.q = e.target.value; S.chosen = null; S.cands = []; clearTimeout(timer);
+    const sub = $('button[type=submit]', stage.body); if (sub) sub.disabled = true;
+    if (S.q.trim().length < 5) { S.loading = false; sug(); return; }
+    timer = setTimeout(() => { S.loading = true; sug(); setTimeout(() => { S.loading = false; S.ai = /cll|cra|nro|#/i.test(S.q) && !/#/.test(S.q); S.cands = CANDS; if (host.isConnected) sug(); }, 520); }, 500);
+  });
+  stage.body.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-i]'); const t = e.target.closest('[data-act=track]');
+    if (t) { go('seguimiento'); return; }
+    if (!b) return;
+    const c = S.cands[+b.dataset.i]; S.chosen = c; S.q = c.a; $('#addr', stage.body).value = c.a; S.cands = [];
+    stage.map.setStopPos('S1', c.c, c.r); stage.map.setCamera({ x0: stage.isWide() ? 432 : 16, x1: stage.stage.clientWidth - 28, y0: 64, y1: stage.isWide() ? stage.stage.clientHeight - 28 : stage.stage.clientHeight * 0.5 - 14 });
+    sug(); const sub = $('button[type=submit]', stage.body); sub.disabled = false; $('#h', stage.body).textContent = L('Punto ubicado en el mapa dentro de Pasto.', 'Point placed on the map inside Pasto.');
+  });
+  stage.body.addEventListener('submit', (e) => { e.preventDefault(); if (!S.chosen) return; buzz(null, 20); S.sent = true; render(); });
+  render();
+  return { refresh: () => render(true), destroy: () => stage.destroy() };
+}
+
+/* ====================================================================== pantalla: Pedidos */
+function viewPedidos(host) {
+  const F = { q: '', f: 'all' };
+  host.innerHTML = `<div class="page"><div class="view-head"><h1>${L('Pedidos', 'Orders')}</h1><p id="cnt"></p></div><div class="toolbar"><input class="input" id="q" type="search" aria-label="${L('Buscar por guía o dirección', 'Search by code or address')}" placeholder="${L('Buscar por guía o dirección', 'Search by code or address')}"><div id="seg"></div></div><div id="list" class="table-rows"></div></div>`;
+  const seg = makeSeg($('#seg', host), { label: () => L('Filtrar por estado', 'Filter by status'), get: () => F.f, set: (f) => { F.f = f; seg.render(true); list(); },
+    items: () => [{ id: 'all', label: L('Todos', 'All') }, { id: 'PENDING', label: L('Pendientes', 'Pending') }, { id: 'ON_ROUTE', label: L('En ruta', 'On route') }, { id: 'DELIVERED', label: L('Entregados', 'Delivered') }] });
+  function list() {
+    const rows = ORDERS.filter((o) => (F.f === 'all' || o.state === F.f) && norm(o.guide + ' ' + o.addr).includes(norm(F.q)));
+    $('#cnt', host).textContent = L(`${ORDERS.length} pedidos hoy · ${ORDERS.filter((o) => o.state === 'PENDING').length} esperan despacho`, `${ORDERS.length} orders today · ${ORDERS.filter((o) => o.state === 'PENDING').length} waiting for dispatch`);
+    $('#list', host).innerHTML = rows.length ? `<ul class="rows" role="list">${rows.map((o) => `<li class="row"><span class="guide">${o.guide}</span><span><span class="row-title">${o.addr}</span><span class="row-meta">${o.km} km · ${L('hace', '')} ${o.age} min</span></span><span class="state"><i class="dot ${STATE_DOT[o.state]}"></i>${STATE_LABEL[o.state]()}</span>${o.state === 'PENDING' ? `<button class="btn btn-ghost" data-del="${o.id}" type="button" aria-label="${L('Eliminar el pedido', 'Delete order')} ${o.guide}" data-tip="${L('Eliminar pedido', 'Delete order')}">${icon('trash')}</button>` : '<span></span>'}</li>`).join('')}</ul>`
+      : `<div class="empty"><b>${L('Ningún pedido coincide', 'No orders match')}</b>${L('Prueba con otra guía, otra dirección o quita el filtro de estado.', 'Try another code, another address or clear the status filter.')}</div>`;
+  }
+  $('#q', host).addEventListener('input', (e) => { F.q = e.target.value; list(); });
+  host.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-del]'); if (!b) return; const o = ORDERS.find((x) => x.id === b.dataset.del);
+    popConfirm(b, { text: L(`¿Eliminar ${o.guide}?`, `Delete ${o.guide}?`), confirm: L('Sí, eliminar', 'Yes, delete'), onConfirm: () => { ORDERS = ORDERS.filter((x) => x !== o); list(); toast(L('Pedido eliminado', 'Order deleted')); } });
