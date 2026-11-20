@@ -472,3 +472,82 @@ function closePop(refocus = true) {
   const { pop, trigger, off, key } = openPop; openPop = null;
   document.removeEventListener('pointerdown', off); document.removeEventListener('keydown', key);
   pop.classList.remove('in'); setTimeout(() => pop.remove(), 240);
+  if (refocus && trigger.isConnected) trigger.focus();
+}
+
+/* ====================================================================== datos de ejemplo (Pasto) */
+const GRID = 90, ORG = { x: 100, y: 80 }, ANG = (-9 * Math.PI) / 180, CX = 500, CY = 400;
+function P(c, r) {
+  const x = ORG.x + c * GRID - CX, y = ORG.y + r * GRID - CY;
+  return { x: CX + x * Math.cos(ANG) - y * Math.sin(ANG), y: CY + x * Math.sin(ANG) + y * Math.cos(ANG) };
+}
+const STOPS = [
+  { id: 'S1', c: 3, r: 5, addr: 'Carrera 27 #17-50, Centro', guide: 'DEMO-009' },
+  { id: 'S2', c: 5, r: 4, addr: 'Calle 18 #22-14, Centro', guide: 'DEMO-010' },
+  { id: 'S3', c: 7, r: 3, addr: 'Avenida Idema #5-30, Las Lunas', guide: 'DEMO-011' },
+  { id: 'S4', c: 6, r: 1, addr: 'Calle 20 #34-18, Santiago', guide: 'DEMO-012' },
+  { id: 'S5', c: 3, r: 1, addr: 'Carrera 22 #14-08, Lorenzo', guide: 'DEMO-013' },
+];
+const ORIGIN = { c: 1, r: 6 };
+const LEGS = [
+  { m: 3.6, lvl: null, mult: 1.05 }, { m: 3.4, lvl: null, mult: 1.1 },
+  { m: 4.1, lvl: 'ALTO', mult: 1.62 }, { m: 3.8, lvl: null, mult: 1.08 }, { m: 3.2, lvl: 'MUY_ALTO', mult: 1.95 },
+];
+const BASE_ORDER = ['S1', 'S5', 'S2', 'S3', 'S4'];
+const COURIERS = [
+  { id: 'c1', name: 'Carlos Muñoz', phone: '300 111 2233', status: 'ON_ROUTE' },
+  { id: 'c2', name: 'Laura Pérez', phone: '300 444 5566', status: 'AVAILABLE' },
+  { id: 'c3', name: 'Sofía Benavides', phone: '300 777 8899', status: 'AVAILABLE' },
+  { id: 'c4', name: 'Andrés Rosero', phone: '300 222 3344', status: 'OFFLINE', history: true },
+];
+let ORDERS = [
+  { id: 'p1', guide: 'DEMO-014', addr: 'Carrera 25 #4 Sur-65, Pasto', km: '3,2', age: 12, state: 'PENDING' },
+  { id: 'p2', guide: 'DEMO-015', addr: 'Calle 19 #29-40, Centro', km: '1,4', age: 9, state: 'PENDING' },
+  { id: 'p3', guide: 'DEMO-016', addr: 'Avenida Panamericana #12-30, Pandiaco', km: '4,8', age: 7, state: 'PENDING' },
+  { id: 'p4', guide: 'DEMO-017', addr: 'Calle 22 #8-15, Las Cuadras', km: '2,0', age: 6, state: 'PENDING' },
+  { id: 'p5', guide: 'DEMO-018', addr: 'Carrera 40 #19-02, Anganoy', km: '3,9', age: 3, state: 'PENDING' },
+  { id: 'p6', guide: 'DEMO-019', addr: 'Calle 17 #31-05, Santiago', km: '2,6', age: 2, state: 'PENDING' },
+  { id: 'e1', guide: 'DEMO-009', addr: 'Carrera 27 #17-50, Centro', km: '1,1', age: 52, state: 'ON_ROUTE' },
+  { id: 'e2', guide: 'DEMO-010', addr: 'Calle 18 #22-14, Centro', km: '1,3', age: 51, state: 'ON_ROUTE' },
+  { id: 'e3', guide: 'DEMO-004', addr: 'Calle 14 #25-31, Centro', km: '0,9', age: 130, state: 'DELIVERED' },
+  { id: 'e4', guide: 'DEMO-005', addr: 'Carrera 32 #20-18, Santiago', km: '2,4', age: 118, state: 'DELIVERED' },
+];
+const REQUESTS = [
+  { id: 'q1', addr: 'Calle 16 #24-30, Centro', age: 4 },
+  { id: 'q2', addr: 'Carrera 36 #18-44, Aranda', age: 1 },
+];
+const STATE_LABEL = {
+  PENDING: () => L('Pendiente', 'Pending'), ON_ROUTE: () => L('En ruta', 'On route'),
+  DELIVERED: () => L('Entregado', 'Delivered'), REQUESTED: () => L('Solicitado', 'Requested'),
+};
+const STATE_DOT = { PENDING: 'warn', ON_ROUTE: '', DELIVERED: 'off' };
+
+/* ====================================================================== mapa */
+function createMap(svg, tipHost, cfg) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const stops = cfg.stops.map((s) => ({ ...s, ...P(s.c, s.r) }));
+  const legsDef = cfg.legs || [];
+  const origin = P(ORIGIN.c, ORIGIN.r);
+  const pts = []; // puntos de cada tramo en coordenadas del mundo
+  let prev = { c: ORIGIN.c, r: ORIGIN.r };
+  legsDef.forEach((lg, i) => {
+    const s = STOPS.find((x) => x.id === lg.to);
+    const a = lg.from ? STOPS.find((x) => x.id === lg.from) : { c: ORIGIN.c, r: ORIGIN.r };
+    const mid = i % 2 === 0 ? { c: s.c, r: a.r } : { c: a.c, r: s.r };
+    pts.push([P(a.c, a.r), P(mid.c, mid.r), P(s.c, s.r)]);
+    prev = s;
+  });
+  const dOf = (list) => list.map((leg, i) => leg.map((p, j) => `${i === 0 && j === 0 ? 'M' : j === 0 ? 'L' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')).join(' ');
+  const lineStr = (a, b) => `M${a.x.toFixed(1)} ${a.y.toFixed(1)}L${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+  let minor = '', major = '';
+  for (let i = -6; i <= 16; i++) {
+    const t = i % 3 === 0 ? 'major' : 'minor';
+    const v = lineStr(P(i, -7), P(i, 15)), h = lineStr(P(-7, i), P(17, i));
+    if (t === 'major') major += v + h; else minor += v + h;
+  }
+  const labels = [['Calle 18', 8.4, 2.92], ['Calle 20', 8.4, 0.92], ['Carrera 25', 2.92, -0.4], ['Av. Idema', 9.3, 4.92]]
+    .map(([n, c, r]) => { const p = P(c, r); return `<text class="lbl" x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" transform="rotate(-9 ${p.x.toFixed(1)} ${p.y.toFixed(1)})">${n}</text>`; }).join('');
+  const baseOrder = BASE_ORDER.filter((id) => cfg.stops.some((s) => s.id === id));
+  let baseD = '';
+  if (cfg.baseline && baseOrder.length > 1) {
+    const bl = []; let pa = { c: ORIGIN.c, r: ORIGIN.r };
