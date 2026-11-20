@@ -708,3 +708,81 @@ function makeSeg(host, { items, get, set, label }) {
     ind.style.transform = `translateX(${sx.x}px)`; ind.style.width = sw.x + 'px';
     const b = $('[aria-selected=true]', host); if (!b) return;
     if (animate) { sx.to(b.offsetLeft, { response: 0.36 }); sw.to(b.offsetWidth, { response: 0.36 }); } else { sx.set(b.offsetLeft); sw.set(b.offsetWidth); }
+  }
+  // el panel cambia de ancho al decidir si es hoja o panel lateral: se vuelve a medir sin animar
+  new ResizeObserver(() => { const b = $('[aria-selected=true]', host); if (b && ind) { sx.set(b.offsetLeft); sw.set(b.offsetWidth); } }).observe(host);
+  host.addEventListener('click', (e) => { const b = e.target.closest('[role=tab]'); if (b && b.dataset.id !== get()) { set(b.dataset.id); } });
+  host.addEventListener('keydown', (e) => {
+    const ids = items().map((i) => i.id), k = { ArrowLeft: -1, ArrowRight: 1 }[e.key]; if (!k) return;
+    const n = ids[(ids.indexOf(get()) + k + ids.length) % ids.length]; set(n); $(`#tab-${n}`, host)?.focus();
+  });
+  return { render, relayout: () => render(false) };
+}
+
+/* ====================================================================== pantalla: Despacho */
+function viewDespacho(host) {
+  const D = { tab: 'pedidos', sel: new Set(['p3', 'p4', 'p6']), analyzing: false, proposal: null, baseline: false, reqs: [...REQUESTS], dispatched: false, groupDone: false };
+  const stage = makeStage(host, {
+    label: L('Despacho', 'Dispatch'), sheetLabel: L('Panel de despacho', 'Dispatch panel'), snap: 1, peek: 150,
+    map: { stops: STOPS.map((s, i) => ({ ...s, state: i === 0 ? 'done' : i === 1 ? 'current' : 'pending' })), legs: STOPS.map((s, i) => ({ from: i ? STOPS[i - 1].id : null, to: s.id, ...LEGS[i] })), baseline: true, courier: true, courierAt: 0, hover: (lg) => `${L('Tramo', 'Leg')} · ${lg.m.toString().replace('.', ',')} min${lg.lvl ? ` · +${Math.round((lg.mult - 1) * 100)} %` : ''}` },
+  });
+  stage.map.courierTo(stage.map.legLen[0] * 0.35, { response: 0.5 });
+  const pend = () => ORDERS.filter((o) => o.state === 'PENDING');
+  let clock = 12, tclock = 40;
+  stage.head.innerHTML = `<div class="head-row"><h1>${L('Despacho', 'Dispatch')}</h1><p class="figures" id="fig"></p></div><div id="segHost"></div>`;
+  const segH = makeSeg($('#segHost', stage.head), {
+    label: () => L('Secciones del despacho', 'Dispatch sections'),
+    items: () => [{ id: 'pedidos', label: L('Pedidos', 'Orders'), badge: pend().length }, { id: 'rutas', label: L('Rutas', 'Routes'), badge: D.dispatched ? 2 : 1 }, { id: 'solicitudes', label: L('Solicitudes', 'Requests'), badge: D.reqs.length }],
+    get: () => D.tab, set: (t) => { D.tab = t; segH.render(true); body(); foot(); },
+  });
+  function fig() { $('#fig', stage.head).innerHTML = L(`<b>${pend().length}</b> pendientes · <b>2</b> libres · <b>${D.dispatched ? 2 : 1}</b> en ruta`, `<b>${pend().length}</b> pending · <b>2</b> free · <b>${D.dispatched ? 2 : 1}</b> on route`); }
+  function bar() {
+    stage.bar.innerHTML = `<button class="chip" type="button" id="bl" aria-pressed="${D.baseline}" data-tip="${L('Muestra el orden anterior a optimizar, en gris punteado', 'Shows the pre-optimization order as a dashed grey line')}">${icon('layers')}${L('Orden base', 'Base order')}</button>
+      <span class="chip"><i class="dot red"></i>${L('Tráfico fuerte', 'Heavy traffic')}</span>
+      <span class="chip num"><i class="dot"></i>GPS ${L('hace', '')} <span id="gps">${clock}</span> s</span>
+      <span class="chip num"><i class="dot ${tclock > 80 ? 'warn' : ''}"></i>TomTom ${L('hace', '')} <span id="tt">${tclock}</span> s</span>`;
+  }
+  function body() {
+    const b = stage.body;
+    if (D.tab === 'pedidos') {
+      const list = pend();
+      b.innerHTML = (list.length ? `<ul class="rows" role="list">${list.map((o, i) => `<li class="row ${D.sel.has(o.id) ? 'is-selected' : ''}" style="animation-delay:${i * 28}ms"><label class="row-main"><input class="check" type="checkbox" data-id="${o.id}" ${D.sel.has(o.id) ? 'checked' : ''}><span class="box">${icon('check')}</span><span><span class="row-title">${o.addr}</span><span class="row-meta">${o.guide} · ${o.km} km</span></span></label><span class="row-aside">${L('hace', '')} ${o.age} min</span></li>`).join('')}</ul>`
+        : `<div class="empty"><b>${L('No hay pedidos pendientes', 'No pending orders')}</b>${L('Los nuevos pedidos y solicitudes aceptadas aparecen aquí.', 'New orders and accepted requests show up here.')}</div>`);
+      const grp = pend().some((o) => o.id === 'p3') && pend().some((o) => o.id === 'p4') && !D.groupDone;
+      if (grp) b.insertAdjacentHTML('afterbegin', `<div class="notice is-ok"><span><b>${L('Groq sugiere agrupar', 'Groq suggests grouping')}</b> ${L('DEMO-016 y DEMO-017: están a 230 m entre sí y conviene que los lleve el mismo repartidor.', 'DEMO-016 and DEMO-017 are 230 m apart and suit the same courier.')} <button class="btn-link" data-act="group" type="button">${L('Seleccionar ambos', 'Select both')}</button></span></div>`);
+    } else if (D.tab === 'rutas') {
+      const st = ['done', 'current', 'pending', 'pending', 'pending'];
+      b.innerHTML = `<h2 class="sec-title">Carlos Muñoz · ${L('en ruta', 'on route')}</h2>
+        <ol class="rl-line" aria-label="${L('Paradas de la ruta de Carlos Muñoz', 'Stops of Carlos Muñoz route')}">${STOPS.map((s, i) => `<li class="rl-stop is-${st[i]}"><span class="rl-dot"></span><span class="rl-text"><span class="sr-only">${st[i]}: </span>${s.addr}<span class="rl-meta">${s.guide}</span></span><span class="rl-aside">${LEGS[i].m.toString().replace('.', ',')} min</span></li>`).join('')}</ol>
+        <div class="notice is-warn"><span><b>${L('2 tramos con tráfico fuerte', '2 legs with heavy traffic')}</b> ${L('medidos por TomTom. La ruta ya los considera; un recálculo solo ocurre si lo pides.', 'measured by TomTom. The route already accounts for them; recalculation only runs when you ask.')}</span></div>
+        <div class="btn-row"><button class="btn btn-secondary" data-act="recalc" type="button">${L('Recalcular ruta', 'Recalculate route')}</button><button class="btn btn-quiet" type="button" disabled>${L('Deshacer recálculo', 'Undo recalculation')}</button></div>
+        ${D.dispatched ? `<h2 class="sec-title">Laura Pérez · ${L('recién despachada', 'just dispatched')}</h2><p class="hint">${D.sel.size || 3} ${L('paradas, orden verificado.', 'stops, order verified.')}</p>` : ''}`;
+    } else {
+      b.innerHTML = D.reqs.length ? `<ul class="rows" role="list">${D.reqs.map((r) => `<li class="row" data-id="${r.id}" style="grid-template-columns:minmax(0,1fr)"><div style="padding:12px 6px;display:grid;gap:8px"><span><span class="row-title">${r.addr}</span><span class="row-meta">${L('Solicitud de cliente · hace', 'Customer request ·')} ${r.age} min</span></span><span class="btn-row"><button class="btn btn-go" data-act="accept" data-id="${r.id}" type="button">${L('Aceptar', 'Accept')}</button><button class="btn btn-quiet" data-act="reject" data-id="${r.id}" type="button">${L('Rechazar', 'Reject')}</button></span></div></li>`).join('')}</ul>`
+        : `<div class="empty"><b>${L('Sin solicitudes en espera', 'No requests waiting')}</b>${L('Cuando un cliente pida un envío, aparecerá aquí para que lo aceptes o lo rechaces.', 'When a customer asks for a delivery, it shows up here to accept or reject.')}</div>`;
+    }
+  }
+  function foot() {
+    const f = stage.foot;
+    if (D.tab !== 'pedidos') { f.innerHTML = ''; return; }
+    if (D.analyzing) { f.innerHTML = `<div class="board" aria-busy="true"><h2>${L('Analizando la selección…', 'Analyzing selection…')}</h2><div class="skel" style="height:14px"></div><div class="skel" style="height:44px"></div></div>`; return; }
+    if (D.proposal) {
+      const n = D.proposal.n, base = (n * 6.4).toFixed(1).replace('.', ','), nn = (n * 6.4 * 0.86).toFixed(1).replace('.', ','), oo = (n * 6.4 * 0.81).toFixed(1).replace('.', ','), fin = (n * 6.4 * 0.78).toFixed(1).replace('.', ','), save = (n * 6.4 * 0.22).toFixed(1).replace('.', ',');
+      f.innerHTML = `<section class="board" aria-label="${L('Propuesta de despacho', 'Dispatch proposal')}"><h2>${L('Propuesta · Laura Pérez', 'Proposal · Laura Pérez')}</h2>
+        <p class="lead">${L(`Con ${n} pedidos se ahorran <b>${save} min</b> (22 %) frente al orden base.`, `With ${n} orders you save <b>${save} min</b> (22 %) against the base order.`)}</p>
+        <ol class="ladder" aria-label="${L('Mejora paso a paso, en minutos', 'Step-by-step improvement, in minutes')}"><li><span>${L('Cercano', 'Nearest')}</span><b>${base}</b></li><li><span>2-opt</span><b>${nn}</b></li><li><span>Or-opt</span><b>${oo}</b></li><li class="ok"><span>Groq</span><b>${fin}</b></li></ol>
+        <p class="verify">${icon('shield')}<span>${L('Groq propuso el orden y el algoritmo lo verificó con la misma matriz de tiempos antes de aceptarlo.', 'Groq proposed the order and the algorithm verified it on the same time matrix before accepting.')}</span></p>
+        <div class="btn-row"><button class="btn btn-go" data-act="dispatch" type="button">${L('Despachar', 'Dispatch')}</button><button class="btn btn-quiet" data-act="discard" type="button" style="color:var(--board-soft);border-color:var(--board-soft)">${L('Descartar', 'Discard')}</button></div></section>`;
+      return;
+    }
+    const n = D.sel.size;
+    f.innerHTML = `<div class="btn-row"><button class="btn btn-primary" data-act="analyze" type="button" ${n ? '' : 'disabled'}>${n ? L(`Analizar ${n} ${n === 1 ? 'pedido' : 'pedidos'}`, `Analyze ${n} ${n === 1 ? 'order' : 'orders'}`) : L('Elige pedidos para analizar', 'Pick orders to analyze')}</button>${n ? `<button class="btn btn-quiet" data-act="clear" type="button" style="flex:0 0 auto">${L('Limpiar', 'Clear')}</button>` : ''}</div>`;
+  }
+  function analyze() {
+    if (!D.sel.size) return;
+    D.analyzing = true; foot(); stage.snap(1);
+    setTimeout(() => { D.analyzing = false; D.proposal = { n: D.sel.size }; if (host.isConnected) foot(); }, 950);
+  }
+  const click = (e) => {
+    const a = e.target.closest('[data-act]'); const chk = e.target.closest('.check');
+    if (chk) { D.sel[chk.checked ? 'add' : 'delete'](chk.dataset.id); D.proposal = null; chk.closest('.row').classList.toggle('is-selected', chk.checked); foot(); return; }
