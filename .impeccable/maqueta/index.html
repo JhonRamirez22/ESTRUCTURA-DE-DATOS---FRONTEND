@@ -314,3 +314,82 @@ button.chip[aria-pressed="true"] { background: var(--board); color: var(--board-
 .table-rows .guide { font: var(--t-small); color: var(--fg-soft); font-variant-numeric: tabular-nums; font-weight: 600; }
 .split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
 @media (min-width: 880px) { .split { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } }
+.form { display: grid; gap: 14px; align-content: start; }
+.login-wrap { min-height: calc(100dvh - 200px); display: grid; place-items: center; }
+.login { width: min(420px, 100%); display: grid; gap: 22px; }
+.login h1 { font: var(--t-display); letter-spacing: -.02em; margin: 0; }
+.login .rl-line { margin-top: 4px; }
+.suggest { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.suggest button { width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-height: 52px; display: grid; gap: 1px; transition: transform 100ms var(--ease), border-color 150ms; }
+.suggest button:hover { border-color: var(--accent); } .suggest button:active { transform: scale(.985); }
+.suggest small { color: var(--fg-soft); font: var(--t-small); }
+.spin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid color-mix(in srgb, currentColor 30%, transparent); border-top-color: currentColor; animation: turn 700ms linear infinite; }
+:root.rm .spin { animation-duration: 2.4s; }
+@keyframes turn { to { transform: rotate(360deg); } }
+@media (max-width: 559px) { .tool-search .kbd, .tool-search .lbl { display: none; } }
+@media (max-width: 700px) {
+  .brand { order: 1; } .tools { order: 2; } .nav { order: 3; flex-basis: 100%; }
+  main { padding-top: 12px; }
+  .layout > .view-head, .layout > .btn { display: none; }
+  .phone .stage, .stage { height: calc(100dvh - 168px); min-height: 500px; }
+  .try { font-size: .75rem; }
+}
+@media print { .doc { display: none; } }
+</style>
+
+<header class="doc" id="doc"></header>
+<main id="view" tabindex="-1"></main>
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+/* ====================================================================== utilidades */
+const state = { lang: 'es', rm: false, simRM: false, haptics: true, view: 'despacho', lastTip: 0 };
+const L = (es, en) => (state.lang === 'es' ? es : en);
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const safe = (fn) => { try { return fn(); } catch { return undefined; } };
+const ICONS = {
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>',
+  moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.5 5.7 3.5 9s-1 6.3-3.5 9c-2.5-2.7-3.5-5.7-3.5-9s1-6.3 3.5-9Z"/>',
+  motion: '<path d="M3 12c2-5 4-5 6 0s4 5 6 0 4-5 6 0"/>',
+  vibrate: '<rect x="8" y="3" width="8" height="18" rx="2"/><path d="M4 8v8M20 8v8"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  rotate: '<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
+  layers: '<path d="m12 3 9 5-9 5-9-5 9-5ZM3 13l9 5 9-5"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  shield: '<path d="M12 3 5 6v5.5c0 4.2 2.9 7.6 7 9 4.1-1.4 7-4.8 7-9V6l-7-3Z"/><path d="m9 12 2.2 2.2L15.5 10"/>',
+};
+const icon = (n, c = '') => `<svg class="ic ${c}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+
+/* Resorte con respuesta y amortiguamiento (como Apple): la velocidad se hereda al reorientarlo. */
+class Spring {
+  constructor(v, cb) { this.x = v; this.v = 0; this.t = v; this.cb = cb; this.raf = 0; this.last = 0; this.w = 15; this.z = 1; }
+  to(t, o = {}) {
+    this.t = t;
+    if (o.velocity != null) this.v = o.velocity;
+    this.w = (2 * Math.PI) / (o.response ?? 0.4);
+    this.z = o.damping ?? 1;
+    if (state.rm) { this.set(t); return; }
+    if (!this.raf) { this.last = performance.now(); this.raf = requestAnimationFrame((n) => this.tick(n)); }
+  }
+  stop() { cancelAnimationFrame(this.raf); this.raf = 0; }
+  set(x) { this.stop(); this.x = x; this.t = x; this.v = 0; this.cb(x); }
+  tick(now) {
+    const dt = Math.min((now - this.last) / 1000, 0.064); this.last = now;
+    const n = Math.max(1, Math.ceil(dt / (1 / 240))), s = dt / n;
+    for (let i = 0; i < n; i++) {
+      const a = -this.w * this.w * (this.x - this.t) - 2 * this.z * this.w * this.v;
+      this.v += a * s; this.x += this.v * s;
+    }
+    if (Math.abs(this.x - this.t) < 0.01 && Math.abs(this.v) < 0.05) { this.x = this.t; this.v = 0; this.raf = 0; this.cb(this.x); return; }
+    this.cb(this.x);
