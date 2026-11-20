@@ -786,3 +786,81 @@ function viewDespacho(host) {
   const click = (e) => {
     const a = e.target.closest('[data-act]'); const chk = e.target.closest('.check');
     if (chk) { D.sel[chk.checked ? 'add' : 'delete'](chk.dataset.id); D.proposal = null; chk.closest('.row').classList.toggle('is-selected', chk.checked); foot(); return; }
+    if (!a) return;
+    const act = a.dataset.act;
+    if (act === 'group') { D.sel.add('p3'); D.sel.add('p4'); D.groupDone = true; D.proposal = null; body(); foot(); }
+    else if (act === 'analyze') analyze();
+    else if (act === 'clear') { const prev = new Set(D.sel); D.sel.clear(); D.proposal = null; body(); foot(); toast(L('Selección limpiada', 'Selection cleared'), { undo: () => { prev.forEach((i) => D.sel.add(i)); body(); foot(); } }); }
+    else if (act === 'discard') { const prev = D.proposal; D.proposal = null; foot(); toast(L('Análisis descartado', 'Analysis discarded'), { undo: () => { D.proposal = prev; foot(); } }); }
+    else if (act === 'dispatch') {
+      buzz(a, 24); const ids = [...D.sel]; ORDERS = ORDERS.map((o) => (ids.includes(o.id) ? { ...o, state: 'ON_ROUTE' } : o)); D.sel.clear(); D.proposal = null; D.dispatched = true; D.tab = 'rutas';
+      fig(); segH.render(true); body(); foot(); stage.map.draw(true); stage.snap(1); toast(L('Despachado a Laura Pérez. La ruta se dibujó sobre calles reales.', 'Dispatched to Laura Pérez. The route was drawn on real streets.'));
+    } else if (act === 'recalc') { stage.map.draw(true); toast(L('Ruta recalculada con el tráfico de ahora.', 'Route recalculated with current traffic.')); }
+    else if (act === 'accept') {
+      buzz(a, 14); const r = D.reqs.find((x) => x.id === a.dataset.id); D.reqs = D.reqs.filter((x) => x !== r);
+      ORDERS.unshift({ id: 'n' + r.id, guide: 'DEMO-0' + (20 + D.reqs.length), addr: r.addr, km: '2,2', age: r.age, state: 'PENDING' });
+      fig(); segH.render(false); body(); foot(); toast(L('Solicitud aceptada: ya es un pedido pendiente.', 'Request accepted: it is now a pending order.'));
+    } else if (act === 'reject') {
+      const r = D.reqs.find((x) => x.id === a.dataset.id), at = D.reqs.indexOf(r); D.reqs = D.reqs.filter((x) => x !== r); fig(); segH.render(false); body();
+      toast(L('Solicitud rechazada', 'Request rejected'), { undo: () => { D.reqs.splice(at, 0, r); fig(); segH.render(false); body(); }, onCommit: () => {} });
+    }
+  };
+  stage.sheet.addEventListener('click', click); stage.sheet.addEventListener('change', click);
+  stage.bar.addEventListener('click', (e) => { if (e.target.closest('#bl')) { D.baseline = !D.baseline; stage.map.baseline(D.baseline); bar(); } });
+  const tick = setInterval(() => { clock = clock >= 20 ? 1 : clock + 1; tclock = tclock >= 89 ? 2 : tclock + 1; const g = $('#gps', stage.bar), t = $('#tt', stage.bar); if (g) g.textContent = clock; if (t) t.textContent = tclock; }, 1000);
+  const refresh = () => { fig(); segH.render(false); bar(); body(); foot(); $('.map', stage.root).setAttribute('aria-label', L('Mapa oscuro con la ruta en verde', 'Dark map with the route in green')); };
+  refresh(); stage.map.baseline(false);
+  return {
+    refresh, destroy() { clearInterval(tick); stage.destroy(); },
+    palette: () => [{ g: L('Despacho', 'Dispatch'), t: L('Analizar la selección', 'Analyze selection'), run: () => { D.tab = 'pedidos'; segH.render(true); body(); analyze(); } }, { g: L('Despacho', 'Dispatch'), t: L('Ver solicitudes de clientes', 'See customer requests'), run: () => { D.tab = 'solicitudes'; segH.render(true); body(); foot(); } }],
+    pick: (id) => { D.tab = 'pedidos'; D.sel.add(id); segH.render(true); body(); foot(); },
+  };
+}
+
+/* ====================================================================== pantalla: Repartidor */
+function viewRepartidor(host) {
+  const R = { i: 1, land: false, done: new Set(['S1']), finished: false };
+  let stage, route = null;
+  const mount = () => {
+    stage?.destroy();
+    stage = makeStage(host, { frame: true, land: R.land, label: L('Pantalla del repartidor', 'Courier screen'), sheetLabel: L('Tu ruta', 'Your route'), snap: 2, peek: 252, mid: 0.5,
+      map: { stops: STOPS.map((s, i) => ({ ...s, state: R.done.has(s.id) ? 'done' : i === R.i ? 'current' : 'pending' })), legs: STOPS.map((s, i) => ({ from: i ? STOPS[i - 1].id : null, to: s.id, ...LEGS[i] })), courier: true, courierAt: 0, hover: (lg) => `${lg.m.toString().replace('.', ',')} min` },
+    });
+    stage.map.courierTo(cum(R.i) - 40, { response: 0.4 });
+    stage.bar.innerHTML = `<span class="chip"><i class="dot"></i>${L('GPS activo', 'GPS on')}</span>`;
+    stage.sheet.addEventListener('click', click);
+    render();
+  };
+  const cum = (n) => stage.map.legLen.slice(0, n + 1).reduce((a, b) => a + b, 0);
+  const st = (i) => (R.done.has(STOPS[i].id) ? 'done' : i === R.i ? 'current' : 'pending');
+  function render() {
+    const left = STOPS.length - R.done.size;
+    stage.head.innerHTML = `<div class="head-row"><h1>${L('Tu ruta', 'Your route')}</h1><p class="figures num"><b>${R.done.size}</b> ${L('de', 'of')} ${STOPS.length} ${L('entregadas', 'delivered')}</p></div><div class="strip" role="img" aria-label="${R.done.size} / ${STOPS.length}">${STOPS.map((s) => `<i class="${R.done.has(s.id) ? 'on' : ''}"></i>`).join('')}</div>`;
+    if (R.finished) {
+      stage.foot.innerHTML = `<section class="board"><h2>${L('Ruta completada', 'Route completed')}</h2><p class="lead">${L('Entregaste las 5 paradas en 18 min de manejo, 4 min menos que el orden base.', 'You delivered all 5 stops in 18 min of driving, 4 min less than the base order.')}</p><button class="btn btn-go" data-act="again" type="button">${L('Volver a empezar la demo', 'Restart the demo')}</button></section>`;
+    } else {
+      const s = STOPS[R.i];
+      stage.foot.innerHTML = `<section class="board" aria-live="polite"><h2>${L('Próxima parada', 'Next stop')} · ${R.i + 1}</h2><p class="lead" style="font-weight:650;font-size:1.0625rem">${s.addr}</p><p class="num">${s.guide} · ${LEGS[R.i].m.toString().replace('.', ',')} min · ${L('llegas', 'arrive')} 10:${String(18 + R.i * 4)}</p>
+        <button class="btn btn-go btn-block" data-act="deliver" type="button">${L('Marcar entregado', 'Mark delivered')}</button></section>`;
+    }
+    stage.body.innerHTML = `<ol class="rl-line" aria-label="${L('Paradas de tu ruta', 'Your route stops')}">${STOPS.map((s, i) => `<li class="rl-stop is-${st(i)}"><span class="rl-dot"></span><span class="rl-text"><span class="sr-only">${st(i)}: </span>${s.addr}<span class="rl-meta">${s.guide}</span></span><span class="rl-aside">${LEGS[i].m.toString().replace('.', ',')} min</span></li>`).join('')}</ol>
+      <div class="notice"><span>${L('La cámara del mapa no se mueve con el GPS: tú decides si la recentras.', 'The map camera does not follow GPS updates: you decide when to recenter.')}</span></div>`;
+  }
+  function click(e) {
+    const a = e.target.closest('[data-act]'); if (!a) return;
+    if (a.dataset.act === 'deliver') {
+      buzz(a, 28); const cur = STOPS[R.i]; R.done.add(cur.id); stage.map.setStop(cur.id, 'done');
+      const next = STOPS.findIndex((s) => !R.done.has(s.id));
+      if (next === -1) { R.finished = true; stage.map.courierTo(stage.map.total, { response: 0.9 }); }
+      else { R.i = next; stage.map.setStop(STOPS[next].id, 'current'); stage.map.courierTo(cum(next) - 40, { response: 0.9 }); }
+      render(); toast(L('Entrega confirmada', 'Delivery confirmed'));
+    } else if (a.dataset.act === 'again') { R.i = 1; R.done = new Set(['S1']); R.finished = false; mount(); }
+  }
+  mount();
+  return {
+    refresh() { mount(); }, destroy() { stage.destroy(); },
+    extra: () => ({ rotate() { R.land = !R.land; mount(); } }),
+  };
+}
+
+/* ====================================================================== pantalla: Seguimiento del cliente */
