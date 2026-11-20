@@ -393,3 +393,82 @@ class Spring {
     }
     if (Math.abs(this.x - this.t) < 0.01 && Math.abs(this.v) < 0.05) { this.x = this.t; this.v = 0; this.raf = 0; this.cb(this.x); return; }
     this.cb(this.x);
+    this.raf = requestAnimationFrame((nn) => this.tick(nn));
+  }
+}
+const project = (v, d = 0.998) => ((v / 1000) * d) / (1 - d);
+const rubber = (over, dim, c = 0.55) => (over * dim * c) / (dim + c * Math.abs(over));
+
+/* ====================================================================== retroalimentación */
+function buzz(btn, ms = 14) {
+  if (state.haptics) safe(() => navigator.vibrate && navigator.vibrate(ms));
+  if (btn && !state.rm) { btn.classList.remove('buzz'); void btn.offsetWidth; btn.classList.add('buzz'); setTimeout(() => btn.classList.remove('buzz'), 460); }
+}
+function toast(msg, o = {}) {
+  const { undo, onCommit, ms = 6000 } = o;
+  const el = document.createElement('div');
+  el.className = 'toast'; el.setAttribute('role', 'status');
+  el.innerHTML = `<span>${msg}</span>${undo ? `<button class="btn-link" type="button">${L('Deshacer', 'Undo')}</button><i class="toast-bar" style="--ms:${ms}ms"></i>` : ''}`;
+  const host = $('#toasts');
+  while (host.children.length >= 2) host.firstElementChild.remove();
+  host.append(el);
+  requestAnimationFrame(() => el.classList.add('in'));
+  let done = false, tm = 0;
+  const close = (commit) => {
+    if (done) return; done = true; clearTimeout(tm); el.classList.remove('in');
+    setTimeout(() => el.remove(), 280);
+    if (commit && onCommit) onCommit();
+  };
+  tm = setTimeout(() => close(true), undo ? ms : 3200);
+  if (undo) $('button', el).addEventListener('click', () => { undo(); close(false); });
+}
+const tipEl = document.createElement('div');
+tipEl.className = 'tip'; tipEl.setAttribute('role', 'tooltip');
+let tipTimer = 0;
+function showTip(t) {
+  clearTimeout(tipTimer);
+  const go = () => {
+    tipEl.textContent = t.dataset.tip; tipEl.classList.add('on');
+    const r = t.getBoundingClientRect(), w = tipEl.offsetWidth;
+    tipEl.style.left = clamp(r.left + r.width / 2 - w / 2, 8, innerWidth - w - 8) + 'px';
+    tipEl.style.top = (r.bottom + 8 + tipEl.offsetHeight > innerHeight ? r.top - tipEl.offsetHeight - 8 : r.bottom + 8) + 'px';
+  };
+  const instant = performance.now() - state.lastTip < 700;
+  tipEl.classList.toggle('instant', instant);
+  if (instant) go(); else tipTimer = setTimeout(go, 450);
+}
+function hideTip() { clearTimeout(tipTimer); if (tipEl.classList.contains('on')) state.lastTip = performance.now(); tipEl.classList.remove('on'); }
+document.addEventListener('pointerover', (e) => { const t = e.target.closest?.('[data-tip]'); if (t && e.pointerType !== 'touch') showTip(t); });
+document.addEventListener('pointerout', (e) => { if (e.target.closest?.('[data-tip]')) hideTip(); });
+document.addEventListener('focusin', (e) => { const t = e.target.closest?.('[data-tip]'); if (t && t.matches(':focus-visible')) showTip(t); });
+document.addEventListener('focusout', hideTip);
+document.addEventListener('pointerdown', hideTip, true);
+
+/* Confirmación anclada al botón que la abrió: nace de ahí y vuelve por el mismo camino. */
+let openPop = null;
+function popConfirm(trigger, { text, confirm, onConfirm }) {
+  closePop();
+  const pop = document.createElement('div');
+  pop.className = 'pop'; pop.setAttribute('role', 'alertdialog'); pop.setAttribute('aria-label', text);
+  pop.innerHTML = `<p><b>${text}</b></p><div class="btn-row"><button class="btn btn-quiet" data-k>${L('Conservar', 'Keep')}</button><button class="btn btn-danger" data-c>${confirm}</button></div>`;
+  document.body.append(pop);
+  const r = trigger.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  const left = clamp(r.right - w, 8, innerWidth - w - 8);
+  const below = r.bottom + 10 + h < innerHeight;
+  pop.style.left = left + 'px'; pop.style.top = (below ? r.bottom + 10 : r.top - h - 10) + 'px';
+  pop.style.transformOrigin = `${r.left + r.width / 2 - left}px ${below ? '-10px' : h + 10 + 'px'}`;
+  requestAnimationFrame(() => pop.classList.add('in'));
+  $('[data-k]', pop).focus();
+  const off = (e) => { if (!pop.contains(e.target) && e.target !== trigger) closePop(); };
+  const key = (e) => { if (e.key === 'Escape') closePop(); };
+  setTimeout(() => document.addEventListener('pointerdown', off), 0);
+  document.addEventListener('keydown', key);
+  $('[data-k]', pop).onclick = closePop;
+  $('[data-c]', pop).onclick = () => { closePop(false); onConfirm(); };
+  openPop = { pop, trigger, off, key };
+}
+function closePop(refocus = true) {
+  if (!openPop) return;
+  const { pop, trigger, off, key } = openPop; openPop = null;
+  document.removeEventListener('pointerdown', off); document.removeEventListener('keydown', key);
+  pop.classList.remove('in'); setTimeout(() => pop.remove(), 240);
