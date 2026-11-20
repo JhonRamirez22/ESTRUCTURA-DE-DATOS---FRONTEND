@@ -630,3 +630,81 @@ function makeStage(host, o) {
   host.innerHTML = `${frame}<section class="stage" aria-label="${o.label}">
     <svg class="map" role="img" aria-label="${L('Mapa oscuro con la ruta en verde', 'Dark map with the route in green')}"></svg>
     <div class="map-tip" aria-hidden="true"></div>
+    <div class="stage-bar"></div>
+    <aside class="sheet" aria-label="${o.sheetLabel}">
+      <button class="grabber" type="button" aria-label="${L('Cambiar la altura del panel. Flechas arriba y abajo.', 'Change panel height. Up and down arrows.')}"><span class="grip"></span></button>
+      <div class="sheet-head"></div><div class="sheet-foot"></div><div class="sheet-body"></div>
+    </aside></section></div>`;
+  const root = host.firstElementChild, stage = $('.stage', root), sheet = $('.sheet', stage), grab = $('.grabber', stage), head = $('.sheet-head', stage);
+  const map = createMap($('.map', stage), $('.map-tip', stage), o.map);
+  let idx = o.snap ?? 1, snaps = [56, 300, 500], wide = false, free = null;
+  const apply = (y) => { sheet.style.transform = `translate3d(0,${y.toFixed(2)}px,0)`; };
+  const sp = new Spring(0, (y) => { apply(y); });
+  const layout = () => {
+    const W = stage.clientWidth, H = stage.clientHeight;
+    wide = W >= 720;
+    stage.classList.toggle('wide', wide); sheet.classList.toggle('panel', wide);
+    if (wide) {
+      sheet.style.transform = ''; sp.stop();
+      free = { x0: 16 + 392 + 28, x1: W - 28, y0: 64, y1: H - 28 };
+    } else {
+      const full = 56, mid = Math.round(H * (o.mid ?? 0.52)), peek = H - (o.peek ?? 150);
+      snaps = [full, mid, peek]; stage.style.setProperty('--full', full + 'px');
+      sp.set(snaps[idx]); sheet.classList.toggle('is-full', idx === 0);
+      free = { x0: 16, x1: W - 16, y0: 64, y1: Math.max(120, mid - 14) };
+    }
+    map.setCamera(free, !stage._laid); stage._laid = true;
+  };
+  const snapTo = (i, v, damping) => {
+    idx = clamp(i, 0, 2); sheet.classList.toggle('is-full', idx === 0);
+    sp.to(snaps[idx], { velocity: v ?? 0, response: 0.38, damping: damping ?? 1 });
+  };
+  // arrastre 1:1 desde el punto agarrado; al soltar se proyecta el impulso y se hereda la velocidad
+  let drag = null;
+  const down = (e) => {
+    if (wide || e.button > 0) return;
+    if (e.currentTarget === head && e.target.closest('button,input,a,[role=tab]')) return;
+    e.currentTarget.setPointerCapture(e.pointerId); sp.stop();
+    drag = { y: e.clientY, pos: sp.x, hist: [{ t: e.timeStamp, y: e.clientY }], moved: false };
+    sheet.classList.add('dragging');
+  };
+  const move = (e) => {
+    if (!drag) return;
+    const raw = drag.pos + (e.clientY - drag.y);
+    drag.moved = drag.moved || Math.abs(e.clientY - drag.y) > 3;
+    const lo = snaps[0], hi = snaps[2];
+    const pos = raw < lo ? lo - rubber(lo - raw, 220) : raw > hi ? hi + rubber(raw - hi, 220) : raw;
+    sp.x = pos; apply(pos);
+    drag.hist.push({ t: e.timeStamp, y: e.clientY }); while (drag.hist.length > 2 && e.timeStamp - drag.hist[0].t > 100) drag.hist.shift();
+  };
+  const up = (e) => {
+    if (!drag) return;
+    const h = drag.hist, a = h[0], b = h[h.length - 1], dt = (b.t - a.t) / 1000;
+    const v = dt > 0.005 ? (b.y - a.y) / dt : 0; drag = null; sheet.classList.remove('dragging');
+    const proj = sp.x + project(v);
+    let best = 0; snaps.forEach((s, i) => { if (Math.abs(s - proj) < Math.abs(snaps[best] - proj)) best = i; });
+    snapTo(best, v, Math.abs(v) > 420 ? 0.8 : 1); // rebote solo cuando el gesto traía impulso
+  };
+  [grab, head].forEach((el) => { el.addEventListener('pointerdown', down); el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); });
+  grab.addEventListener('keydown', (e) => {
+    const k = { ArrowUp: -1, ArrowDown: 1 }[e.key];
+    if (k) { e.preventDefault(); snapTo(idx + k); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); snapTo(idx === 0 ? 2 : idx - 1); }
+  });
+  const ro = new ResizeObserver(layout); ro.observe(stage);
+  requestAnimationFrame(layout);
+  return { root, stage, sheet, head, foot: $('.sheet-foot', stage), body: $('.sheet-body', stage), bar: $('.stage-bar', stage), map,
+    snap: (i) => snapTo(i), destroy() { ro.disconnect(); sp.stop(); map.destroy(); }, isWide: () => wide };
+}
+
+/* control segmentado con indicador por resorte */
+function makeSeg(host, { items, get, set, label }) {
+  let ind;
+  const sx = new Spring(0, (v) => ind && (ind.style.transform = `translateX(${v}px)`));
+  const sw = new Spring(0, (v) => ind && (ind.style.width = v + 'px'));
+  function render(animate) {
+    host.innerHTML = `<div class="seg" role="tablist" aria-label="${label()}"><i class="seg-ind"></i>${items().map((it) => `<button role="tab" type="button" id="tab-${it.id}" data-id="${it.id}" aria-selected="${get() === it.id}" tabindex="${get() === it.id ? 0 : -1}">${it.label}${it.badge != null ? `<span class="badge">${it.badge}</span>` : ''}</button>`).join('')}</div>`;
+    ind = $('.seg-ind', host);
+    ind.style.transform = `translateX(${sx.x}px)`; ind.style.width = sw.x + 'px';
+    const b = $('[aria-selected=true]', host); if (!b) return;
+    if (animate) { sx.to(b.offsetLeft, { response: 0.36 }); sw.to(b.offsetWidth, { response: 0.36 }); } else { sx.set(b.offsetLeft); sw.set(b.offsetWidth); }
