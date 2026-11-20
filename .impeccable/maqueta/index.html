@@ -1020,3 +1020,81 @@ function go(id, replace) {
     wrap.innerHTML = `<div class="view-head"><h1>${curDef.title()}</h1><p>${curDef.sub()}</p></div>`;
   }
   wrap.className = 'layout'; wrap.append(host);
+  if (curDef.id === 'repartidor') { wrap.insertAdjacentHTML('afterbegin', ''); }
+  main.append(wrap);
+  current = curDef.fn(host);
+  if (curDef.try) wrap.insertAdjacentHTML('beforeend', `<p class="try">${curDef.try()}</p>`);
+  if (curDef.id === 'repartidor') {
+    const b = document.createElement('button'); b.className = 'btn btn-quiet'; b.type = 'button'; b.style.justifySelf = 'center'; b.innerHTML = `${icon('rotate')}${L('Girar el teléfono', 'Rotate the phone')}`;
+    b.addEventListener('click', () => current.extra().rotate()); wrap.insertBefore(b, host);
+  }
+  chrome();
+  window.scrollTo({ top: 0 });
+}
+function chrome() {
+  const d = $('#doc'); const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+  const nav = VIEWS.map((v, i) => `${i && VIEWS[i - 1].g !== v.g ? '<i class="sep"></i>' : ''}<button type="button" data-go="${v.id}" ${v.id === state.view ? 'aria-current="page"' : ''}>${v.t()}</button>`).join('');
+  d.innerHTML = `<div class="brand"><span class="brand-mark" aria-hidden="true"></span>Rutas Pasto <small>${L('Maqueta v2', 'Mockup v2')}</small></div>
+    <nav class="nav" aria-label="${L('Pantallas de la maqueta', 'Mockup screens')}">${nav}</nav>
+    <div class="tools"><button class="tool tool-search" type="button" id="kbtn" data-tip="${L('Buscar y saltar (⌘K)', 'Search and jump (⌘K)')}" aria-label="${L('Abrir la búsqueda', 'Open search')}">${icon('search')}<span class="kbd">⌘K</span></button>
+      <button class="tool" type="button" id="tTheme" data-tip="${L('Cambiar entre tema claro y oscuro', 'Switch between light and dark theme')}" aria-label="${L('Cambiar tema', 'Switch theme')}">${icon(dark ? 'sun' : 'moon')}</button>
+      <button class="tool" type="button" id="tLang" data-tip="${L('Cambiar el idioma a inglés', 'Switch language to Spanish')}" aria-label="${L('Cambiar idioma', 'Switch language')}">${icon('globe')}</button>
+      <button class="tool" type="button" id="tRm" aria-pressed="${state.simRM}" data-tip="${L('Simular «reducir movimiento»: resortes por fundidos', 'Simulate “reduce motion”: springs become fades')}" aria-label="${L('Simular movimiento reducido', 'Simulate reduced motion')}">${icon('motion')}</button>
+      <button class="tool" type="button" id="tHap" aria-pressed="${state.haptics}" data-tip="${L('Vibración en entregas y acciones (solo teléfonos)', 'Haptics on deliveries and actions (phones only)')}" aria-label="${L('Vibración', 'Haptics')}">${icon('vibrate')}</button></div>`;
+}
+function setRM() { state.rm = state.simRM || matchMedia('(prefers-reduced-motion: reduce)').matches; document.documentElement.classList.toggle('rm', state.rm); }
+function setLang() { document.documentElement.lang = state.lang; }
+document.addEventListener('click', (e) => {
+  const g = e.target.closest('[data-go]'); if (g) { go(g.dataset.go); return; }
+  if (e.target.closest('#tTheme')) { const r = document.documentElement, dark = r.dataset.theme === 'dark' || (!r.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches); r.dataset.theme = dark ? 'light' : 'dark'; chrome(); }
+  else if (e.target.closest('#tLang')) { state.lang = state.lang === 'es' ? 'en' : 'es'; setLang(); go(state.view, true); }
+  else if (e.target.closest('#tRm')) { state.simRM = !state.simRM; setRM(); chrome(); toast(state.simRM ? L('Movimiento reducido: los resortes pasan a fundidos.', 'Reduced motion: springs become fades.') : L('Movimiento normal.', 'Normal motion.')); }
+  else if (e.target.closest('#tHap')) { state.haptics = !state.haptics; chrome(); if (state.haptics) buzz(null, 18); }
+  else if (e.target.closest('#kbtn')) openPalette(e.target.closest('#kbtn'));
+});
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', setRM);
+
+/* ====================================================================== paleta de comandos */
+let pal = null;
+function items() {
+  const nav = VIEWS.map((v) => ({ g: L('Ir a', 'Go to'), t: v.t(), run: () => go(v.id) }));
+  const act = [{ g: L('Preferencias', 'Preferences'), t: L('Cambiar tema claro/oscuro', 'Toggle light/dark theme'), run: () => $('#tTheme').click() }, { g: L('Preferencias', 'Preferences'), t: L('Cambiar idioma', 'Switch language'), run: () => $('#tLang').click() }];
+  const ords = ORDERS.filter((o) => o.state === 'PENDING').map((o) => ({ g: L('Pedidos pendientes', 'Pending orders'), t: o.addr, s: o.guide, run: () => { go('despacho'); setTimeout(() => current.pick?.(o.id), 60); } }));
+  return [...(current?.palette?.() || []), ...nav, ...act, ...ords];
+}
+function openPalette(origin) {
+  if (pal) return;
+  const sc = document.createElement('div'); sc.className = 'scrim';
+  sc.innerHTML = `<div class="palette-box" role="dialog" aria-modal="true" aria-label="${L('Buscar y saltar', 'Search and jump')}"><input id="pq" role="combobox" aria-expanded="true" aria-controls="pl" aria-autocomplete="list" placeholder="${L('Busca una pantalla, un pedido o una acción', 'Search a screen, an order or an action')}" autocomplete="off"><ul id="pl" role="listbox"></ul></div>`;
+  document.body.append(sc); requestAnimationFrame(() => sc.classList.add('in'));
+  const inp = $('#pq', sc), ul = $('#pl', sc); let sel = 0, list = [];
+  const draw = () => {
+    const q = norm(inp.value); list = items().filter((i) => norm(i.t + ' ' + (i.s || '') + ' ' + i.g).includes(q));
+    sel = clamp(sel, 0, Math.max(0, list.length - 1)); let last = '';
+    ul.innerHTML = list.map((i, n) => { const gh = i.g !== last ? `<li class="g" role="presentation">${i.g}</li>` : ''; last = i.g; return `${gh}<li role="option" id="po${n}" data-n="${n}" aria-selected="${n === sel}">${i.t}${i.s ? `<small>${i.s}</small>` : ''}</li>`; }).join('') || `<li role="presentation" style="cursor:default;color:var(--fg-soft)">${L('Nada coincide. Prueba con una guía como DEMO-016.', 'Nothing matches. Try a code like DEMO-016.')}</li>`;
+    inp.setAttribute('aria-activedescendant', list.length ? 'po' + sel : ''); $('[aria-selected=true]', ul)?.scrollIntoView({ block: 'nearest' });
+  };
+  const close = () => { if (!pal) return; pal = null; sc.classList.remove('in'); document.removeEventListener('keydown', key); setTimeout(() => sc.remove(), 260); origin?.focus?.(); };
+  const run = (n) => { const it = list[n]; if (!it) return; close(); setTimeout(it.run, 40); };
+  const key = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, list.length - 1); draw(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); draw(); }
+    else if (e.key === 'Enter') { e.preventDefault(); run(sel); }
+    else if (e.key === 'Tab') { e.preventDefault(); }
+  };
+  document.addEventListener('keydown', key);
+  inp.addEventListener('input', () => { sel = 0; draw(); });
+  ul.addEventListener('click', (e) => { const li = e.target.closest('[data-n]'); if (li) run(+li.dataset.n); });
+  sc.addEventListener('pointerdown', (e) => { if (e.target === sc) close(); });
+  pal = { close }; draw(); inp.focus();
+}
+document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); pal ? pal.close() : openPalette(document.activeElement); } });
+document.body.append(tipEl);
+
+/* ====================================================================== arranque */
+setRM(); setLang();
+const start = (location.hash || '').slice(1);
+go(VIEWS.some((v) => v.id === start) ? start : 'despacho', true);
+})();
+</script>
