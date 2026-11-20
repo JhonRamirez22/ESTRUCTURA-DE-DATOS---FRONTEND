@@ -21,6 +21,7 @@ import SegmentedTabs from '@/components/SegmentedTabs';
 import { useUndoToast } from '@/components/UndoToast';
 import type { MapInset } from '@/components/MapLibreRouteMap';
 import type { RouteOptimization } from '@/lib/routeOptimization';
+import { improvementTone, topMoves, type AssignmentImprovement } from '@/lib/assignmentImprovement';
 
 const RouteMap = dynamic(() => import('./RouteMap'), {
   ssr: false,
@@ -170,6 +171,7 @@ export default function DashboardPage() {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [routeActionNotice, setRouteActionNotice] = useState<string | null>(null);
   const [assignmentAiStatus, setAssignmentAiStatus] = useState<AssignmentAiStatus | null>(null);
+  const [assignmentImprovement, setAssignmentImprovement] = useState<AssignmentImprovement | null>(null);
   const [liveTrafficNotice, setLiveTrafficNotice] = useState<string | null>(null);
   const undoToast = useUndoToast(t('undo.action'));
   const [sheetTab, setSheetTab] = useState<'pedidos' | 'rutas' | 'actividad'>('pedidos');
@@ -445,6 +447,7 @@ export default function DashboardPage() {
     setAssignmentPreview([]);
     setAssignmentPreviewSelectionKey(null);
     setUnassignedDeliveryPointIds([]);
+    setAssignmentImprovement(null);
     const analyzedSelectionKey = assignmentSelectionKey;
 
     try {
@@ -465,8 +468,10 @@ export default function DashboardPage() {
         assignments: Array<{ courierId: string; deliveryPointIds: string[] }>;
         unassignedDeliveryPointIds?: string[];
         ai?: AssignmentAiStatus;
+        improvement?: AssignmentImprovement;
       };
       setAssignmentAiStatus(assignmentPayload.ai ?? null);
+      setAssignmentImprovement(assignmentPayload.improvement ?? null);
       const unassignedIds = assignmentPayload.unassignedDeliveryPointIds ?? [];
       setUnassignedDeliveryPointIds(unassignedIds);
       const assignments = assignmentPayload.assignments.filter(
@@ -536,6 +541,7 @@ export default function DashboardPage() {
       setAssignmentPreview([]);
       setAssignmentPreviewSelectionKey(null);
       setUnassignedDeliveryPointIds([]);
+      setAssignmentImprovement(null);
       setSelectedPendingIds([]);
       setSheetTab('rutas');
       await loadDashboard();
@@ -623,6 +629,7 @@ export default function DashboardPage() {
     setAssignmentPreviewSelectionKey(null);
     setUnassignedDeliveryPointIds([]);
     setAssignmentAiStatus(null);
+    setAssignmentImprovement(null);
     undoToast.show(t('dash.undo.discarded'), () => {
       setAssignmentPreview(previous.preview);
       setAssignmentPreviewSelectionKey(previous.selectionKey);
@@ -1025,6 +1032,53 @@ export default function DashboardPage() {
                         Actualizar pedidos pendientes
                       </button>
                     </div>
+                  ) : null}
+                  {assignmentImprovement && assignmentPreview.length > 0 ? (
+                    <section aria-label={t('dash.improve.title')} className="mt-5 text-sm">
+                      <p className="font-semibold !text-[var(--board-ink)]">{t('dash.improve.title')}</p>
+                      {improvementTone(assignmentImprovement) === 'unchanged' ? (
+                        <p className="mt-1 text-xs leading-5">{t('dash.improve.none')}</p>
+                      ) : (
+                        <>
+                          <p className="mt-1 text-xs leading-5">
+                            {t('dash.improve.longest', {
+                              before: (assignmentImprovement.longestBeforeMinutes ?? 0).toLocaleString('es-CO'),
+                              after: (assignmentImprovement.longestAfterMinutes ?? 0).toLocaleString('es-CO'),
+                            })}{' '}
+                            {t('dash.improve.total', {
+                              before: (assignmentImprovement.beforeMinutes ?? 0).toLocaleString('es-CO'),
+                              after: (assignmentImprovement.afterMinutes ?? 0).toLocaleString('es-CO'),
+                            })}
+                          </p>
+                          <ul className="mt-2 grid gap-1 text-xs leading-5">
+                            {topMoves(assignmentImprovement).map((move) => {
+                              const order = (id: string | null) =>
+                                formatOrderReference(data.pendingPoints.find((point) => point.id === id)?.orderId ?? '');
+                              const courier = (id: string) => data.couriers.find((item) => item.id === id)?.name ?? '—';
+                              return (
+                                <li key={`${move.deliveryPointId}-${move.swappedDeliveryPointId ?? ''}`}>
+                                  {move.kind === 'swap'
+                                    ? t('dash.improve.swap', {
+                                        order: order(move.deliveryPointId),
+                                        other: order(move.swappedDeliveryPointId),
+                                        from: courier(move.fromCourierId),
+                                        to: courier(move.toCourierId),
+                                      })
+                                    : t('dash.improve.move', {
+                                        order: order(move.deliveryPointId),
+                                        from: courier(move.fromCourierId),
+                                        to: courier(move.toCourierId),
+                                      })}{' '}
+                                  <span className="tabular-nums">
+                                    ({t('dash.improve.gain', { min: move.gainMinutes.toLocaleString('es-CO') })})
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </>
+                      )}
+                    </section>
                   ) : null}
                   {assignmentAiStatus ? (
                     <p className="mt-4 text-xs leading-5" role="status">
