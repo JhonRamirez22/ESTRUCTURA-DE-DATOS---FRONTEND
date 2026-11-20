@@ -551,3 +551,82 @@ function createMap(svg, tipHost, cfg) {
   let baseD = '';
   if (cfg.baseline && baseOrder.length > 1) {
     const bl = []; let pa = { c: ORIGIN.c, r: ORIGIN.r };
+    baseOrder.forEach((id, i) => { const s = STOPS.find((x) => x.id === id); const mid = i % 2 === 0 ? { c: s.c, r: pa.r } : { c: pa.c, r: s.r }; bl.push([P(pa.c, pa.r), P(mid.c, mid.r), P(s.c, s.r)]); pa = s; });
+    baseD = dOf(bl);
+  }
+  svg.innerHTML = `<g class="world">
+    <path class="st-minor" d="${minor}"/><path class="st-major" d="${major}"/><g class="labels">${labels}</g>
+    <path class="r-base" d="${baseD}"/>
+    <g class="halos">${legsDef.map((lg, i) => (lg.lvl ? `<path class="r-halo" d="${dOf([pts[i]])}"/>` : '')).join('')}</g>
+    <path class="r-line" d="${dOf(pts)}"/>
+    <g class="hits">${legsDef.map((lg, i) => `<path class="r-hit" data-leg="${i}" d="${dOf([pts[i]])}"/>`).join('')}</g>
+  </g>
+  <g class="overlay">
+    ${cfg.fuzz ? '<circle class="fuzz" r="46"/>' : ''}
+    ${stops.map((s, i) => `<g class="mk ${s.pin ? 'pin' : ''} is-${s.state || 'pending'}" data-id="${s.id}"><circle class="mk-ring" r="19"/><circle class="mk-dot" r="12"/><text class="mk-n">${s.label ?? i + 1}</text></g>`).join('')}
+    ${cfg.courier ? '<g class="courier"><circle class="courier-pulse" r="12"/><circle class="courier-dot" r="8"/></g>' : ''}
+  </g>`;
+  const world = $('.world', svg), line = $('.r-line', svg), base = $('.r-base', svg);
+  const total = pts.length ? line.getTotalLength() : 0;
+  const legLen = pts.map((_, i) => $(`.r-hit[data-leg="${i}"]`, svg).getTotalLength());
+  const mkEls = Object.fromEntries($$('.mk', svg).map((e) => [e.dataset.id, e]));
+  const courier = $('.courier', svg), fuzz = $('.fuzz', svg);
+  let cam = { s: 1, tx: 0, ty: 0 }, camFrom = cam, camTo = cam, drawP = cfg.drawn === false ? 0 : 1, curL = cfg.courierAt ?? 0;
+  const apply = () => {
+    const { s, tx, ty } = cam;
+    world.setAttribute('transform', `translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${s.toFixed(4)})`);
+    $('.st-minor', svg).setAttribute('stroke-width', (1.4 / s).toFixed(3)); $('.st-major', svg).setAttribute('stroke-width', (3 / s).toFixed(3));
+    $('.labels', svg).setAttribute('font-size', (12 / s).toFixed(2)); $$('.lbl', svg).forEach((t) => (t.style.fontSize = (12 / s) + 'px'));
+    line.setAttribute('stroke-width', (6 / s).toFixed(3)); base.setAttribute('stroke-width', (3.5 / s).toFixed(3)); base.setAttribute('stroke-dasharray', `${10 / s} ${9 / s}`);
+    $$('.r-halo', svg).forEach((h) => h.setAttribute('stroke-width', (22 / s).toFixed(3))); $$('.r-hit', svg).forEach((h) => h.setAttribute('stroke-width', (26 / s).toFixed(3)));
+    line.setAttribute('stroke-dasharray', total); line.setAttribute('stroke-dashoffset', (total * (1 - drawP)).toFixed(2));
+    $$('.r-halo', svg).forEach((h) => (h.style.opacity = drawP >= 1 ? '' : 0));
+    stops.forEach((st) => mkEls[st.id].setAttribute('transform', `translate(${(tx + s * st.x).toFixed(1)} ${(ty + s * st.y).toFixed(1)})`));
+    if (courier || fuzz) {
+      const p = total ? line.getPointAtLength(clamp(curL, 0, total)) : origin;
+      const sx = (tx + s * p.x).toFixed(1), sy = (ty + s * p.y).toFixed(1);
+      courier?.setAttribute('transform', `translate(${sx} ${sy})`); fuzz?.setAttribute('transform', `translate(${sx} ${sy})`);
+    }
+  };
+  const camSp = new Spring(0, (p) => { cam = { s: lerp(camFrom.s, camTo.s, p), tx: lerp(camFrom.tx, camTo.tx, p), ty: lerp(camFrom.ty, camTo.ty, p) }; apply(); });
+  const drawSp = new Spring(drawP, (p) => { drawP = clamp(p, 0, 1); apply(); });
+  const courSp = new Spring(curL, (l) => { curL = l; apply(); });
+  const api = {
+    total, legLen,
+    setCamera(free, immediate) {
+      const set = [origin, ...stops.map((s) => ({ x: s.x, y: s.y })), ...pts.flat()];
+      let x0 = Math.min(...set.map((p) => p.x)), x1 = Math.max(...set.map((p) => p.x)), y0 = Math.min(...set.map((p) => p.y)), y1 = Math.max(...set.map((p) => p.y));
+      const bw = Math.max(x1 - x0, 300), bh = Math.max(y1 - y0, 220), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      const fw = free.x1 - free.x0, fh = free.y1 - free.y0, pad = 0.82;
+      const s = clamp(Math.min((fw * pad) / bw, (fh * pad) / bh), 0.35, 1.7);
+      const to = { s, tx: (free.x0 + free.x1) / 2 - s * cx, ty: (free.y0 + free.y1) / 2 - s * cy };
+      camFrom = { ...cam }; camTo = to;
+      if (immediate || state.rm) { camSp.set(1); cam = to; apply(); } else { camSp.set(0); camSp.to(1, { response: 0.7, damping: 1 }); }
+    },
+    draw(replay) { if (replay) { drawSp.set(0); } drawSp.to(1, { response: 1.1, damping: 1 }); },
+    courierTo(l, o) { courSp.to(clamp(l, 0, total), o || { response: 1, damping: 1 }); },
+    setStop(id, st) { const el = mkEls[id]; if (el) el.setAttribute('class', `mk ${stops.find((s) => s.id === id).pin ? 'pin' : ''} is-${st}`); },
+    setStopPos(id, c, r) { Object.assign(stops.find((s) => s.id === id), P(c, r)); apply(); },
+    baseline(on) { base.classList.toggle('on', on); },
+    destroy() { camSp.stop(); drawSp.stop(); courSp.stop(); },
+  };
+  svg.addEventListener('pointermove', (e) => {
+    const h = e.target.closest?.('.r-hit');
+    if (!h || !cfg.hover) { tipHost.classList.remove('on'); return; }
+    const i = +h.dataset.leg, lg = legsDef[i], rect = tipHost.parentElement.getBoundingClientRect();
+    tipHost.textContent = cfg.hover(lg, i);
+    tipHost.style.left = clamp(e.clientX - rect.left + 14, 8, rect.width - tipHost.offsetWidth - 8) + 'px';
+    tipHost.style.top = clamp(e.clientY - rect.top + 14, 8, rect.height - 40) + 'px';
+    tipHost.classList.add('on');
+  });
+  svg.addEventListener('pointerleave', () => tipHost.classList.remove('on'));
+  apply();
+  return api;
+}
+
+/* ====================================================================== escenario + hoja */
+function makeStage(host, o) {
+  const frame = o.frame ? `<div class="phone ${o.land ? 'land' : ''}">` : '<div>';
+  host.innerHTML = `${frame}<section class="stage" aria-label="${o.label}">
+    <svg class="map" role="img" aria-label="${L('Mapa oscuro con la ruta en verde', 'Dark map with the route in green')}"></svg>
+    <div class="map-tip" aria-hidden="true"></div>
