@@ -115,3 +115,42 @@ it('sin ruta asignada no ofrece optimización ni crea recorridos', async () => {
   expect(screen.queryByTestId('courier-map')).toBeNull();
   expect(request.mock.calls.every(([, options]) => !options?.method || options.method === 'GET')).toBe(true);
 });
+
+function mockRoute(proposal: Record<string, unknown>): void {
+  request.mockReset();
+  vi.stubGlobal('localStorage', { removeItem: vi.fn() });
+  const points = ['first', 'second'].map((id, sequenceIndex) => ({
+    id, sequenceIndex, address: `Dirección ${id}`, lat: 1.21, lng: -77.28, status: 'PENDING',
+  }));
+  const route = {
+    id: 'assigned', status: 'PLANNED', courier: { currentLat: 1.21, currentLng: -77.28 },
+    geometryProvider: 'OSRM', geometry: { type: 'LineString', coordinates: [[-77.28, 1.21], [-77.27, 1.22]] },
+    deliveryPoints: points,
+  };
+  request.mockImplementation(async (url: string) => {
+    if (url.endsWith('/propuesta'))
+      return Response.json({
+        orderedDeliveryPointIds: ['second', 'first'], currentDeliveryPointIds: ['first', 'second'],
+        changed: true, estimatedDurationMinutes: 12, improvementMinutes: 3.2,
+        computedAt: new Date().toISOString(), cached: false, ...proposal,
+      });
+    if (url.endsWith('/trafico-vivo')) return Response.json({ observations: [] });
+    if (url.endsWith('/navegacion')) return Response.json({ navigation: null });
+    if (url === '/api/rutas') return Response.json({ routes: [route] });
+    return Response.json({ courier: { status: 'AVAILABLE', currentLat: null, currentLng: null, lastLocationAt: null } });
+  });
+}
+
+it('una mejora por debajo del mínimo no molesta al repartidor', async () => {
+  mockRoute({ worthApplying: false, improvementMinutes: 0.4 });
+  await act(async () => render(<RepartidorPage />));
+  expect(screen.queryByRole('button', { name: 'Aplicar ruta' })).toBeNull();
+});
+
+it('«Ahora no» oculta la propuesta sin recalcular la ruta', async () => {
+  mockRoute({ worthApplying: true });
+  await act(async () => render(<RepartidorPage />));
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Ahora no' })));
+  expect(screen.queryByRole('button', { name: 'Aplicar ruta' })).toBeNull();
+  expect(request.mock.calls.some(([url]) => String(url).endsWith('/recalcular'))).toBe(false);
+});

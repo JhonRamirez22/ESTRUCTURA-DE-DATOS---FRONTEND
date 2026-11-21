@@ -95,6 +95,8 @@ interface RouteProposal {
   aiOrder?: AiOrder;
   orderedDeliveryPointIds: string[];
   changed: boolean;
+  worthApplying?: boolean;
+  baselineDurationMinutes?: number | null;
   estimatedDurationMinutes: number;
   improvementMinutes: number | null;
   computedAt: string;
@@ -148,6 +150,7 @@ export default function RepartidorPage() {
   const [celebrating, setCelebrating] = useState(false);
   const [appliedNotice, setAppliedNotice] = useState<string | null>(null);
   const proposalInFlight = useRef(false);
+  const [dismissedProposal, setDismissedProposal] = useState<string | null>(null);
   const [stopEtas, setStopEtas] = useState<StopEta[]>([]);
   // Cola FIFO: las entregas marcadas sin conexión se reenvían en orden al recuperarla.
   const [offlineUpdates] = useState(() => new OfflineQueue<DeliveryUpdate>());
@@ -821,13 +824,17 @@ export default function RepartidorPage() {
               ) : null}
             </div>
 
-            {proposal?.changed && activeDeliveryPoints.length > 0 ? (
+            {proposal && (proposal.worthApplying ?? proposal.changed) && proposal.orderedDeliveryPointIds.join(',') !== dismissedProposal && activeDeliveryPoints.length > 0 ? (
               <div className="rl-notice is-ok route-proposal mt-4" role="status">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold">{t("courier.optimized")}</p>
                   <p className="text-sm leading-5">
                     {proposal.improvementMinutes !== null && proposal.improvementMinutes > 0
-                      ? `Ahorras unos ${Math.round(proposal.improvementMinutes)} min con el tráfico de ahora.`
+                      ? `Ahorras unos ${Math.round(proposal.improvementMinutes)} min con el tráfico de ahora${
+                          proposal.baselineDurationMinutes != null
+                            ? ` (de ${Math.round(proposal.baselineDurationMinutes)} a ${Math.round(proposal.estimatedDurationMinutes)} min).`
+                            : "."
+                        }`
                       : "La IA encontró un orden distinto según el tráfico de ahora."}
                   </p>
                   {proposal.aiOrder?.accepted ? (
@@ -836,10 +843,16 @@ export default function RepartidorPage() {
                     </p>
                   ) : null}
                 </div>
-                <button className="rp-button rp-button-go rp-button-small" data-tip="tip.applyRoute" disabled={applying}
-                  onClick={() => void applyProposal()} type="button">
-                  {applying ? t("courier.applying") : t("courier.applyRoute")}
-                </button>
+                <div className="flex shrink-0 gap-2">
+                  <button className="rp-button rp-button-quiet rp-button-small" disabled={applying}
+                    onClick={() => setDismissedProposal(proposal.orderedDeliveryPointIds.join(","))} type="button">
+                    {t("courier.dismissRoute")}
+                  </button>
+                  <button className="rp-button rp-button-go rp-button-small" data-tip="tip.applyRoute" disabled={applying}
+                    onClick={() => void applyProposal()} type="button">
+                    {applying ? t("courier.applying") : t("courier.applyRoute")}
+                  </button>
+                </div>
               </div>
             ) : null}
             {proposalStatus ? <p className="mt-3 text-xs text-[var(--ink-soft)]" aria-live="polite">{proposalStatus}</p> : null}
