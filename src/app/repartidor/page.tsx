@@ -152,6 +152,7 @@ export default function RepartidorPage() {
   const proposalInFlight = useRef(false);
   const [dismissedProposal, setDismissedProposal] = useState<string | null>(null);
   const [stopEtas, setStopEtas] = useState<StopEta[]>([]);
+  const [historySimulated, setHistorySimulated] = useState(false);
   // Cola FIFO: las entregas marcadas sin conexión se reenvían en orden al recuperarla.
   const [offlineUpdates] = useState(() => new OfflineQueue<DeliveryUpdate>());
   const [pendingUpdates, setPendingUpdates] = useState(0);
@@ -421,8 +422,14 @@ export default function RepartidorPage() {
       try {
         const response = await apiFetch(`/api/rutas/${encodeURIComponent(routeId)}/eta`, { cache: "no-store" });
         if (!response.ok || disposed) return;
-        const payload = (await response.json()) as { etas?: StopEta[] };
-        if (!disposed) setStopEtas(payload.etas ?? []);
+        const payload = (await response.json()) as {
+          etas?: StopEta[];
+          historical?: { simulatedShare?: number } | null;
+        };
+        if (!disposed) {
+          setStopEtas(payload.etas ?? []);
+          setHistorySimulated((payload.historical?.simulatedShare ?? 0) >= 0.5);
+        }
       } catch {
         // Se conserva el último cálculo válido.
       }
@@ -925,7 +932,16 @@ export default function RepartidorPage() {
                       <span className="rl-row-main">
                         {assignedRoute.deliveryPoints.find((point) => point.id === eta.stopId)?.address ?? "Parada"}
                       </span>
-                      <span className="tabular-nums font-semibold">{Math.ceil(eta.estimatedMinutesFromNow)} min</span>
+                      <span className="tabular-nums font-semibold">
+                        {Math.ceil(eta.estimatedMinutesFromNow)} min
+                        {eta.historicalMinutesFromNow !== undefined &&
+                        Math.abs(eta.historicalMinutesFromNow - eta.estimatedMinutesFromNow) >= 1 ? (
+                          <small className="block text-xs font-normal text-[var(--ink-soft)]">
+                            ≈{Math.ceil(eta.historicalMinutesFromNow)} min {t("courier.etaHistorical")}
+                            {historySimulated ? ` · ${t("courier.etaSimulated")}` : ""}
+                          </small>
+                        ) : null}
+                      </span>
                     </li>
                   ))}
                 </ul>

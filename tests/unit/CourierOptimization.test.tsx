@@ -154,3 +154,18 @@ it('«Ahora no» oculta la propuesta sin recalcular la ruta', async () => {
   expect(screen.queryByRole('button', { name: 'Aplicar ruta' })).toBeNull();
   expect(request.mock.calls.some(([url]) => String(url).endsWith('/recalcular'))).toBe(false);
 });
+
+it('muestra el ETA histórico solo si viene y lo marca como simulado', async () => {
+  mockRoute({ worthApplying: false });
+  const original = request.getMockImplementation()!;
+  request.mockImplementation(async (url: string) => {
+    if (String(url).endsWith('/eta'))
+      return Response.json({
+        etas: [{ stopId: 'first', estimatedMinutesFromNow: 6, historicalMinutesFromNow: 12 }],
+        historical: { simulatedShare: 1 },
+      });
+    return original(url);
+  });
+  await act(async () => render(<RepartidorPage />));
+  expect(await screen.findByText(/≈12 min con el tráfico habitual · datos simulados/)).toBeTruthy();
+});

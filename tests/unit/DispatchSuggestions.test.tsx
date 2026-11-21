@@ -37,7 +37,7 @@ test('un aviso sin acción solo se puede descartar y un fallo de red no rompe na
 
 test('el resumen del turno lee las tarjetas de su propio endpoint', async () => {
   const cards = { enabled: true, cards: [{ id: 'shift_summary', kind: 'shift_summary', severity: 'info', text: 'Hoy: 2 rutas y 5 entregas.', source: 'deterministic', action: null }] };
-  const fetchMock = vi.fn(async () => new Response(JSON.stringify(cards), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+  const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify(cards), { status: 200, headers: { 'Content-Type': 'application/json' } }));
   vi.stubGlobal('fetch', fetchMock);
   render(<DispatchSuggestions endpoint="/api/inteligencia/resumen-turno" onSelect={vi.fn()} refreshKey={0} titleKey="shift.title" />);
   expect(await screen.findByText(/Hoy: 2 rutas/)).toBeTruthy();
