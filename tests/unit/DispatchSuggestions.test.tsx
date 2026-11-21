@@ -42,5 +42,5 @@ test('el resumen del turno lee las tarjetas de su propio endpoint', async () => 
   render(<DispatchSuggestions endpoint="/api/inteligencia/resumen-turno" onSelect={vi.fn()} refreshKey={0} titleKey="shift.title" />);
   expect(await screen.findByText(/Hoy: 2 rutas/)).toBeTruthy();
   expect(screen.getByText('Resumen del turno')).toBeTruthy();
-  expect(String(fetchMock.mock.calls[0][0])).toContain('/api/inteligencia/resumen-turno');
+  expect(String(fetchMock.mock.calls[0][0])).toContain('/inteligencia/resumen-turno');
 });
