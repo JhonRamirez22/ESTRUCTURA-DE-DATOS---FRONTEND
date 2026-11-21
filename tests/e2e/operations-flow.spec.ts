@@ -93,19 +93,25 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
     await expect(
       page.getByRole('heading', { name: '3. Propuesta lista para despachar' })
     ).toBeVisible();
-    await expect(dispatchSection.getByText('1 paradas', { exact: true })).toBeVisible();
+    await expect(dispatchSection.getByText('1 parada', { exact: true })).toBeVisible();
     const dispatchButton = page.getByRole('button', { name: /^Despachar \d+ pedidos? a \d+ repartidor/ });
     await pendingSection
       .locator('label')
       .filter({ hasText: guide })
       .locator('input[type="checkbox"]')
       .uncheck();
-    await expect(dispatchButton).toBeDisabled();
+    // Cambiar la selección invalida la propuesta: ya no se puede despachar, hay que analizar otra vez.
+    await expect(dispatchButton).toHaveCount(0);
+    // Sin ningún pedido elegido tampoco se puede analizar: el botón sigue bloqueado.
+    await expect(
+      page.getByRole('button', { name: 'Cambió la selección: analizar de nuevo' })
+    ).toBeDisabled();
     await pendingSection
       .locator('label')
       .filter({ hasText: guide })
       .locator('input[type="checkbox"]')
       .check();
+    // Al volver a la selección analizada, la propuesta vuelve a ser válida.
     await expect(dispatchButton).toBeEnabled();
 
     const routeResponsePromise = page.waitForResponse(

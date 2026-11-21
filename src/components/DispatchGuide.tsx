@@ -97,7 +97,9 @@ export function DispatchAction({
 
   return (
     <div className="grid gap-2">
-      <p className="dispatch-hint" id="dispatch-hint" role="status">{hint[flow.phase]}</p>
+      <p className={`dispatch-hint ${flow.canAct && !busy ? '' : 'is-reason'}`} id="dispatch-hint" role="status">
+        {hint[flow.phase]}
+      </p>
       <button
         aria-describedby="dispatch-hint"
         aria-busy={busy}
@@ -110,7 +112,7 @@ export function DispatchAction({
         {label[flow.phase]}
       </button>
       {showBack ? (
-        <button className="rp-button rp-button-quiet rp-button-block" onClick={onBack} type="button">
+        <button className="rp-button rp-button-quiet rp-button-small justify-self-center" onClick={onBack} type="button">
           {t('flow.back')}
         </button>
       ) : null}

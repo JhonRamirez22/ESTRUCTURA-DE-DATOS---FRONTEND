@@ -18,6 +18,9 @@ import OptimizationLadder from '@/components/OptimizationLadder';
 import AiGroupSuggestions from '@/components/AiGroupSuggestions';
 import DispatchSuggestions from '@/components/DispatchSuggestions';
 import { DispatchAction, DispatchSteps } from '@/components/DispatchGuide';
+import DemoGpsButton from '@/components/DemoGpsButton';
+import RouteImprovementCheck from '@/components/RouteImprovementCheck';
+import { orderBadges } from '@/lib/orderBadges';
 import { defaultCourierSelection, dispatchFlow } from '@/lib/dispatchFlow';
 import Sheet, { type SheetLayout } from '@/components/Sheet';
 import SegmentedTabs from '@/components/SegmentedTabs';
@@ -55,6 +58,8 @@ interface DeliveryPoint {
   lng: number;
   status: 'PENDING' | 'EN_ROUTE' | 'DELIVERED' | 'FAILED';
   sequenceIndex: number | null;
+  priority?: number;
+  timeWindow?: { start?: string; end?: string } | null;
 }
 
 interface Route {
@@ -280,11 +285,13 @@ export default function DashboardPage() {
 
       // Todos los repartidores disponibles quedan marcados para repartir la carga; quien el
       // despachador desmarca se respeta y solo se suman los que se acaban de conectar.
-      setSelectedCourierIds((current) => {
-        const next = defaultCourierSelection(availableCourierIds, knownCourierIds.current, current);
-        knownCourierIds.current = next.known;
-        return next.selection;
-      });
+      // El «updater» debe ser puro (React lo puede ejecutar dos veces): se lee una copia de los
+      // conocidos y la referencia se actualiza fuera de él.
+      const knownBefore = knownCourierIds.current;
+      knownCourierIds.current = new Set(availableCourierIds);
+      setSelectedCourierIds(
+        (current) => defaultCourierSelection(availableCourierIds, knownBefore, current).selection
+      );
       if (!selectionInitialized.current) {
         setSelectedPendingIds(ordersPayload.deliveryPoints.map((point) => point.id));
         selectionInitialized.current = true;
@@ -713,6 +720,7 @@ export default function DashboardPage() {
                 </div>
               ))}
             </dl>
+            <DemoGpsButton onRenewed={() => void loadDashboard()} />
             <button
               className="rp-button rp-button-quiet w-full sm:w-auto"
               data-tip="tip.refresh"
@@ -818,7 +826,7 @@ export default function DashboardPage() {
                 {sheetTab === 'pedidos' ? (
                   <section aria-label="Despachar pedidos">
             <DispatchSteps counts={dispatchCounts} flow={flow} />
-            <div className={`mb-4 flex flex-wrap items-center justify-between gap-3 ${assignmentPreview.length > 0 ? 'hidden' : ''}`}>
+            <div className={`dispatch-new-head mb-4 flex flex-wrap items-center justify-between gap-3 ${assignmentPreview.length > 0 ? 'hidden' : ''}`}>
               <h2 className="text-xl font-semibold">{t('dash.new')}</h2>
               <div className="flex flex-wrap items-center gap-4 text-sm">
                 <Link className="font-semibold underline-offset-4 hover:underline" href="/personal">
@@ -900,6 +908,7 @@ export default function DashboardPage() {
                               <span className="rl-ref">
                                 {reference} · {t('dash.pendingTag')}
                                 {point.orderId.startsWith('SIM-') ? ` · ${t('demo.simulated')}` : ''}
+                                {orderBadges(point, { high: t('orders.priority.high'), urgent: t('orders.priority.urgent') }).map((part) => ` · ${part}`).join('')}
                               </span>
                             </span>
                           </label>
@@ -994,7 +1003,7 @@ export default function DashboardPage() {
                     </p>
                   ) : null}
                   {assignmentPreview.length > 0 ? (
-                    <div className="mt-4 space-y-5">
+                    <div className="mt-4 space-y-3">
                       {assignmentPreview.map((assignment) => {
                         const courier = data.couriers.find((item) => item.id === assignment.courierId);
                         return (
@@ -1005,14 +1014,21 @@ export default function DashboardPage() {
                                 {t(assignment.deliveryPointIds.length === 1 ? 'dash.stops.one' : 'dash.stops', { n: assignment.deliveryPointIds.length })}
                               </span>
                             </p>
-                            <RouteLine
-                              label={`Orden propuesto para ${courier?.name ?? 'el repartidor'}`}
-                              selected
-                              stops={assignment.deliveryPointIds.map((id) => ({
-                                id,
-                                label: data.pendingPoints.find((point) => point.id === id)?.address ?? id,
-                              }))}
-                            />
+                            <details>
+                              <summary className="cursor-pointer text-xs underline-offset-4 hover:underline">
+                                {t('dash.viewOrder')}
+                              </summary>
+                              <div className="mt-2">
+                                <RouteLine
+                                  label={`Orden propuesto para ${courier?.name ?? 'el repartidor'}`}
+                                  selected
+                                  stops={assignment.deliveryPointIds.map((id) => ({
+                                    id,
+                                    label: data.pendingPoints.find((point) => point.id === id)?.address ?? id,
+                                  }))}
+                                />
+                              </div>
+                            </details>
                           </div>
                         );
                       })}
@@ -1375,6 +1391,11 @@ function RouteSummary({
           )}
         </div>
       ) : null}
+      <RouteImprovementCheck
+        canCheck={canRecalculate && hasFreshCourierLocation}
+        onApply={onRecalculate}
+        routeId={route.id}
+      />
       {route.status === 'PLANNED' || route.status === 'IN_PROGRESS' ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {route.status === 'PLANNED' ? (

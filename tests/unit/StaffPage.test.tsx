@@ -3,6 +3,8 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest';
 import StaffPage from '@/app/personal/page';
 
+vi.mock('@/components/PasswordChangeForm', () => ({ default: () => null }));
+vi.mock('@/components/DemoGpsButton', () => ({ default: () => null }));
 vi.mock('next/navigation', () => ({ usePathname: () => '/personal' }));
 
 afterEach(() => {

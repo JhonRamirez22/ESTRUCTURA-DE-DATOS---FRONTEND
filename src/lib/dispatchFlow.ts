@@ -59,5 +59,6 @@ export function defaultCourierSelection(
 ): { selection: string[]; known: Set<string> } {
   const stillThere = current.filter((id) => available.includes(id));
   const fresh = available.filter((id) => !known.has(id));
-  return { selection: [...stillThere, ...fresh], known: new Set([...known, ...available]) };
+  // «Conocidos» son solo los disponibles ahora: quien se desconecta y vuelve cuenta como nuevo.
+  return { selection: [...stillThere, ...fresh], known: new Set(available) };
 }

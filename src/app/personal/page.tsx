@@ -5,6 +5,8 @@ import type { FormEvent } from 'react';
 import AppShell from '@/components/AppShell';
 import { usePreferences } from '@/lib/preferences';
 import { SessionChangeNotice } from '@/components/SessionChangeNotice';
+import DemoGpsButton from '@/components/DemoGpsButton';
+import PasswordChangeForm from '@/components/PasswordChangeForm';
 import { apiFetch, apiJson, ApiRequestError } from '@/lib/apiClient';
 import { isCourierLocationFresh } from '@/lib/courierLocation';
 
@@ -435,6 +437,18 @@ export default function StaffPage() {
             </form>
           </section>
         </div>
+
+        <section className="rl-section mt-10">
+          <div className="rl-head">
+            <h2>{t('password.title')}</h2>
+          </div>
+          <p className="mb-4 text-sm">{t('password.lead')}</p>
+          <PasswordChangeForm onChanged={() => window.location.assign('/acceso?retorno=%2Fpersonal')} />
+        </section>
+
+        <section aria-label="Modo demo" className="mt-8 empty:hidden">
+          <DemoGpsButton />
+        </section>
       </main>
     </AppShell>
   );

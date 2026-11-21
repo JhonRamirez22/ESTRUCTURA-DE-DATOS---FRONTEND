@@ -2536,7 +2536,9 @@ input[type='checkbox'] {
   isolation: isolate;
   border-radius: 16px;
   background: var(--stage-bg);
-  height: min(78vh, 760px);
+  /* Espacio de trabajo: el alto visible menos la barra y el encabezado (≈190 px), para que
+     el botón principal quede a la vista sin bajar la página en un portátil. */
+  height: max(540px, calc(100dvh - 190px));
   min-height: 540px;
   contain: layout paint;
 }
@@ -2997,6 +2999,21 @@ input[type='checkbox'] {
 }
 @media (max-width: 420px) {
   .dispatch-step-text small {
+    display: none;
+  }
+}
+
+/* Pantallas bajas: el motivo del botón solo se muestra cuando hace falta (bloqueado u ocupado). */
+@media (max-height: 760px) {
+  .dispatch-hint:not(.is-reason) {
+    display: none;
+  }
+}
+@media (max-height: 760px) {
+  .dispatch-new-head {
+    margin-bottom: 8px;
+  }
+  .dispatch-new-head h2 {
     display: none;
   }
 }
