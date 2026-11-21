@@ -17,6 +17,8 @@ import { RouteLine, RouteStrip, type StopState } from '@/components/RouteLine';
 import OptimizationLadder from '@/components/OptimizationLadder';
 import AiGroupSuggestions from '@/components/AiGroupSuggestions';
 import DispatchSuggestions from '@/components/DispatchSuggestions';
+import { DispatchAction, DispatchSteps } from '@/components/DispatchGuide';
+import { defaultCourierSelection, dispatchFlow } from '@/lib/dispatchFlow';
 import Sheet, { type SheetLayout } from '@/components/Sheet';
 import SegmentedTabs from '@/components/SegmentedTabs';
 import { useUndoToast } from '@/components/UndoToast';
@@ -151,6 +153,9 @@ const EMPTY_DASHBOARD_DATA: DashboardData = {
     },
 };
 
+/** Pedidos visibles antes de «Ver todos»: deja los repartidores a la vista sin scroll anidado. */
+const COLLAPSED_ORDERS = 5;
+
 export default function DashboardPage() {
   const { t, lang } = usePreferences();
   const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD_DATA);
@@ -161,6 +166,7 @@ export default function DashboardPage() {
   const [undoingRouteId, setUndoingRouteId] = useState<string | null>(null);
   const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
   const [selectedCourierIds, setSelectedCourierIds] = useState<string[]>([]);
+  const knownCourierIds = useRef<Set<string>>(new Set());
   const [assignmentPreview, setAssignmentPreview] = useState<AssignmentProposal[]>([]);
   const [assignmentPreviewSelectionKey, setAssignmentPreviewSelectionKey] = useState<string | null>(null);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
@@ -175,6 +181,7 @@ export default function DashboardPage() {
   const [assignmentImprovement, setAssignmentImprovement] = useState<AssignmentImprovement | null>(null);
   const [liveTrafficNotice, setLiveTrafficNotice] = useState<string | null>(null);
   const undoToast = useUndoToast(t('undo.action'));
+  const [showAllOrders, setShowAllOrders] = useState(false);
   const [sheetTab, setSheetTab] = useState<'pedidos' | 'rutas' | 'actividad'>('pedidos');
   const [inset, setInset] = useState<MapInset | undefined>(undefined);
   const [stageWide, setStageWide] = useState(false);
@@ -271,14 +278,17 @@ export default function DashboardPage() {
         )
         .map((courier) => courier.id);
 
+      // Todos los repartidores disponibles quedan marcados para repartir la carga; quien el
+      // despachador desmarca se respeta y solo se suman los que se acaban de conectar.
+      setSelectedCourierIds((current) => {
+        const next = defaultCourierSelection(availableCourierIds, knownCourierIds.current, current);
+        knownCourierIds.current = next.known;
+        return next.selection;
+      });
       if (!selectionInitialized.current) {
-        setSelectedCourierIds(availableCourierIds.slice(0, 1));
         setSelectedPendingIds(ordersPayload.deliveryPoints.map((point) => point.id));
         selectionInitialized.current = true;
       } else {
-        setSelectedCourierIds((current) =>
-          current.filter((id) => availableCourierIds.includes(id))
-        );
         setSelectedPendingIds((current) =>
           current.filter((id) => ordersPayload.deliveryPoints.some((point) => point.id === id))
         );
@@ -639,40 +649,40 @@ export default function DashboardPage() {
     });
   };
 
+  const flow = dispatchFlow({
+    pendingCount: data.pendingPoints.length,
+    selectedOrders: selectedPendingIds.length,
+    availableCouriers: availableCouriers.length,
+    selectedCouriers: selectedCourierIds.length,
+    analyzing,
+    dispatching,
+    hasProposal: assignmentPreview.length > 0,
+    proposalIsCurrent: assignmentPreviewIsCurrent,
+  });
+  const flowCounts = {
+    orders: selectedPendingIds.length,
+    couriers: selectedCourierIds.length,
+    pending: data.pendingPoints.length,
+    availableCouriers: availableCouriers.length,
+  };
+  // Con propuesta, el botón cuenta lo que se va a despachar, no lo marcado en las listas.
+  const dispatchCounts =
+    assignmentPreview.length > 0 && flow.actionIsDispatch
+      ? {
+          ...flowCounts,
+          orders: assignmentPreview.reduce((sum, item) => sum + item.deliveryPointIds.length, 0),
+          couriers: assignmentPreview.length,
+        }
+      : flowCounts;
+
   const sheetFoot =
     sheetTab === 'pedidos' ? (
-      <div className="grid gap-2">
-        {assignmentPreview.length > 0 ? (
-          <button
-            className="rp-button rp-button-go rp-button-block"
-            data-tip="tip.dispatch"
-            disabled={dispatching || !assignmentPreviewIsCurrent}
-            onClick={() => void dispatchAssignments()}
-            type="button"
-          >
-            {dispatching ? t('dash.dispatching') : t('dash.dispatchBtn')}
-          </button>
-        ) : null}
-        {assignmentPreview.length > 0 ? (
-          <button
-            className="rp-button rp-button-quiet rp-button-block"
-            disabled={dispatching}
-            onClick={discardProposal}
-            type="button"
-          >
-            {t('dash.discard')}
-          </button>
-        ) : null}
-                <button
-                  className="rp-button rp-button-primary rp-button-block"
-                  data-tip="tip.analyze"
-                  disabled={analyzing || selectedPendingIds.length === 0 || selectedCourierIds.length === 0}
-                  onClick={() => void analyzeAssignments()}
-                  type="button"
-                >
-                  {analyzing ? t('dash.analyzing') : t('dash.analyze')}
-                </button>
-      </div>
+      <DispatchAction
+        counts={dispatchCounts}
+        flow={flow}
+        onAct={() => void (flow.actionIsDispatch ? dispatchAssignments() : analyzeAssignments())}
+        onBack={discardProposal}
+      />
     ) : undefined;
 
   return (
@@ -807,7 +817,8 @@ export default function DashboardPage() {
               <div aria-labelledby={`dispatch-sheet-tab-${sheetTab}`} id="dispatch-sheet-panel" role="tabpanel">
                 {sheetTab === 'pedidos' ? (
                   <section aria-label="Despachar pedidos">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <DispatchSteps counts={dispatchCounts} flow={flow} />
+            <div className={`mb-4 flex flex-wrap items-center justify-between gap-3 ${assignmentPreview.length > 0 ? 'hidden' : ''}`}>
               <h2 className="text-xl font-semibold">{t('dash.new')}</h2>
               <div className="flex flex-wrap items-center gap-4 text-sm">
                 <Link className="font-semibold underline-offset-4 hover:underline" href="/personal">
@@ -865,8 +876,8 @@ export default function DashboardPage() {
                 ) : data.pendingPoints.length === 0 ? (
                   <p className="rl-empty">{t('dash.noPending')}</p>
                 ) : (
-                  <ul className="rl-rows max-h-[420px] overflow-y-auto">
-                    {data.pendingPoints.map((point) => {
+                  <ul className="rl-rows">
+                    {(showAllOrders ? data.pendingPoints : data.pendingPoints.slice(0, COLLAPSED_ORDERS)).map((point) => {
                       const checked = selectedPendingIds.includes(point.id);
                       const reference = formatOrderReference(point.orderId);
                       return (
@@ -908,6 +919,18 @@ export default function DashboardPage() {
                     })}
                   </ul>
                 )}
+                {data.pendingPoints.length > COLLAPSED_ORDERS ? (
+                  <button
+                    aria-expanded={showAllOrders}
+                    className="rp-button rp-button-quiet rp-button-small mt-2"
+                    onClick={() => setShowAllOrders((open) => !open)}
+                    type="button"
+                  >
+                    {showAllOrders
+                      ? t('dash.showFewer')
+                      : t('dash.showAll', { n: data.pendingPoints.length })}
+                  </button>
+                ) : null}
                 <DispatchSuggestions onSelect={(ids) => setSelectedPendingIds(ids)} refreshKey={data.pendingPoints.length} />
                 <AiGroupSuggestions onSelect={(ids) => setSelectedPendingIds(ids)} />
               </div>
@@ -979,7 +1002,7 @@ export default function DashboardPage() {
                             <p className="mb-2 flex items-baseline justify-between gap-3 text-sm font-semibold !text-[var(--board-ink)]">
                               {courier?.name ?? 'Repartidor'}
                               <span className="text-xs font-normal tabular-nums !text-[var(--board-soft)]">
-                                {t('dash.stops', { n: assignment.deliveryPointIds.length })}
+                                {t(assignment.deliveryPointIds.length === 1 ? 'dash.stops.one' : 'dash.stops', { n: assignment.deliveryPointIds.length })}
                               </span>
                             </p>
                             <RouteLine

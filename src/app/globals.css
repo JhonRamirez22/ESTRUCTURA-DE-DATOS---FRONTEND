@@ -2935,3 +2935,68 @@ input[type='checkbox'] {
     animation: none;
   }
 }
+
+/* Guía del despacho: tres pasos y el motivo del botón principal. */
+.dispatch-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.dispatch-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+.dispatch-step small {
+  display: block;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+.dispatch-step-n {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.6;
+}
+.dispatch-step.is-current {
+  border-color: var(--route);
+}
+.dispatch-step.is-current .dispatch-step-n {
+  border-color: var(--route);
+  background: var(--route);
+  color: #0b1a12;
+  opacity: 1;
+}
+.dispatch-step.is-done .dispatch-step-n {
+  border-color: var(--route);
+  background: color-mix(in srgb, var(--route) 25%, transparent);
+  opacity: 1;
+}
+.dispatch-step.is-todo {
+  opacity: 0.65;
+}
+.dispatch-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.88;
+}
+@media (max-width: 420px) {
+  .dispatch-step-text small {
+    display: none;
+  }
+}

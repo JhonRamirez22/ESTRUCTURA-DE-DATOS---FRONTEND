@@ -43,7 +43,7 @@ it('permite despachar aunque la analítica no responda', async () => {
   mockResponses('/api/v1/analitica');
   await act(async () => render(<DashboardPage />));
   expect(screen.getByText('Calle de prueba en Pasto')).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Analizar asignación' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: /Analizar reparto/ })).toBeEnabled();
   expect(screen.queryByText('No se pudieron cargar los datos operativos.')).toBeNull();
 });
 
@@ -58,7 +58,7 @@ it('conserva los últimos datos pero impide despachar si falla una consulta esen
   expect(screen.getByText('Calle de prueba en Pasto')).toBeTruthy();
   expect(screen.getByRole('alert').textContent).toContain('Rutas:');
   expect(screen.getByRole('alert').textContent).toContain('route-failure-reference');
-  expect(screen.getByRole('button', { name: 'Analizar asignación' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: /Analizar reparto/ })).toBeDisabled();
 });
 
 it('ante una sesión vencida retira los datos privados y ofrece volver a ingresar', async () => {
@@ -78,7 +78,7 @@ it('un payload esencial malformado tampoco permite actuar sobre datos anteriores
   request.mockImplementation(async (url: string) => url.endsWith('/repartidores')
     ? Response.json({ couriers: [null] }) : successful(url));
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Actualizar datos' })));
-  expect(screen.getByRole('button', { name: 'Analizar asignación' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: /Analizar reparto/ })).toBeDisabled();
 });
 
 it('no solapa refrescos y cancela consultas al salir de la pantalla', async () => {

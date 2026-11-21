@@ -145,7 +145,7 @@ test('la caída de analítica y avisos no impide analizar pedidos', async ({ pag
   }
   await loginAsDispatcher(page);
   await expect(page.getByText('Avenida de Prueba 5 # 8-12, Pasto')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Analizar asignación' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: /Analizar reparto|Cambió la selección/ })).toBeEnabled();
   await expect(page.getByText(/Analítica: El servicio no está disponible/)).toBeVisible();
 });
 
@@ -158,11 +158,11 @@ test('una caída esencial conserva el mapa pero bloquea despachar hasta recupera
   }));
   await page.getByRole('button', { name: 'Actualizar datos' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Rutas:' })).toContainText('e2e-safe-reference');
-  await expect(page.getByRole('button', { name: 'Analizar asignación' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /Analizar reparto|Cambió la selección/ })).toBeDisabled();
   await expect(page.getByText('Avenida de Prueba 5 # 8-12, Pasto')).toBeVisible();
   await page.unroute('**/api/v1/rutas');
   await page.getByRole('button', { name: 'Actualizar datos' }).click();
-  await expect(page.getByRole('button', { name: 'Analizar asignación' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: /Analizar reparto|Cambió la selección/ })).toBeEnabled();
 });
 
 test("el dashboard no se desborda en móviles estrechos", async ({ page }) => {

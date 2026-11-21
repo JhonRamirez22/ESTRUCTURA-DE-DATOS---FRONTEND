@@ -89,12 +89,12 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
       .locator('input[type="checkbox"]')
       .check();
 
-    await page.getByRole('button', { name: 'Analizar asignación' }).click();
+    await page.getByRole('button', { name: /Analizar reparto|Cambió la selección/ }).click();
     await expect(
       page.getByRole('heading', { name: '3. Propuesta lista para despachar' })
     ).toBeVisible();
     await expect(dispatchSection.getByText('1 paradas', { exact: true })).toBeVisible();
-    const dispatchButton = page.getByRole('button', { name: 'Despachar rutas optimizadas' });
+    const dispatchButton = page.getByRole('button', { name: /^Despachar \d+ pedidos? a \d+ repartidor/ });
     await pendingSection
       .locator('label')
       .filter({ hasText: guide })
@@ -113,7 +113,7 @@ test('registra un pedido y lo despacha desde el flujo operativo', async ({ page 
         new URL(response.url()).pathname === '/api/v1/asignaciones/aplicar' &&
         response.request().method() === 'POST'
     );
-    await page.getByRole('button', { name: 'Despachar rutas optimizadas' }).click();
+    await page.getByRole('button', { name: /^Despachar \d+ pedidos? a \d+ repartidor/ }).click();
     const routeResponse = await routeResponsePromise;
     expect(routeResponse.status()).toBe(201);
     const routePayload = (await routeResponse.json()) as {
