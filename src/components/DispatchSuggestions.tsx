@@ -6,7 +6,7 @@ import { useT } from '@/lib/preferences';
 
 export interface Suggestion {
   id: string;
-  kind: 'idle_courier' | 'stale_gps' | 'no_position';
+  kind: string;
   severity: 'action' | 'warning' | 'info';
   text: string;
   source: 'deterministic' | 'groq-validated';
@@ -15,7 +15,8 @@ export interface Suggestion {
 
 interface Payload {
   enabled: boolean;
-  suggestions: Suggestion[];
+  suggestions?: Suggestion[];
+  cards?: Suggestion[];
 }
 
 const REFRESH_MS = 90_000;
@@ -24,9 +25,13 @@ const REFRESH_MS = 90_000;
 export default function DispatchSuggestions({
   refreshKey,
   onSelect,
+  endpoint = '/api/inteligencia/sugerencias',
+  titleKey = 'suggest.title',
 }: {
   refreshKey: unknown;
   onSelect: (ids: string[]) => void;
+  endpoint?: string;
+  titleKey?: 'suggest.title' | 'shift.title';
 }) {
   const t = useT();
   const [items, setItems] = useState<Suggestion[]>([]);
@@ -34,12 +39,12 @@ export default function DispatchSuggestions({
 
   const load = useCallback(async (signal?: AbortSignal): Promise<void> => {
     try {
-      const payload = await apiJson<Payload>('/api/inteligencia/sugerencias', { signal });
-      setItems(payload.enabled ? payload.suggestions : []);
+      const payload = await apiJson<Payload>(endpoint, { signal });
+      setItems(payload.enabled ? (payload.suggestions ?? payload.cards ?? []) : []);
     } catch {
       // Los avisos son un apoyo: si fallan se quedan los últimos y el despacho sigue igual.
     }
-  }, []);
+  }, [endpoint]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -57,8 +62,8 @@ export default function DispatchSuggestions({
   if (visible.length === 0) return null;
 
   return (
-    <section aria-label={t('suggest.title')} className="mt-4">
-      <p className="text-sm font-semibold">{t('suggest.title')}</p>
+    <section aria-label={t(titleKey)} className="mt-4">
+      <p className="text-sm font-semibold">{t(titleKey)}</p>
       <ul className="rl-rows mt-2">
         {visible.map((item) => (
           <li className="rl-row !items-start" key={item.id}>

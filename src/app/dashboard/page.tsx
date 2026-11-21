@@ -1168,6 +1168,12 @@ export default function DashboardPage() {
                 ) : null}
                 {sheetTab === 'actividad' ? (
                   <>
+                    <DispatchSuggestions
+                      endpoint="/api/inteligencia/resumen-turno"
+                      onSelect={() => undefined}
+                      refreshKey={data.routes.length}
+                      titleKey="shift.title"
+                    />
                     <OptimizationFeed />
             {data.notifications.length > 0 ? (
               <section aria-label="Avisos operativos" className="rl-section">
