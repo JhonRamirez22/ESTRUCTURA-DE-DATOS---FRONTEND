@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_API_URL: http://127.0.0.1:8000
+      CSP_MODE: enforce
+    steps:
