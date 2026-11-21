@@ -105,3 +105,23 @@ describe('resolución de direcciones antes de seleccionar un pin', () => {
   });
 });
 
+
+describe('prioridad y ventana horaria del pedido', () => {
+  beforeEach(() => {
+    request.mockReset();
+    request.mockImplementation(() => Promise.resolve(Response.json({ deliveryPoints: [] })));
+  });
+  afterEach(() => cleanup());
+
+  it('ofrece prioridad y avisa si la hora final no es posterior a la inicial', async () => {
+    await act(async () => {
+      render(<OrdersPage />);
+    });
+    expect(screen.getByLabelText('Prioridad')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Entregar desde'), { target: { value: '12:00' } });
+    fireEvent.change(screen.getByLabelText('Entregar antes de'), { target: { value: '10:00' } });
+    expect(screen.getByRole('alert').textContent).toContain('posterior');
+    fireEvent.change(screen.getByLabelText('Entregar antes de'), { target: { value: '13:00' } });
+    expect(screen.queryByText(/posterior a la inicial/)).toBeNull();
+  });
+});

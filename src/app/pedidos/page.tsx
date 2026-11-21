@@ -25,6 +25,9 @@ interface OrderDraft {
   orderId: string;
   lat: string;
   lng: string;
+  priority: '1' | '2' | '3';
+  windowStart: string;
+  windowEnd: string;
 }
 
 interface AddressNormalizationStatus {
@@ -35,6 +38,8 @@ interface AddressNormalizationStatus {
 
 interface PendingOrderPoint extends MapDeliveryPoint {
   orderId: string;
+  priority?: number;
+  timeWindow?: { start?: string; end?: string } | null;
 }
 
 interface AddressCandidate {
@@ -51,6 +56,9 @@ export default function OrdersPage() {
     orderId: '',
     lat: '',
     lng: '',
+    priority: '1',
+    windowStart: '',
+    windowEnd: '',
   });
   const [pendingPoints, setPendingPoints] = useState<PendingOrderPoint[]>([]);
   const [selectedCoordinate, setSelectedCoordinate] = useState<[number, number] | null>(null);
@@ -62,6 +70,7 @@ export default function OrdersPage() {
   const [candidates, setCandidates] = useState<AddressCandidate[]>([]);
   const [addressNotice, setAddressNotice] = useState<string | null>(null);
   const [findingAddress, setFindingAddress] = useState(false);
+  const windowInvalid = draft.windowStart !== '' && draft.windowEnd !== '' && draft.windowEnd <= draft.windowStart;
   const [requests, setRequests] = useState<PendingOrderPoint[]>([]);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -207,6 +216,8 @@ export default function OrdersPage() {
           lat: number;
           lng: number;
           status: 'PENDING';
+          priority?: number;
+          timeWindow?: { start?: string; end?: string } | null;
         }>;
       };
 
@@ -259,6 +270,10 @@ export default function OrdersPage() {
       );
       return;
     }
+    if (windowInvalid) {
+      setError(t('orders.windowInvalid'));
+      return;
+    }
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -272,6 +287,15 @@ export default function OrdersPage() {
           lat,
           lng,
           orderId: draft.orderId.trim() || `PED-${Date.now()}`,
+          priority: Number(draft.priority),
+          ...(draft.windowStart || draft.windowEnd
+            ? {
+                timeWindow: {
+                  ...(draft.windowStart ? { start: draft.windowStart } : {}),
+                  ...(draft.windowEnd ? { end: draft.windowEnd } : {}),
+                },
+              }
+            : {}),
         }),
       });
 
@@ -293,6 +317,9 @@ export default function OrdersPage() {
         orderId: '',
         lat: '',
         lng: '',
+        priority: '1',
+        windowStart: '',
+        windowEnd: '',
       });
       setSelectedCoordinate(null);
       await loadPendingOrders();
@@ -474,6 +501,41 @@ export default function OrdersPage() {
                     value={draft.orderId}
                   />
                 </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <label className="rp-field-label">
+                    {t('orders.priority')}
+                    <select
+                      className="rp-input mt-1.5 px-3 text-[15px] font-normal"
+                      onChange={(event) =>
+                        setDraft((current) => ({ ...current, priority: event.target.value as OrderDraft['priority'] }))
+                      }
+                      value={draft.priority}
+                    >
+                      <option value="1">{t('orders.priority.normal')}</option>
+                      <option value="2">{t('orders.priority.high')}</option>
+                      <option value="3">{t('orders.priority.urgent')}</option>
+                    </select>
+                  </label>
+                  <label className="rp-field-label">
+                    {t('orders.windowStart')}
+                    <input
+                      className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
+                      onChange={(event) => setDraft((current) => ({ ...current, windowStart: event.target.value }))}
+                      type="time"
+                      value={draft.windowStart}
+                    />
+                  </label>
+                  <label className="rp-field-label">
+                    {t('orders.windowEnd')}
+                    <input
+                      className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
+                      onChange={(event) => setDraft((current) => ({ ...current, windowEnd: event.target.value }))}
+                      type="time"
+                      value={draft.windowEnd}
+                    />
+                  </label>
+                </div>
+                {windowInvalid ? <p className="rl-notice is-error" role="alert">{t('orders.windowInvalid')}</p> : null}
                 <div className="text-sm">
                   <span className="font-semibold">{t('orders.coords')}</span>
                   <p className={`mt-1 tabular-nums ${draft.lat && draft.lng ? 'text-[var(--route-ink)]' : 'text-[var(--ink-soft)]'}`}>
@@ -505,7 +567,15 @@ export default function OrdersPage() {
                   <li className="rl-row" key={point.id}>
                     <span className="rl-row-main">
                       <strong className="truncate">{point.address}</strong>
-                      <span className="rl-ref">{formatOrderReference(point.orderId)}</span>
+                      <span className="rl-ref">
+                        {formatOrderReference(point.orderId)}
+                        {point.priority && point.priority > 1
+                          ? ` · ${point.priority === 3 ? t('orders.priority.urgent') : t('orders.priority.high')}`
+                          : ''}
+                        {point.timeWindow && (point.timeWindow.start || point.timeWindow.end)
+                          ? ` · ${point.timeWindow.start ?? '…'}–${point.timeWindow.end ?? '…'}`
+                          : ''}
+                      </span>
                     </span>
                     <span className="rl-state is-warn">Pendiente</span>
                   </li>
