@@ -4,7 +4,7 @@ import { apiFetch, apiJson, ApiRequestError } from '@/lib/apiClient';
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import AppShell from '@/components/AppShell';
 import { usePreferences, useT } from '@/lib/preferences';
@@ -20,6 +20,10 @@ import DispatchSuggestions from '@/components/DispatchSuggestions';
 import { DispatchAction, DispatchSteps } from '@/components/DispatchGuide';
 import DemoGpsButton from '@/components/DemoGpsButton';
 import RouteImprovementCheck from '@/components/RouteImprovementCheck';
+import { LiveOptimizationHud, LiveRouteSuggestion } from '@/components/LiveOptimizationHud';
+import { appliableRoutes, type LiveRouteProposal } from '@/lib/liveOptimization';
+import { RouteColorAssigner } from '@/lib/routeColors';
+import { useLiveOptimization } from '@/lib/useLiveOptimization';
 import { orderBadges } from '@/lib/orderBadges';
 import { defaultCourierSelection, dispatchFlow } from '@/lib/dispatchFlow';
 import Sheet, { type SheetLayout } from '@/components/Sheet';
@@ -60,6 +64,7 @@ interface DeliveryPoint {
   sequenceIndex: number | null;
   priority?: number;
   timeWindow?: { start?: string; end?: string } | null;
+  routeId?: string | null;
 }
 
 interface Route {
@@ -292,12 +297,14 @@ export default function DashboardPage() {
       setSelectedCourierIds(
         (current) => defaultCourierSelection(availableCourierIds, knownBefore, current).selection
       );
+      // Un pedido PENDING con ruta ya está asignado: no está disponible para despachar otra vez.
+      const unassigned = ordersPayload.deliveryPoints.filter((point) => !point.routeId);
       if (!selectionInitialized.current) {
-        setSelectedPendingIds(ordersPayload.deliveryPoints.map((point) => point.id));
+        setSelectedPendingIds(unassigned.map((point) => point.id));
         selectionInitialized.current = true;
       } else {
         setSelectedPendingIds((current) =>
-          current.filter((id) => ordersPayload.deliveryPoints.some((point) => point.id === id))
+          current.filter((id) => unassigned.some((point) => point.id === id))
         );
       }
 
@@ -306,7 +313,7 @@ export default function DashboardPage() {
         notifications: notifications.status === 'fulfilled' && Array.isArray(notifications.value?.notifications)
           ? notifications.value.notifications : previous.notifications,
         notificationsWarning: notifications.status === 'fulfilled' ? notifications.value?.warning ?? null : 'Avisos anteriores; no se pudieron actualizar.',
-        pendingPoints: ordersPayload.deliveryPoints,
+        pendingPoints: unassigned,
         routes: routesPayload.routes,
         metrics: analytics.status === 'fulfilled' && analytics.value?.metrics
           ? analytics.value.metrics : previous.metrics,
@@ -347,6 +354,30 @@ export default function DashboardPage() {
   const activeRoutes = routesByOperationalPriority.filter(
     (route) => route.status === 'PLANNED' || route.status === 'IN_PROGRESS'
   );
+  // Cada ruta conserva su color mientras exista; el mapa y las tarjetas comparten la paleta.
+  const colorAssigner = useRef(new RouteColorAssigner());
+  const activeRouteIds = activeRoutes.map((route) => route.id).join(',');
+  const routeColors = useMemo(
+    () => colorAssigner.current.assign(activeRouteIds ? activeRouteIds.split(',') : []),
+    [activeRouteIds],
+  );
+  // Recalcula toda la flota cada 10 s y propone mejoras; nada se aplica solo.
+  const live = useLiveOptimization(activeRoutes.length > 0 && operationalReady, 10_000);
+  const [applyingLive, setApplyingLive] = useState(false);
+  const applyLiveRoute = async (routeId: string): Promise<void> => {
+    await recalculateRouteGeometry(routeId);
+    live.refresh();
+  };
+  const applyAllLive = async (): Promise<void> => {
+    setApplyingLive(true);
+    try {
+      for (const item of appliableRoutes(live.proposal)) await recalculateRouteGeometry(item.routeId);
+    } finally {
+      setApplyingLive(false);
+      live.refresh();
+    }
+  };
+  const liveByRoute = new Map((live.proposal?.routes ?? []).map((item) => [item.routeId, item]));
   const historicalRoutes = routesByOperationalPriority.filter(
     (route) => route.status === 'COMPLETED' || route.status === 'CANCELLED'
   );
@@ -793,6 +824,8 @@ export default function DashboardPage() {
               couriers={data.couriers}
               inset={inset}
               pendingPoints={data.pendingPoints}
+              liveProposal={live.proposal}
+              routeColors={routeColors}
               routes={activeRoutes}
               showTraffic={activeRoutes.length > 0}
             />
@@ -802,6 +835,16 @@ export default function DashboardPage() {
               <span className="rp-chip"><span className="h-2 w-2 rounded-full bg-sky-400" />{t('dash.legend.onway')}</span>
               <span className="rp-chip"><span className="h-2 w-2 rounded-full bg-green-500" />{t('dash.legend.delivered')}</span>
             </div>
+            <LiveOptimizationHud
+              applying={applyingLive}
+              onApplyAll={() => void applyAllLive()}
+              routes={activeRoutes.map((route) => ({
+                id: route.id,
+                courierName: route.courier.name,
+                color: routeColors[route.id] ?? '#55f26b',
+              }))}
+              state={live}
+            />
             <Sheet
               foot={sheetFoot}
               grabberLabel={t('dash.sheet.grabber')}
@@ -1179,6 +1222,10 @@ export default function DashboardPage() {
                         onUndo={undoRouteRecalculation}
                         onStatusChange={updateRouteStatus}
                         route={route}
+                        color={routeColors[route.id]}
+                        liveRoute={liveByRoute.get(route.id)}
+                        onLiveApply={applyLiveRoute}
+                        applyingLive={applyingLive}
                       />
                     ))
                   )}
@@ -1282,7 +1329,15 @@ function RouteSummary({
   onUndo,
   onStatusChange,
   route,
+  color,
+  liveRoute,
+  onLiveApply,
+  applyingLive = false,
 }: {
+  color?: string | undefined;
+  liveRoute?: LiveRouteProposal | undefined;
+  onLiveApply?: ((routeId: string) => Promise<void>) | undefined;
+  applyingLive?: boolean;
   isRecalculating: boolean;
   isUndoing: boolean;
   onRecalculate: (routeId: string) => Promise<void>;
@@ -1323,7 +1378,12 @@ function RouteSummary({
     <article className="rp-route-summary">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-semibold">{route.courier.name}</p>
+          <p className="font-semibold">
+            {color ? (
+              <span aria-hidden="true" className="rp-route-swatch" style={{ background: color }} />
+            ) : null}
+            {route.courier.name}
+          </p>
           <p className="mt-0.5 text-xs tabular-nums text-[var(--ink-soft)]">
             {t('route.meta', {
               id: route.id.slice(0, 8),
@@ -1391,11 +1451,19 @@ function RouteSummary({
           )}
         </div>
       ) : null}
-      <RouteImprovementCheck
-        canCheck={canRecalculate && hasFreshCourierLocation}
-        onApply={onRecalculate}
-        routeId={route.id}
-      />
+      {liveRoute && canRecalculate ? (
+        <LiveRouteSuggestion
+          applying={applyingLive}
+          onApply={() => void onLiveApply?.(route.id)}
+          proposal={liveRoute}
+        />
+      ) : (
+        <RouteImprovementCheck
+          canCheck={canRecalculate && hasFreshCourierLocation}
+          onApply={onRecalculate}
+          routeId={route.id}
+        />
+      )}
       {route.status === 'PLANNED' || route.status === 'IN_PROGRESS' ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {route.status === 'PLANNED' ? (

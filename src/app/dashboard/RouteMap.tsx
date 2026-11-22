@@ -6,6 +6,7 @@ import MapLibreRouteMap, {
   type MapInset,
   type MapRoute,
 } from "@/components/MapLibreRouteMap";
+import type { LiveProposal } from "@/lib/liveOptimization";
 
 interface RouteMapProps {
   showTraffic?: boolean;
@@ -16,6 +17,8 @@ interface RouteMapProps {
   onMapClick?: (coordinate: { lat: number; lng: number }) => void;
   className?: string;
   inset?: MapInset;
+  routeColors?: Record<string, string>;
+  liveProposal?: LiveProposal | null;
 }
 
 export default function RouteMap(props: RouteMapProps) {

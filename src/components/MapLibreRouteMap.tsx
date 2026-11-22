@@ -10,6 +10,7 @@ import { getPastoMinimumZoom } from '@/lib/mapViewport';
 import TrafficOverlay from './TrafficOverlay';
 import { isRoadGeometryProvider } from '@/lib/roadGeometry';
 import { useT } from '@/lib/preferences';
+import { changedStopIds, type LiveProposal } from '@/lib/liveOptimization';
 import {
   congestionLabel,
   isSevereTraffic,
@@ -65,6 +66,10 @@ interface MapLibreRouteMapProps {
   trafficMarks?: MapTrafficMark[];
   /** Zona del mapa tapada por la hoja o el panel: la cámara encuadra lo que queda libre. */
   inset?: MapInset;
+  /** Color de cada ruta (por id); sin él todas usan el primero de la paleta. */
+  routeColors?: Record<string, string>;
+  /** Recálculo en vivo: ruta propuesta punteada y paradas que cambian. */
+  liveProposal?: LiveProposal | null;
 }
 
 export interface MapInset {
@@ -75,8 +80,18 @@ export interface MapInset {
 }
 
 const BASE_FIT_PADDING = 36;
+const DEFAULT_ROUTE_COLOR = '#55f26b';
+// Marching-ants frames: shifting the dash pattern makes the proposed route look like it flows.
+const DASH_FRAMES: number[][] = [
+  [0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0],
+  [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1],
+  [0, 3.5, 3, 0.5],
+];
 
 interface MapData {
+  focusRouteId?: string | null;
+  routeColors?: Record<string, string>;
+  live?: LiveProposal | null;
   couriers: MapCourier[];
   pendingPoints: MapDeliveryPoint[];
   routes: MapRoute[];
@@ -95,6 +110,10 @@ export interface MapTrafficMark {
 type MapStatus = 'loading' | 'slow' | 'unavailable' | 'ready';
 
 interface MapProperties {
+  dim?: boolean;
+  ring?: string;
+  kind?: string;
+  routeId?: string;
   color?: string;
   label?: string;
   route?: 'SELECTED' | 'BASELINE';
@@ -134,6 +153,8 @@ export default function MapLibreRouteMap({
   showTraffic = false,
   trafficMarks = [],
   inset,
+  routeColors,
+  liveProposal = null,
 }: MapLibreRouteMapProps) {
   const t = useT();
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
@@ -145,7 +166,8 @@ export default function MapLibreRouteMap({
   const cameraKeyRef = useRef<string | null>(null);
   const dataRef = useRef<MapData>({ couriers, pendingPoints, routes, selectedCoordinate, trafficMarks });
   dataRef.current = {
-    couriers, pendingPoints, routes: selectedRoute ? [selectedRoute] : [], selectedCoordinate, trafficMarks, inset,
+    couriers, pendingPoints, routes, selectedCoordinate, trafficMarks, inset,
+    focusRouteId: selectedRouteId, routeColors, live: liveProposal,
   };
 
   useEffect(() => {
@@ -281,7 +303,7 @@ export default function MapLibreRouteMap({
     }
 
     updateMapData(map, dataRef.current, cameraKeyRef);
-  }, [couriers, pendingPoints, routes, selectedCoordinate, selectedRouteId, trafficMarks, inset?.top, inset?.right, inset?.bottom, inset?.left]);
+  }, [couriers, pendingPoints, routes, selectedCoordinate, selectedRouteId, trafficMarks, routeColors, liveProposal, inset?.top, inset?.right, inset?.bottom, inset?.left]);
 
   // Una optimización nueva se dibuja de la salida a la última parada (una vez por sesión).
   const drawKey = selectedRoute?.optimization?.computedAt
@@ -312,17 +334,61 @@ export default function MapLibreRouteMap({
       const progress = Math.min(1, (now - started) / DRAW_DURATION_MS);
       const eased = 1 - Math.pow(1 - progress, 3);
       const visible = coordinates.slice(0, Math.max(2, Math.ceil(eased * coordinates.length)));
-      source.setData(
-        featureCollection([
-          { type: 'Feature', geometry: { type: 'LineString', coordinates: visible }, properties: { route: 'SELECTED' } },
-        ])
-      );
+      const current = dataRef.current;
+      const features: MapFeature[] = [];
+      for (const route of current.routes) {
+        const full = route.geometry?.coordinates;
+        if (!full || full.length < 2 || !isRoadGeometryProvider(route.geometryProvider)) continue;
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: route.id === selectedRoute?.id ? visible : full },
+          properties: {
+            route: 'SELECTED',
+            color: current.routeColors?.[route.id] ?? DEFAULT_ROUTE_COLOR,
+            dim: Boolean(current.focusRouteId) && current.focusRouteId !== route.id,
+            routeId: route.id,
+          },
+        });
+      }
+      source.setData(featureCollection(features));
       if (progress < 1) frame = requestAnimationFrame(step);
       else updateMapData(map, dataRef.current, cameraKeyRef);
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [drawKey, mapStatus, selectedRoute?.geometry?.coordinates]);
+  }, [drawKey, mapStatus, selectedRoute?.id, selectedRoute?.geometry?.coordinates]);
+
+  // Recálculo en vivo: la ruta propuesta «fluye» y las paradas afectadas laten.
+  const liveActive = Boolean(liveProposal?.changed);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || mapStatus !== 'ready' || !liveActive) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let frame = 0;
+    let last = 0;
+    const started = performance.now();
+    const step = (now: number) => {
+      if (now - last >= 70) {
+        last = now;
+        const seconds = (now - started) / 1000;
+        if (map.getLayer('live-proposal')) {
+          map.setPaintProperty(
+            'live-proposal',
+            'line-dasharray',
+            DASH_FRAMES[Math.floor(seconds * 12) % DASH_FRAMES.length]
+          );
+        }
+        if (map.getLayer('live-stops-halo')) {
+          const phase = (seconds % 1.6) / 1.6;
+          map.setPaintProperty('live-stops-halo', 'circle-radius', 12 + 14 * phase);
+          map.setPaintProperty('live-stops-halo', 'circle-opacity', 0.5 * (1 - phase));
+        }
+      }
+      frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [liveActive, mapStatus]);
 
   // Al pasar el puntero sobre una parada: minutos del tramo que llega a ella desde la anterior.
   useEffect(() => {
@@ -336,7 +402,10 @@ export default function MapLibreRouteMap({
     });
     const show = (event: maplibregl.MapLayerMouseEvent) => {
       const stopId = event.features?.[0]?.properties?.stopId as string | undefined;
-      const optimization = dataRef.current.routes[0]?.optimization;
+      const hoveredRoute = event.features?.[0]?.properties?.routeId as string | undefined;
+      const optimization = (
+        dataRef.current.routes.find((item) => item.id === hoveredRoute) ?? dataRef.current.routes[0]
+      )?.optimization;
       const leg = stopId ? optimization?.legs.find((item) => item.toStop === stopId) : undefined;
       if (!leg || leg.minutes === null) {
         popup.remove();
@@ -352,11 +421,11 @@ export default function MapLibreRouteMap({
       map.getCanvas().style.cursor = '';
       popup.remove();
     };
-    map.on('mousemove', 'delivery-points', show);
-    map.on('mouseleave', 'delivery-points', hide);
+    map.on('mousemove', 'route-stops', show);
+    map.on('mouseleave', 'route-stops', hide);
     return () => {
-      map.off('mousemove', 'delivery-points', show);
-      map.off('mouseleave', 'delivery-points', hide);
+      map.off('mousemove', 'route-stops', show);
+      map.off('mouseleave', 'route-stops', hide);
       popup.remove();
     };
   }, [t]);
@@ -402,11 +471,12 @@ export default function MapLibreRouteMap({
       ) : null}
       {routes.length > 1 && selectedRoute ? (
         <select
-          aria-label="Recorrido mostrado"
+          aria-label="Recorrido resaltado"
           className="rp-button rp-button-map absolute right-3 top-3 z-10 max-w-[45%] text-xs"
-          value={selectedRoute.id}
-          onChange={(event) => setSelectedRouteId(event.target.value)}
+          value={selectedRouteId ?? ''}
+          onChange={(event) => setSelectedRouteId(event.target.value || null)}
         >
+          <option value="">Todas las rutas</option>
           {routes.map((route) => (
             <option key={route.id} value={route.id}>
               {route.courier.name} · {route.deliveryPoints.length} paradas
@@ -506,8 +576,8 @@ function addMapLayers(map: MapLibreMap): void {
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': '#06130b',
-        'line-opacity': 0.95,
-        'line-width': 10,
+        'line-opacity': ['case', ['get', 'dim'], 0.35, 0.95],
+        'line-width': 9,
       },
     });
     map.addLayer({
@@ -517,10 +587,77 @@ function addMapLayers(map: MapLibreMap): void {
       filter: ['==', ['get', 'route'], 'SELECTED'],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': '#55f26b',
-        'line-opacity': 1,
-        'line-width': 5.5,
+        'line-color': ['coalesce', ['get', 'color'], DEFAULT_ROUTE_COLOR],
+        'line-opacity': ['case', ['get', 'dim'], 0.35, 1],
+        'line-width': 5,
         'line-blur': 0.15,
+      },
+    });
+    ensureArrowImage(map);
+    map.addLayer({
+      id: 'delivery-route-arrows',
+      type: 'symbol',
+      source: 'delivery-directions',
+      filter: ['==', ['get', 'route'], 'SELECTED'],
+      layout: {
+        'symbol-placement': 'line',
+        'symbol-spacing': 72,
+        'icon-image': 'route-arrow',
+        'icon-size': 0.5,
+        'icon-allow-overlap': true,
+        'icon-rotation-alignment': 'map',
+      },
+      paint: { 'icon-color': '#06130b', 'icon-opacity': ['case', ['get', 'dim'], 0.25, 0.85] },
+    });
+  }
+
+  if (!map.getSource('live-proposal')) {
+    // Recálculo en vivo: la ruta propuesta, punteada y animada, sobre la actual.
+    map.addSource('live-proposal', { type: 'geojson', data: emptyFeatureCollection() });
+    map.addLayer({
+      id: 'live-proposal-casing',
+      type: 'line',
+      source: 'live-proposal',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      // El desplazamiento la dibuja junto a la ruta actual, como una gemela punteada.
+      paint: { 'line-color': '#ffffff', 'line-opacity': 0.4, 'line-width': 8, 'line-offset': 6 },
+    });
+    map.addLayer({
+      id: 'live-proposal',
+      type: 'line',
+      source: 'live-proposal',
+      layout: { 'line-cap': 'butt', 'line-join': 'round' },
+      paint: {
+        'line-color': ['coalesce', ['get', 'color'], '#ffffff'],
+        'line-width': 4,
+        'line-offset': 6,
+        'line-dasharray': [2, 2],
+      },
+    });
+  }
+  if (!map.getSource('live-stops')) {
+    map.addSource('live-stops', { type: 'geojson', data: emptyFeatureCollection() });
+    map.addLayer({
+      id: 'live-stops-halo',
+      type: 'circle',
+      source: 'live-stops',
+      paint: {
+        'circle-color': ['coalesce', ['get', 'color'], '#ffffff'],
+        'circle-opacity': 0.4,
+        'circle-radius': 18,
+        'circle-blur': 0.6,
+      },
+    });
+    map.addLayer({
+      id: 'live-stops',
+      type: 'circle',
+      source: 'live-stops',
+      paint: {
+        'circle-color': '#ffffff',
+        'circle-opacity': 0.18,
+        'circle-radius': 14,
+        'circle-stroke-color': ['coalesce', ['get', 'color'], '#ffffff'],
+        'circle-stroke-width': ['case', ['==', ['get', 'kind'], 'moved'], 4, 2.5],
       },
     });
   }
@@ -592,6 +729,31 @@ function addMapLayers(map: MapLibreMap): void {
     addClusters(map, 'courier-points');
   }
 
+  if (!map.getSource('route-stops')) {
+    // Paradas de una ruta: nunca se agrupan, para que se lea el número y el color de cada una.
+    map.addSource('route-stops', { type: 'geojson', data: emptyFeatureCollection() });
+    map.addLayer({
+      id: 'route-stops',
+      type: 'circle',
+      source: 'route-stops',
+      paint: {
+        'circle-color': ['coalesce', ['get', 'color'], '#a855f7'],
+        'circle-radius': 10,
+        'circle-stroke-color': ['coalesce', ['get', 'ring'], '#06130b'],
+        'circle-stroke-width': 3,
+        'circle-opacity': ['case', ['get', 'dim'], 0.45, 1],
+        'circle-stroke-opacity': ['case', ['get', 'dim'], 0.45, 1],
+      },
+    });
+    map.addLayer({
+      id: 'route-stop-numbers',
+      type: 'symbol',
+      source: 'route-stops',
+      layout: { 'text-field': ['get', 'label'], 'text-size': 11, 'text-allow-overlap': true },
+      paint: { 'text-color': '#06130b' },
+    });
+  }
+
   if (!map.getSource('delivery-points')) {
     map.addSource('delivery-points', {
       type: 'geojson',
@@ -608,12 +770,84 @@ function addMapLayers(map: MapLibreMap): void {
       paint: {
         'circle-color': ['coalesce', ['get', 'color'], '#a855f7'],
         'circle-radius': 8,
-        'circle-stroke-color': '#f5d0fe',
+        'circle-stroke-color': ['coalesce', ['get', 'ring'], '#f5d0fe'],
         'circle-stroke-width': 3,
+        'circle-opacity': ['case', ['get', 'dim'], 0.45, 1],
+        'circle-stroke-opacity': ['case', ['get', 'dim'], 0.45, 1],
       },
     });
     addClusters(map, 'delivery-points');
   }
+}
+
+/** Triangle used as a direction arrow; SDF so each route can tint it. */
+function ensureArrowImage(map: MapLibreMap): void {
+  if (typeof map.hasImage !== 'function' || typeof map.addImage !== 'function') return;
+  if (map.hasImage('route-arrow')) return;
+  const size = 32;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d');
+  if (!context) return;
+  context.fillStyle = '#ffffff';
+  context.beginPath();
+  context.moveTo(size * 0.82, size / 2);
+  context.lineTo(size * 0.22, size * 0.2);
+  context.lineTo(size * 0.38, size / 2);
+  context.lineTo(size * 0.22, size * 0.8);
+  context.closePath();
+  context.fill();
+  map.addImage('route-arrow', context.getImageData(0, 0, size, size), { sdf: true });
+}
+
+function stopRingColor(status: MapDeliveryPoint['status']): string {
+  if (status === 'DELIVERED') return '#22c55e';
+  if (status === 'FAILED') return '#f43f5e';
+  return '#06130b';
+}
+
+/** Draws the live proposal: dashed new routes plus the stops that move or change order. */
+function updateLiveLayers(map: MapLibreMap, data: MapData): void {
+  const lines: MapFeature[] = [];
+  const stops: MapFeature[] = [];
+  const live = data.live;
+  if (live?.changed) {
+    const colorOf = (routeId: string) => data.routeColors?.[routeId] ?? DEFAULT_ROUTE_COLOR;
+    const where = new Map<string, [number, number]>();
+    for (const route of data.routes) {
+      for (const point of route.deliveryPoints) where.set(point.id, [point.lng, point.lat]);
+    }
+    for (const item of live.routes) {
+      const coordinates = item.geometry?.coordinates;
+      if (!item.changed || !coordinates || coordinates.length < 2) continue;
+      if (!coordinates.every(([lng, lat]) => isWithinPastoServiceArea(lat, lng))) continue;
+      lines.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates },
+        properties: { color: colorOf(item.routeId), routeId: item.routeId },
+      });
+    }
+    const moved = new Set<string>();
+    for (const move of live.moves) {
+      const at = where.get(move.stopId);
+      if (!at) continue;
+      moved.add(move.stopId);
+      const feature = pointFeature(at, colorOf(move.toRouteId), 'moved');
+      feature.properties.kind = 'moved';
+      stops.push(feature);
+    }
+    for (const stopId of changedStopIds(live)) {
+      const at = where.get(stopId);
+      if (!at || moved.has(stopId)) continue;
+      const owner = live.routes.find((item) => item.proposedOrder.includes(stopId));
+      const feature = pointFeature(at, colorOf(owner?.routeId ?? ''), 'reordered');
+      feature.properties.kind = 'reordered';
+      stops.push(feature);
+    }
+  }
+  (map.getSource('live-proposal') as GeoJSONSource | undefined)?.setData(featureCollection(lines));
+  (map.getSource('live-stops') as GeoJSONSource | undefined)?.setData(featureCollection(stops));
 }
 
 function addClusters(map: MapLibreMap, source: string): void {
@@ -657,6 +891,7 @@ function updateMapData(
   const labelFeatures: MapFeature[] = [];
   const courierFeatures: MapFeature[] = [];
   const deliveryFeatures: MapFeature[] = [];
+  const routeStopFeatures: MapFeature[] = [];
   const focusCoordinates: Array<[number, number]> = [];
 
   for (const courier of data.couriers) {
@@ -669,13 +904,17 @@ function updateMapData(
     }
 
     const coordinate: [number, number] = [courier.currentLng, courier.currentLat];
-    if (data.routes.length === 0 || data.routes[0]?.courier.id === courier.id)
+    if (data.routes.length === 0 || data.routes.some((item) => item.courier.id === courier.id))
       focusCoordinates.push(coordinate);
-    courierFeatures.push(pointFeature(coordinate, '#06b6d4', courier.name));
-    labelFeatures.push(pointFeature(coordinate, '#06b6d4', courier.name));
+    const ownRoute = data.routes.find((item) => item.courier.id === courier.id);
+    const courierColor = ownRoute ? (data.routeColors?.[ownRoute.id] ?? DEFAULT_ROUTE_COLOR) : '#06b6d4';
+    courierFeatures.push(pointFeature(coordinate, courierColor, courier.name));
+    labelFeatures.push(pointFeature(coordinate, courierColor, courier.name));
   }
 
   for (const route of data.routes) {
+    const routeColor = data.routeColors?.[route.id] ?? DEFAULT_ROUTE_COLOR;
+    const dimmed = Boolean(data.focusRouteId) && data.focusRouteId !== route.id;
     const currentCourier =
       data.couriers.find((courier) => courier.id === route.courier.id) ?? route.courier;
 
@@ -706,6 +945,9 @@ function updateMapData(
         geometry: { type: 'LineString', coordinates: geometryCoordinates },
         properties: {
           route: 'SELECTED',
+          color: routeColor,
+          dim: dimmed,
+          routeId: route.id,
         },
       });
     }
@@ -714,16 +956,20 @@ function updateMapData(
       const coordinate: [number, number] = [point.lng, point.lat];
       focusCoordinates.push(coordinate);
       const label = `${(point.sequenceIndex ?? index) + 1}`;
-      const color = deliveryPointColor(point.status);
-      const stopFeature = pointFeature(coordinate, color, label);
+      const stopFeature = pointFeature(coordinate, routeColor, label);
       stopFeature.properties.stopId = point.id;
-      deliveryFeatures.push(stopFeature);
-      labelFeatures.push(pointFeature(coordinate, color, label));
+      stopFeature.properties.routeId = route.id;
+      stopFeature.properties.ring = stopRingColor(point.status);
+      stopFeature.properties.dim = dimmed;
+      stopFeature.properties.kind = 'route-stop';
+      routeStopFeatures.push(stopFeature);
+      labelFeatures.push(pointFeature(coordinate, routeColor, label));
     }
   }
 
+  const assignedIds = new Set(data.routes.flatMap((route) => route.deliveryPoints.map((p) => p.id)));
   for (const point of data.pendingPoints) {
-    if (!isWithinPastoServiceArea(point.lat, point.lng)) {
+    if (assignedIds.has(point.id) || !isWithinPastoServiceArea(point.lat, point.lng)) {
       continue;
     }
     const coordinate: [number, number] = [point.lng, point.lat];
@@ -750,8 +996,11 @@ function updateMapData(
   labelsSource?.setData(featureCollection(labelFeatures));
   couriersSource?.setData(featureCollection(courierFeatures));
   deliveriesSource?.setData(featureCollection(deliveryFeatures));
+  (map.getSource('route-stops') as GeoJSONSource | undefined)?.setData(featureCollection(routeStopFeatures));
 
-  const optimization = data.routes[0]?.optimization ?? null;
+  const focusRoute = data.routes.find((item) => item.id === data.focusRouteId) ?? data.routes[0];
+  updateLiveLayers(map, data);
+  const optimization = focusRoute?.optimization ?? null;
   const baseline = optimization?.baselineGeometry?.coordinates;
   const baselineFeatures: MapFeature[] =
     baseline && baseline.length > 1 && baseline.every(([lng, lat]) => isWithinPastoServiceArea(lat, lng))
@@ -866,19 +1115,6 @@ function pointFeature(coordinate: [number, number], color: string, label: string
     geometry: { type: 'Point', coordinates: coordinate },
     properties: { color, label },
   };
-}
-
-function deliveryPointColor(status: MapDeliveryPoint['status']): string {
-  switch (status) {
-    case 'DELIVERED':
-      return '#22c55e';
-    case 'FAILED':
-      return '#f43f5e';
-    case 'EN_ROUTE':
-      return '#38bdf8';
-    default:
-      return '#f59e0b';
-  }
 }
 
 function emptyFeatureCollection(): MapFeatureCollection {
