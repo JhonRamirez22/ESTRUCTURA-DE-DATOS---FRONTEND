@@ -31,6 +31,9 @@ const NAVIGATION_REFRESH_INTERVAL_MS = 15_000;
 // Revisión automática: solo consulta tráfico y propone; no cambia el orden guardado.
 const PROPOSAL_REFRESH_INTERVAL_MS = 5_000;
 const CELEBRATION_MS = 3_200;
+// Optimización automática: solo se aplica un reorden con ahorro real y no más de uno cada 30 s.
+const AUTO_MIN_SAVING_MINUTES = 1;
+const AUTO_COOLDOWN_MS = 30_000;
 const ETA_REFRESH_INTERVAL_MS = 15_000;
 const OFFLINE_RETRY_INTERVAL_MS = 10_000;
 
@@ -108,6 +111,14 @@ interface TrafficObservation extends MapTrafficMark {
   observedAt: string;
 }
 
+interface AppliedOptimization {
+  at: number;
+  auto: boolean;
+  savedMinutes: number | null;
+  fromMinutes: number | null;
+  toMinutes: number | null;
+}
+
 interface CourierProfile {
   status: "AVAILABLE" | "ON_ROUTE" | "OFFLINE";
   currentLat: number | null;
@@ -151,6 +162,11 @@ export default function RepartidorPage() {
   const [appliedNotice, setAppliedNotice] = useState<string | null>(null);
   const proposalInFlight = useRef(false);
   const [dismissedProposal, setDismissedProposal] = useState<string | null>(null);
+  const [autoOptimize, setAutoOptimize] = useState(true);
+  const [optimizations, setOptimizations] = useState<AppliedOptimization[]>([]);
+  const [lastReviewAt, setLastReviewAt] = useState<number | null>(null);
+  const lastAutoAt = useRef(0);
+  const autoReview = useRef<(candidate: RouteProposal) => void>(() => undefined);
   const [stopEtas, setStopEtas] = useState<StopEta[]>([]);
   const [historySimulated, setHistorySimulated] = useState(false);
   // Cola FIFO: las entregas marcadas sin conexión se reenvían en orden al recuperarla.
@@ -295,7 +311,7 @@ export default function RepartidorPage() {
     if (sent > 0) await loadAssignedRoute();
   }, [loadAssignedRoute, offlineUpdates, sendDeliveryStatus]);
 
-  const applyProposal = async (): Promise<void> => {
+  const applyProposal = async (auto = false, source: RouteProposal | null = proposal): Promise<void> => {
     if (!assignedRoute || applying) return;
     routeGeneration.current += 1;
     setApplying(true);
@@ -310,7 +326,22 @@ export default function RepartidorPage() {
       setNavigation(null);
       setNavigationError(null);
       setProposal(null);
-      setAppliedNotice("Ruta optimizada aplicada: el orden de tus paradas ya está actualizado.");
+      const saved = source?.improvementMinutes ?? null;
+      setOptimizations((current) => [
+        ...current.slice(-19),
+        {
+          at: Date.now(),
+          auto,
+          savedMinutes: saved !== null && saved > 0 ? saved : null,
+          fromMinutes: source?.baselineDurationMinutes ?? null,
+          toMinutes: source?.estimatedDurationMinutes ?? null,
+        },
+      ]);
+      setAppliedNotice(
+        auto
+          ? `Ruta optimizada automáticamente${saved !== null && saved >= 1 ? `: ahorras unos ${Math.round(saved)} min` : ""}. El nuevo orden ya está en tu lista.`
+          : "Ruta optimizada aplicada: el orden de tus paradas ya está actualizado.",
+      );
       setCelebrating(true);
       void refreshNavigation(result.route.id).catch(() => undefined);
     } catch (applyError) {
@@ -319,6 +350,25 @@ export default function RepartidorPage() {
       routeGeneration.current += 1;
       setApplying(false);
     }
+  };
+
+  autoReview.current = (candidate: RouteProposal) => {
+    const worth = candidate.worthApplying ?? candidate.changed;
+    const saving = candidate.improvementMinutes ?? candidate.aiOrder?.savingMinutes ?? 0;
+    if (
+      !autoOptimize ||
+      applying ||
+      !assignedRoute ||
+      !worth ||
+      saving < AUTO_MIN_SAVING_MINUTES ||
+      activeDeliveryPoints.length < 2 ||
+      candidate.orderedDeliveryPointIds.join(",") === dismissedProposal ||
+      Date.now() - lastAutoAt.current < AUTO_COOLDOWN_MS
+    ) {
+      return;
+    }
+    lastAutoAt.current = Date.now();
+    void applyProposal(true, candidate);
   };
 
   useEffect(() => {
@@ -370,6 +420,8 @@ export default function RepartidorPage() {
         if (proposalResponse.ok) {
           const payload = (await proposalResponse.json()) as RouteProposal;
           setProposal(payload);
+          setLastReviewAt(Date.now());
+          autoReview.current(payload);
           setProposalStatus(
             payload.changed
               ? null
@@ -831,6 +883,52 @@ export default function RepartidorPage() {
               ) : null}
             </div>
 
+            <section aria-label="Optimización de la ruta" className="rl-board mt-4 !p-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold !text-[var(--board-ink)]">Optimización automática</h3>
+                <label className="flex cursor-pointer items-center gap-2 text-xs !text-[var(--board-soft)]">
+                  <input
+                    checked={autoOptimize}
+                    className="h-4 w-4"
+                    onChange={(event) => setAutoOptimize(event.target.checked)}
+                    type="checkbox"
+                  />
+                  {autoOptimize ? "Activada" : "Apagada"}
+                </label>
+              </div>
+              <p className="mt-1 text-xs leading-5 !text-[var(--board-soft)]" aria-live="polite">
+                {lastReviewAt
+                  ? `Revisada a las ${new Date(lastReviewAt).toLocaleTimeString("es-CO")} con el tráfico de ahora, cada ${PROPOSAL_REFRESH_INTERVAL_MS / 1000} s.`
+                  : "Revisando la ruta con el tráfico de ahora…"}
+              </p>
+              <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <dt className="text-[11px] !text-[var(--board-soft)]">Mejoras aplicadas</dt>
+                  <dd className="text-lg font-semibold tabular-nums !text-[var(--board-ink)]">{optimizations.length}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] !text-[var(--board-soft)]">Ahorro acumulado</dt>
+                  <dd className="text-lg font-semibold tabular-nums !text-[var(--board-ink)]">
+                    {Math.round(optimizations.reduce((sum, item) => sum + (item.savedMinutes ?? 0), 0))} min
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] !text-[var(--board-soft)]">Tiempo estimado</dt>
+                  <dd className="text-lg font-semibold tabular-nums !text-[var(--board-ink)]">
+                    {assignedRoute.estimatedDurationMinutes !== undefined ? `${Math.ceil(assignedRoute.estimatedDurationMinutes)} min` : "—"}
+                  </dd>
+                </div>
+              </dl>
+              {optimizations.length > 0 ? (
+                <p className="mt-2 text-xs !text-[var(--board-soft)]">
+                  Última: {new Date(optimizations[optimizations.length - 1]!.at).toLocaleTimeString("es-CO")} ·{" "}
+                  {optimizations[optimizations.length - 1]!.auto ? "automática" : "manual"}
+                  {optimizations[optimizations.length - 1]!.savedMinutes !== null
+                    ? ` · ahorró ~${Math.round(optimizations[optimizations.length - 1]!.savedMinutes!)} min`
+                    : ""}
+                </p>
+              ) : null}
+            </section>
             {proposal && (proposal.worthApplying ?? proposal.changed) && proposal.orderedDeliveryPointIds.join(',') !== dismissedProposal && activeDeliveryPoints.length > 0 ? (
               <div className="rl-notice is-ok route-proposal mt-4" role="status">
                 <div className="min-w-0 flex-1">

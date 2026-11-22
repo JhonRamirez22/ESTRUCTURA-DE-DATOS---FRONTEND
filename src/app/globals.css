@@ -836,8 +836,13 @@ a {
   max-width: calc(100vw - 32px);
 }
 /* La base compartida remapea utilidades de las pantallas existentes sin alterar contratos HTTP. */
+.rp-courier {
+  padding: 12px clamp(12px, 3vw, 32px) 24px;
+}
 .rp-courier > section {
-  max-width: 900px;
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
 }
 .rp-courier h1 {
   max-width: 28ch;

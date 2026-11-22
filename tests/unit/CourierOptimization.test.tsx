@@ -25,7 +25,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('propone la ruta cada 5 s sin cambiarla; solo Aplicar recalcula y actualiza mapa/lista', async () => {
+it('revisa cada 5 s y aplica sola una mejora real, mostrando el ahorro y las mejoras acumuladas', async () => {
   request.mockReset();
   vi.stubGlobal('localStorage', { removeItem: vi.fn() });
   const points = ['first', 'second'].map((id, sequenceIndex) => ({
@@ -88,18 +88,21 @@ it('propone la ruta cada 5 s sin cambiarla; solo Aplicar recalcula y actualiza m
     '/api/rutas/assigned/propuesta',
     expect.objectContaining({ method: 'POST', body: '{}' })
   );
-  expect(request.mock.calls.some(([url]) => String(url).endsWith('/recalcular'))).toBe(false);
-  expect(screen.getByTestId('courier-map').textContent).toBe('first,second');
-  expect(screen.queryByRole('button', { name: 'Optimizar con tráfico e IA' })).toBeNull();
-  expect(screen.getByText(/Ahorras unos 3 min/)).toBeTruthy();
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Aplicar ruta' })));
   expect(request).toHaveBeenCalledWith(
     '/api/rutas/assigned/recalcular',
     expect.objectContaining({ method: 'POST', body: '{}' })
   );
   expect(screen.getByTestId('courier-map').textContent).toBe('second,first');
   expect(screen.getAllByRole('listitem')[0].textContent).toContain('Dirección second');
-  expect(screen.getByText(/Ruta optimizada aplicada/)).toBeTruthy();
+  expect(screen.getByText(/Ruta optimizada automáticamente: ahorras unos 3 min/)).toBeTruthy();
+  expect(screen.getByText('Mejoras aplicadas').nextSibling?.textContent).toBe('1');
+});
+
+it('una mejora menor de 1 min no se aplica sola: queda como propuesta manual', async () => {
+  mockRoute({ worthApplying: true, improvementMinutes: 0.9 });
+  await act(async () => render(<RepartidorPage />));
+  expect(request.mock.calls.some(([url]) => String(url).endsWith('/recalcular'))).toBe(false);
+  expect(screen.getByText(/Ahorras unos 1 min/)).toBeTruthy();
 });
 
 it('sin ruta asignada no ofrece optimización ni crea recorridos', async () => {
@@ -148,7 +151,7 @@ it('una mejora por debajo del mínimo no molesta al repartidor', async () => {
 });
 
 it('«Ahora no» oculta la propuesta sin recalcular la ruta', async () => {
-  mockRoute({ worthApplying: true });
+  mockRoute({ worthApplying: true, improvementMinutes: 0.9 });
   await act(async () => render(<RepartidorPage />));
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Ahora no' })));
   expect(screen.queryByRole('button', { name: 'Aplicar ruta' })).toBeNull();
