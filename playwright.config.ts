@@ -6,7 +6,7 @@ import { E2E_AUTH_SECRET, E2E_DISPATCHER_CODE } from './tests/e2e/auth';
 
 const frontendRoot = dirname(fileURLToPath(import.meta.url));
 const backendRoot = resolve(
-  process.env.PLAYWRIGHT_BACKEND_ROOT ?? resolve(frontendRoot, '../ESTRUCTURA-DE-DATOS---BACKEND')
+  process.env.PLAYWRIGHT_BACKEND_ROOT ?? resolve(frontendRoot, '../../BACKEND/ESTRUCTURA-DE-DATOS---BACKEND')
 );
 if (!existsSync(resolve(backendRoot, 'pyproject.toml'))) {
   throw new Error('Define PLAYWRIGHT_BACKEND_ROOT para apuntar al repositorio backend local.');

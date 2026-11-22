@@ -14,7 +14,7 @@ interface TestDataIds {
 export async function cleanupTestData(ids: TestDataIds): Promise<void> {
   const backendRoot = resolve(
     process.env.PLAYWRIGHT_BACKEND_ROOT ??
-      resolve(dirname(fileURLToPath(import.meta.url)), "../../../ESTRUCTURA-DE-DATOS---BACKEND")
+      resolve(dirname(fileURLToPath(import.meta.url)), "../../../../BACKEND/ESTRUCTURA-DE-DATOS---BACKEND")
   );
   const args = [
     "run",
