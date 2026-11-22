@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import AppShell from '@/components/AppShell';
+import { AuditLog, GeneralReports } from '@/components/AuditExtras';
 import { SessionChangeNotice } from '@/components/SessionChangeNotice';
 import { apiFetch, apiJson, ApiRequestError } from '@/lib/apiClient';
 import {
@@ -221,6 +222,8 @@ export default function AuditPage() {
             <p className="mt-5 text-xs leading-5 text-[var(--ink-soft)]">{t('audit.privacy')}</p>
           </section>
         </div>
+        <GeneralReports />
+        <AuditLog />
       </main>
     </AppShell>
   );

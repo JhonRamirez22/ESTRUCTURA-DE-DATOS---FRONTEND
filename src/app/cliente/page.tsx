@@ -11,6 +11,8 @@ import CustomerOrderChat from "@/components/CustomerOrderChat";
 import { RouteLine, type LineStop } from "@/components/RouteLine";
 import Sheet, { type SheetLayout } from "@/components/Sheet";
 import type { MapInset } from "@/components/MapLibreRouteMap";
+import { formatBogota } from "@/lib/history";
+import type { MessageKey } from "@/lib/i18n";
 
 const TrackingMap = dynamic(() => import("@/components/MapLibreRouteMap"), {
   ssr: false,
@@ -26,6 +28,8 @@ interface TrackingData {
   status: "REQUESTED" | "PENDING" | "EN_ROUTE" | "DELIVERED" | "FAILED";
   address: string;
   coordinates: { lat: number; lng: number };
+  milestones?: Array<{ type: string; at: string }>;
+  scheduledFor?: string | null;
   route: {
     id: string;
     status: "PLANNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
@@ -56,7 +60,7 @@ interface TrackingData {
 }
 
 export default function ClientePage() {
-  const { t } = usePreferences();
+  const { t, lang } = usePreferences();
   const [guide, setGuide] = useState("");
   const [inset, setInset] = useState<MapInset | undefined>(undefined);
   const [stageWide, setStageWide] = useState(false);
@@ -276,6 +280,25 @@ export default function ClientePage() {
               </p>
             ) : null}
                 <RouteLine label={t("tracking.progress")} selected stops={trackingStages(tracking, t)} />
+                {tracking.scheduledFor ? (
+                  <p className="text-sm">
+                    <span className="font-semibold">{t("tracking.scheduledFor")}: </span>
+                    {formatBogota(tracking.scheduledFor, lang)}
+                  </p>
+                ) : null}
+                {tracking.milestones && tracking.milestones.length > 0 ? (
+                  <div>
+                    <h3 className="text-sm font-semibold">{t("tracking.milestones")}</h3>
+                    <ol className="mt-2 grid gap-1.5 text-sm">
+                      {tracking.milestones.map((milestone) => (
+                        <li className="flex justify-between gap-3" key={`${milestone.type}-${milestone.at}`}>
+                          <span>{milestoneLabel(milestone.type, t)}</span>
+                          <span className="tabular-nums text-[var(--ink-soft)]">{formatBogota(milestone.at, lang)}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : null}
 {lastUpdatedAt ? (
                   <p aria-live="polite" className=" text-xs leading-5">
                     Última consulta {formatQueryTime(lastUpdatedAt)}
@@ -348,6 +371,12 @@ export default function ClientePage() {
 }
 
 /** Cuatro paradas del pedido: dónde va, sin datos de otros envíos. */
+function milestoneLabel(type: string, t: ReturnType<typeof useT>): string {
+  const key = `tracking.milestone.${type}` as MessageKey;
+  const label = t(key);
+  return label === key ? type : label;
+}
+
 function trackingStages(tracking: TrackingData, t: ReturnType<typeof useT>): LineStop[] {
   const delivered = tracking.status === "DELIVERED";
   const failed = tracking.status === "FAILED";

@@ -14,11 +14,11 @@ import { Dock, DockIcon, DockItem, DockLabel } from '@/components/ui/dock';
 import type { MessageKey } from '@/lib/i18n';
 import { usePreferences } from '@/lib/preferences';
 
-type NavKey = 'staff' | 'request' | 'tracking' | 'courier' | 'dispatch' | 'live' | 'orders' | 'team' | 'audit';
+type NavKey = 'staff' | 'request' | 'tracking' | 'courier' | 'dispatch' | 'live' | 'orders' | 'team' | 'audit' | 'history';
 
 interface AppShellProps {
   children: ReactNode;
-  active?: 'home' | 'orders' | 'dispatch' | 'team' | 'audit' | 'courier' | 'tracking' | 'request';
+  active?: 'home' | 'orders' | 'dispatch' | 'team' | 'audit' | 'history' | 'courier' | 'tracking' | 'request';
 }
 
 const navigationBySurface: Record<string, ReadonlyArray<{ href: string; key: NavKey }>> = {
@@ -37,6 +37,7 @@ const navigationBySurface: Record<string, ReadonlyArray<{ href: string; key: Nav
     { href: '/dashboard#en-vivo', key: 'live' },
     { href: '/pedidos', key: 'orders' },
     { href: '/personal', key: 'team' },
+    { href: '/historial', key: 'history' },
     { href: '/auditoria', key: 'audit' },
   ],
 };
@@ -51,12 +52,13 @@ const NAV_ICON: Record<NavKey, 'route' | 'package' | 'search' | 'users'> = {
   orders: 'package',
   team: 'users',
   audit: 'search',
+  history: 'package',
 };
 
 export default function AppShell({ children, active }: AppShellProps) {
   const pathname = usePathname();
   const { t, theme, setTheme, lang, setLang, langNotice, dismissLangNotice } = usePreferences();
-  const dispatcherSurface = active === 'orders' || active === 'dispatch' || active === 'team' || active === 'audit';
+  const dispatcherSurface = active === 'orders' || active === 'dispatch' || active === 'team' || active === 'audit' || active === 'history';
   const operational = dispatcherSurface || active === 'courier';
   const navigation =
     active === 'tracking' || active === 'request'

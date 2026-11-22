@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AppShell from '@/components/AppShell';
 import { usePreferences } from '@/lib/preferences';
+import { scheduleBounds, scheduleToPayload } from '@/lib/history';
 import { formatOrderReference } from '@/lib/formatOrderReference';
 import { isWithinPastoServiceArea, normalizePastoAddress } from '@/lib/pastoArea';
 import type { MapDeliveryPoint } from '@/components/MapLibreRouteMap';
@@ -28,6 +29,7 @@ interface OrderDraft {
   priority: '1' | '2' | '3';
   windowStart: string;
   windowEnd: string;
+  scheduledFor: string;
 }
 
 interface AddressNormalizationStatus {
@@ -59,6 +61,7 @@ export default function OrdersPage() {
     priority: '1',
     windowStart: '',
     windowEnd: '',
+    scheduledFor: '',
   });
   const [pendingPoints, setPendingPoints] = useState<PendingOrderPoint[]>([]);
   const [selectedCoordinate, setSelectedCoordinate] = useState<[number, number] | null>(null);
@@ -288,6 +291,7 @@ export default function OrdersPage() {
           lng,
           orderId: draft.orderId.trim() || `PED-${Date.now()}`,
           priority: Number(draft.priority),
+          ...(scheduleToPayload(draft.scheduledFor) ? { scheduledFor: scheduleToPayload(draft.scheduledFor) } : {}),
           ...(draft.windowStart || draft.windowEnd
             ? {
                 timeWindow: {
@@ -320,6 +324,7 @@ export default function OrdersPage() {
         priority: '1',
         windowStart: '',
         windowEnd: '',
+        scheduledFor: '',
       });
       setSelectedCoordinate(null);
       await loadPendingOrders();
@@ -536,6 +541,19 @@ export default function OrdersPage() {
                   </label>
                 </div>
                 {windowInvalid ? <p className="rl-notice is-error" role="alert">{t('orders.windowInvalid')}</p> : null}
+                <label className="rp-field-label">
+                  {t('orders.schedule')}
+                  <input
+                    aria-describedby="orders-schedule-help"
+                    className="rp-input mt-1.5 px-3 text-[15px] font-normal tabular-nums"
+                    max={scheduleBounds().max}
+                    min={scheduleBounds().min}
+                    onChange={(event) => setDraft((current) => ({ ...current, scheduledFor: event.target.value }))}
+                    type="datetime-local"
+                    value={draft.scheduledFor}
+                  />
+                  <span className="rp-field-help" id="orders-schedule-help">{t('orders.schedule.help')}</span>
+                </label>
                 <div className="text-sm">
                   <span className="font-semibold">{t('orders.coords')}</span>
                   <p className={`mt-1 tabular-nums ${draft.lat && draft.lng ? 'text-[var(--route-ink)]' : 'text-[var(--ink-soft)]'}`}>

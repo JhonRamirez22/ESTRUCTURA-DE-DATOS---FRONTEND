@@ -30,6 +30,7 @@ import Sheet, { type SheetLayout } from '@/components/Sheet';
 import SegmentedTabs from '@/components/SegmentedTabs';
 import { useUndoToast } from '@/components/UndoToast';
 import type { MapInset } from '@/components/MapLibreRouteMap';
+import { formatBogota, splitSchedule, type ScheduleState } from '@/lib/history';
 import type { RouteOptimization } from '@/lib/routeOptimization';
 import { improvementTone, topMoves, type AssignmentImprovement } from '@/lib/assignmentImprovement';
 
@@ -65,6 +66,8 @@ interface DeliveryPoint {
   priority?: number;
   timeWindow?: { start?: string; end?: string } | null;
   routeId?: string | null;
+  scheduledFor?: string | null;
+  scheduleState?: ScheduleState | null;
 }
 
 interface Route {
@@ -89,6 +92,7 @@ interface DashboardData {
   notifications: Notification[];
   notificationsWarning: string | null;
   pendingPoints: DeliveryPoint[];
+  scheduledPoints: DeliveryPoint[];
   routes: Route[];
   metrics: FleetMetrics;
 }
@@ -151,6 +155,7 @@ const EMPTY_DASHBOARD_DATA: DashboardData = {
     notifications: [],
     notificationsWarning: null,
     pendingPoints: [],
+    scheduledPoints: [],
     routes: [],
     metrics: {
       routeCount: 0,
@@ -298,7 +303,10 @@ export default function DashboardPage() {
         (current) => defaultCourierSelection(availableCourierIds, knownBefore, current).selection
       );
       // Un pedido PENDING con ruta ya está asignado: no está disponible para despachar otra vez.
-      const unassigned = ordersPayload.deliveryPoints.filter((point) => !point.routeId);
+      // Los programados lejanos esperan en su cola; vencidos y próximos entran primero a la de despacho.
+      const { ready: unassigned, waiting: scheduled } = splitSchedule(
+        ordersPayload.deliveryPoints.filter((point) => !point.routeId)
+      );
       if (!selectionInitialized.current) {
         setSelectedPendingIds(unassigned.map((point) => point.id));
         selectionInitialized.current = true;
@@ -314,6 +322,7 @@ export default function DashboardPage() {
           ? notifications.value.notifications : previous.notifications,
         notificationsWarning: notifications.status === 'fulfilled' ? notifications.value?.warning ?? null : 'Avisos anteriores; no se pudieron actualizar.',
         pendingPoints: unassigned,
+        scheduledPoints: scheduled,
         routes: routesPayload.routes,
         metrics: analytics.status === 'fulfilled' && analytics.value?.metrics
           ? analytics.value.metrics : previous.metrics,
@@ -603,6 +612,28 @@ export default function DashboardPage() {
     }
   };
 
+  const [markingReadyId, setMarkingReadyId] = useState<string | null>(null);
+  const [readyError, setReadyError] = useState<string | null>(null);
+
+  /** Quita la programación: el pedido pasa a la cola de despacho; sigue siendo decisión del despacho. */
+  const markReady = async (point: DeliveryPoint): Promise<void> => {
+    setMarkingReadyId(point.id);
+    setReadyError(null);
+    try {
+      const response = await apiFetch(`/api/pedidos/${encodeURIComponent(point.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduledFor: null }),
+      });
+      if (!response.ok) throw new Error('failed');
+      await loadDashboard();
+    } catch {
+      setReadyError(t('dash.scheduled.readyError'));
+    } finally {
+      setMarkingReadyId(null);
+    }
+  };
+
   const deletePendingOrder = async (point: DeliveryPoint): Promise<void> => {
     if (
       !window.confirm(
@@ -823,7 +854,7 @@ export default function DashboardPage() {
               className="absolute inset-0 h-full w-full"
               couriers={data.couriers}
               inset={inset}
-              pendingPoints={data.pendingPoints}
+              pendingPoints={[...data.pendingPoints, ...data.scheduledPoints]}
               liveProposal={live.proposal}
               routeColors={routeColors}
               routes={activeRoutes}
@@ -952,6 +983,8 @@ export default function DashboardPage() {
                                 {reference} · {t('dash.pendingTag')}
                                 {point.orderId.startsWith('SIM-') ? ` · ${t('demo.simulated')}` : ''}
                                 {orderBadges(point, { high: t('orders.priority.high'), urgent: t('orders.priority.urgent') }).map((part) => ` · ${part}`).join('')}
+                                {point.scheduleState === 'overdue' ? ` · ${t('dash.schedule.overdue')} ${formatBogota(point.scheduledFor, lang)}` : ''}
+                                {point.scheduleState === 'due-soon' ? ` · ${t('dash.schedule.dueSoon')} ${formatBogota(point.scheduledFor, lang)}` : ''}
                               </span>
                             </span>
                           </label>
@@ -983,6 +1016,43 @@ export default function DashboardPage() {
                       : t('dash.showAll', { n: data.pendingPoints.length })}
                   </button>
                 ) : null}
+                {data.pendingPoints.filter((point) => point.scheduleState).length > 0 ? (
+                  <p className="rl-notice is-warn mt-3" role="status">
+                    {t('dash.schedule.notice', { n: data.pendingPoints.filter((point) => point.scheduleState).length })}
+                  </p>
+                ) : null}
+                <div className="mt-4">
+                  <div className="rl-head">
+                    <h3>
+                      {t('dash.scheduled.title')} <small>{data.scheduledPoints.length}</small>
+                    </h3>
+                  </div>
+                  {readyError ? <p className="rl-notice is-error" role="alert">{readyError}</p> : null}
+                  {data.scheduledPoints.length === 0 ? (
+                    <p className="rl-empty">{t('dash.scheduled.empty')}</p>
+                  ) : (
+                    <ul className="rl-rows">
+                      {data.scheduledPoints.map((point) => (
+                        <li className="rl-row" key={point.id}>
+                          <span className="rl-row-main">
+                            <strong className="truncate">{point.address}</strong>
+                            <span className="rl-ref">
+                              {formatOrderReference(point.orderId)} · {formatBogota(point.scheduledFor, lang)}
+                            </span>
+                          </span>
+                          <button
+                            className="rp-button rp-button-secondary rp-button-small"
+                            disabled={markingReadyId === point.id}
+                            onClick={() => void markReady(point)}
+                            type="button"
+                          >
+                            {t('dash.scheduled.ready')}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
                 <DispatchSuggestions onSelect={(ids) => setSelectedPendingIds(ids)} refreshKey={data.pendingPoints.length} />
                 <AiGroupSuggestions onSelect={(ids) => setSelectedPendingIds(ids)} />
               </div>
