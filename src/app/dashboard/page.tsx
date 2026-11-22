@@ -875,6 +875,9 @@ export default function DashboardPage() {
                 color: routeColors[route.id] ?? '#55f26b',
               }))}
               state={live}
+              stopLabels={Object.fromEntries(
+                activeRoutes.flatMap((route) => route.deliveryPoints.map((point) => [point.id, point.address]))
+              )}
             />
             <Sheet
               foot={sheetFoot}

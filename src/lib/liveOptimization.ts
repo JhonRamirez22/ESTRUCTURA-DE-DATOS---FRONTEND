@@ -26,7 +26,30 @@ export interface LiveMove {
   gainMinutes: number;
 }
 
+export interface LiveNextStop {
+  routeId: string;
+  stopId: string;
+  etaMinutes: number;
+  focus: boolean;
+}
+
+/** One reason behind a change. Text carries {stop} {route} {from} {to} for the client to fill in. */
+export interface LiveExplanation {
+  id: string;
+  kind: 'next' | 'move' | 'reorder' | 'crossings' | 'balance' | 'stable';
+  text: string;
+  source: 'deterministic' | 'groq-validated';
+  routeId: string | null;
+  stopId: string | null;
+  fromRouteId: string | null;
+  toRouteId: string | null;
+}
+
 export interface LiveProposal {
+  nextStops?: LiveNextStop[];
+  focusRouteId?: string | null;
+  explanations?: LiveExplanation[];
+  explanationSource?: 'ai' | 'cached' | 'deterministic';
   enabled: boolean;
   tickSeconds: number;
   computedAt: string;

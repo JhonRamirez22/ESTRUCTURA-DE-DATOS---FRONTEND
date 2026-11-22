@@ -117,6 +117,7 @@ interface AppliedOptimization {
   savedMinutes: number | null;
   fromMinutes: number | null;
   toMinutes: number | null;
+  reason: string;
 }
 
 interface CourierProfile {
@@ -124,6 +125,21 @@ interface CourierProfile {
   currentLat: number | null;
   currentLng: number | null;
   lastLocationAt: string | null;
+}
+
+/** Resume las mediciones de TomTom sin mezclar cobertura de toda la ciudad con la ruta. */
+/** Why the order changed, from verified figures only (nothing is invented by the client). */
+function optimizationReason(source: RouteProposal | null): string {
+  if (!source) return "Orden más corto con el tráfico de ahora.";
+  const saved = source.improvementMinutes;
+  const figures =
+    saved !== null && saved > 0 && source.baselineDurationMinutes != null
+      ? ` Pasa de ${Math.round(source.baselineDurationMinutes)} a ${Math.round(source.estimatedDurationMinutes)} min.`
+      : "";
+  if (source.aiOrder?.accepted) {
+    return `La IA propuso este orden y el algoritmo lo verificó con Dijkstra${figures}`;
+  }
+  return `El algoritmo encontró un orden de visita más corto con el tráfico de ahora.${figures}`;
 }
 
 /** Resume las mediciones de TomTom sin mezclar cobertura de toda la ciudad con la ruta. */
@@ -335,6 +351,7 @@ export default function RepartidorPage() {
           savedMinutes: saved !== null && saved > 0 ? saved : null,
           fromMinutes: source?.baselineDurationMinutes ?? null,
           toMinutes: source?.estimatedDurationMinutes ?? null,
+          reason: optimizationReason(source),
         },
       ]);
       setAppliedNotice(
@@ -920,7 +937,13 @@ export default function RepartidorPage() {
                 </div>
               </dl>
               {optimizations.length > 0 ? (
-                <p className="mt-2 text-xs !text-[var(--board-soft)]">
+                <p className="mt-2 text-xs leading-5 !text-[var(--board-soft)]">
+                  <strong className="!text-[var(--board-ink)]">Por qué: </strong>
+                  {optimizations[optimizations.length - 1]!.reason}
+                </p>
+              ) : null}
+              {optimizations.length > 0 ? (
+                <p className="mt-1 text-xs !text-[var(--board-soft)]">
                   Última: {new Date(optimizations[optimizations.length - 1]!.at).toLocaleTimeString("es-CO")} ·{" "}
                   {optimizations[optimizations.length - 1]!.auto ? "automática" : "manual"}
                   {optimizations[optimizations.length - 1]!.savedMinutes !== null

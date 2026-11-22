@@ -11,6 +11,7 @@ import TrafficOverlay from './TrafficOverlay';
 import { isRoadGeometryProvider } from '@/lib/roadGeometry';
 import { useT } from '@/lib/preferences';
 import { changedStopIds, type LiveProposal } from '@/lib/liveOptimization';
+import { activeRouteId, computeNextStops, nextStopRoles, type NextStopRole } from '@/lib/nextStops';
 import {
   congestionLabel,
   isSevereTraffic,
@@ -92,6 +93,9 @@ interface MapData {
   focusRouteId?: string | null;
   routeColors?: Record<string, string>;
   live?: LiveProposal | null;
+  /** La ruta que se está haciendo ahora (su siguiente punto es el más cercano de la flota). */
+  activeRouteId?: string | null;
+  nextRoles?: Map<string, NextStopRole>;
   couriers: MapCourier[];
   pendingPoints: MapDeliveryPoint[];
   routes: MapRoute[];
@@ -117,6 +121,8 @@ interface MapProperties {
   color?: string;
   label?: string;
   route?: 'SELECTED' | 'BASELINE';
+  active?: boolean;
+  role?: string;
   stopId?: string;
 }
 
@@ -165,9 +171,11 @@ export default function MapLibreRouteMap({
   const retryMapRef = useRef<(() => void) | null>(null);
   const cameraKeyRef = useRef<string | null>(null);
   const dataRef = useRef<MapData>({ couriers, pendingPoints, routes, selectedCoordinate, trafficMarks });
+  const nextInfos = computeNextStops(routes, liveProposal);
   dataRef.current = {
     couriers, pendingPoints, routes, selectedCoordinate, trafficMarks, inset,
     focusRouteId: selectedRouteId, routeColors, live: liveProposal,
+    activeRouteId: activeRouteId(nextInfos), nextRoles: nextStopRoles(nextInfos),
   };
 
   useEffect(() => {
@@ -347,6 +355,7 @@ export default function MapLibreRouteMap({
             color: current.routeColors?.[route.id] ?? DEFAULT_ROUTE_COLOR,
             dim: Boolean(current.focusRouteId) && current.focusRouteId !== route.id,
             routeId: route.id,
+            active: current.activeRouteId === route.id,
           },
         });
       }
@@ -577,7 +586,7 @@ function addMapLayers(map: MapLibreMap): void {
       paint: {
         'line-color': '#06130b',
         'line-opacity': ['case', ['get', 'dim'], 0.35, 0.95],
-        'line-width': 9,
+        'line-width': ['case', ['get', 'active'], 12, 9],
       },
     });
     map.addLayer({
@@ -588,8 +597,8 @@ function addMapLayers(map: MapLibreMap): void {
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': ['coalesce', ['get', 'color'], DEFAULT_ROUTE_COLOR],
-        'line-opacity': ['case', ['get', 'dim'], 0.35, 1],
-        'line-width': 5,
+        'line-opacity': ['case', ['get', 'dim'], 0.35, ['get', 'active'], 1, 0.8],
+        'line-width': ['case', ['get', 'active'], 7, 4],
         'line-blur': 0.15,
       },
     });
@@ -737,13 +746,41 @@ function addMapLayers(map: MapLibreMap): void {
       type: 'circle',
       source: 'route-stops',
       paint: {
-        'circle-color': ['coalesce', ['get', 'color'], '#a855f7'],
-        'circle-radius': 10,
-        'circle-stroke-color': ['coalesce', ['get', 'ring'], '#06130b'],
-        'circle-stroke-width': 3,
+        // Siguiente punto de la ruta en curso: amarillo y más grande; los demás, en el color de su ruta.
+        'circle-color': [
+          'case', ['==', ['get', 'role'], 'focus-next'], '#fbbf24', ['coalesce', ['get', 'color'], '#a855f7'],
+        ],
+        'circle-radius': ['case', ['==', ['get', 'role'], 'focus-next'], 15, ['==', ['get', 'role'], 'next'], 12, 10],
+        'circle-stroke-color': [
+          'case',
+          ['==', ['get', 'role'], 'focus-next'], '#ffffff',
+          ['==', ['get', 'role'], 'next'], '#fbbf24',
+          ['coalesce', ['get', 'ring'], '#06130b'],
+        ],
+        'circle-stroke-width': ['case', ['==', ['get', 'role'], 'focus-next'], 4, 3],
         'circle-opacity': ['case', ['get', 'dim'], 0.45, 1],
         'circle-stroke-opacity': ['case', ['get', 'dim'], 0.45, 1],
       },
+    });
+    map.addLayer({
+      id: 'route-stop-focus-halo',
+      type: 'circle',
+      source: 'route-stops',
+      filter: ['==', ['get', 'role'], 'focus-next'],
+      paint: { 'circle-color': '#fbbf24', 'circle-opacity': 0.28, 'circle-radius': 28, 'circle-blur': 0.5 },
+    }, 'route-stops');
+    map.addLayer({
+      id: 'route-stop-focus-label',
+      type: 'symbol',
+      source: 'route-stops',
+      filter: ['==', ['get', 'role'], 'focus-next'],
+      layout: {
+        'text-field': 'Siguiente',
+        'text-size': 12,
+        'text-offset': [0, 2.1],
+        'text-allow-overlap': true,
+      },
+      paint: { 'text-color': '#fde68a', 'text-halo-color': '#0f172a', 'text-halo-width': 2 },
     });
     map.addLayer({
       id: 'route-stop-numbers',
@@ -948,6 +985,7 @@ function updateMapData(
           color: routeColor,
           dim: dimmed,
           routeId: route.id,
+          active: data.activeRouteId === route.id,
         },
       });
     }
@@ -962,6 +1000,7 @@ function updateMapData(
       stopFeature.properties.ring = stopRingColor(point.status);
       stopFeature.properties.dim = dimmed;
       stopFeature.properties.kind = 'route-stop';
+      stopFeature.properties.role = data.nextRoles?.get(point.id) ?? 'rest';
       routeStopFeatures.push(stopFeature);
       labelFeatures.push(pointFeature(coordinate, routeColor, label));
     }

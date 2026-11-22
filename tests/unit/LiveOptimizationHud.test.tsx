@@ -31,7 +31,8 @@ it('shows the live clock, the gains and one colour per courier', () => {
   expect(screen.getByText('Ruta más larga 21,5 → 7 min')).toBeInTheDocument();
   expect(screen.getByText('Cruces 22 → 0')).toBeInTheDocument();
   expect(screen.getByText('−11,2 min')).toBeInTheDocument();
-  expect(screen.getByRole('list', { name: 'Repartidores y su ruta' }).querySelectorAll('li')).toHaveLength(2);
+  expect(screen.getByRole('list', { name: 'Repartidores y su ruta' }).querySelectorAll('li')).toHaveLength(3); // 2 repartidores + «Siguiente punto»
+  expect(screen.getByText('Siguiente punto')).toBeInTheDocument();
 });
 
 it('applies every pure re-ordering at once, and not stop moves', () => {
@@ -70,4 +71,28 @@ it('a route card offers the new order only for a real re-ordering', () => {
   expect(screen.getByText(/Se sugiere mover 1 parada\(s\) entre repartidores/)).toBeInTheDocument();
   rerender(<LiveRouteSuggestion applying={false} onApply={onApply} proposal={route({})} />);
   expect(screen.getByText(/Ya es la mejor con el tráfico de ahora/)).toBeInTheDocument();
+});
+
+it('muestra el siguiente punto y el porqué con nombres locales, y marca lo escrito por IA', () => {
+  const live = proposal([route({ changed: false })]);
+  live.focusRouteId = 'a';
+  live.explanationSource = 'ai';
+  live.explanations = [
+    { id: 'next:a', kind: 'next', source: 'deterministic', text: '{route} va primero a {stop} (a unos 2,0 min).',
+      routeId: 'a', stopId: 's1', fromRouteId: null, toRouteId: null },
+    { id: 'move:s2', kind: 'move', source: 'groq-validated', text: '{stop} pasa de {from} a {to} y ahorra 3,2 min.',
+      routeId: null, stopId: 's2', fromRouteId: 'a', toRouteId: 'b' },
+  ];
+  render(
+    <LiveOptimizationHud
+      applying={false}
+      onApplyAll={() => undefined}
+      routes={[{ id: 'a', courierName: 'Ana', color: '#55f26b' }, { id: 'b', courierName: 'Beto', color: '#38bdf8' }]}
+      state={state(live)}
+      stopLabels={{ s1: 'Calle 18 # 22-14', s2: 'Carrera 25 # 17-50' }}
+    />
+  );
+  expect(screen.getByText(/Ana va primero a Calle 18 # 22-14/)).toBeInTheDocument();
+  expect(screen.getByText('Carrera 25 # 17-50 pasa de Ana a Beto y ahorra 3,2 min.')).toBeInTheDocument();
+  expect(screen.getByText('IA verificada')).toBeInTheDocument();
 });

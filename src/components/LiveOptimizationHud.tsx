@@ -1,11 +1,31 @@
 'use client';
 
 import type { LiveOptimizationState } from '@/lib/useLiveOptimization';
-import { appliableRoutes, isReorderOnly, type LiveRouteProposal } from '@/lib/liveOptimization';
+import {
+  appliableRoutes,
+  isReorderOnly,
+  type LiveExplanation,
+  type LiveRouteProposal,
+} from '@/lib/liveOptimization';
 import { useT } from '@/lib/preferences';
 
 const fmt = (value: number): string =>
   value.toLocaleString('es-CO', { maximumFractionDigits: 1 });
+
+/** Fills the {route} {stop} {from} {to} markers with names the server never saw. */
+export function fillExplanation(
+  item: LiveExplanation,
+  routeNames: ReadonlyMap<string, string>,
+  stopLabels: Readonly<Record<string, string>>,
+): string {
+  const route = (id: string | null): string => (id ? routeNames.get(id) : undefined) ?? 'otra ruta';
+  const stop = item.stopId ? (stopLabels[item.stopId] ?? 'una parada') : 'una parada';
+  return item.text
+    .split('{route}').join(route(item.routeId))
+    .split('{stop}').join(stop)
+    .split('{from}').join(route(item.fromRouteId))
+    .split('{to}').join(route(item.toRouteId));
+}
 
 export interface HudRoute {
   id: string;
@@ -20,12 +40,14 @@ export function LiveOptimizationHud({
   intervalSeconds = 10,
   applying,
   onApplyAll,
+  stopLabels = {},
 }: {
   state: LiveOptimizationState;
   routes: HudRoute[];
   intervalSeconds?: number;
   applying: boolean;
   onApplyAll: () => void;
+  stopLabels?: Readonly<Record<string, string>>;
 }) {
   const t = useT();
   const { proposal, status, secondsLeft, computing, tick } = state;
@@ -35,6 +57,11 @@ export function LiveOptimizationHud({
   const before = proposal?.scoreBefore;
   const after = proposal?.scoreAfter;
   const perRoute = new Map((proposal?.routes ?? []).map((item) => [item.routeId, item]));
+  const routeNames = new Map(routes.map((route) => [route.id, route.courierName]));
+  const explanations = proposal?.explanations ?? [];
+  const headline = explanations.find((item) => item.kind === 'next' && item.routeId === proposal?.focusRouteId);
+  const reasons = explanations.filter((item) => item.kind !== 'next').slice(0, 5);
+  const aiWritten = proposal?.explanationSource === 'ai' || proposal?.explanationSource === 'cached';
 
   return (
     <aside aria-label={t('live.title')} className="rp-live-hud" role="status">
@@ -89,7 +116,35 @@ export function LiveOptimizationHud({
         <p className="rp-live-ok">✓ {t('live.ok')}</p>
       ) : null}
 
+      {headline ? (
+        <p className="rp-live-now">
+          <span aria-hidden="true" className="rp-live-dot is-next" />
+          <span>
+            <strong>{t('live.nextNow')}</strong> {fillExplanation(headline, routeNames, stopLabels)}
+          </span>
+        </p>
+      ) : null}
+
+      {reasons.length > 0 ? (
+        <section aria-label={t('live.why')} className="rp-live-why">
+          <h3>
+            {t('live.why')}
+            {aiWritten ? <span className="rp-live-ai">{t('live.ai')}</span> : null}
+          </h3>
+          <ul>
+            {reasons.map((item) => (
+              <li key={item.id}>{fillExplanation(item, routeNames, stopLabels)}</li>
+            ))}
+          </ul>
+          <small>{aiWritten ? t('live.whyAi') : t('live.whyCalc')}</small>
+        </section>
+      ) : null}
+
       <ul aria-label={t('live.legend')} className="rp-live-legend">
+        <li>
+          <span aria-hidden="true" className="rp-live-dot is-next" />
+          <span className="truncate">{t('live.legend.next')}</span>
+        </li>
         {routes.map((route) => {
           const item = perRoute.get(route.id);
           const saved = item?.changed ? item.savedMinutes : 0;
